@@ -1,0 +1,239 @@
+version: "3.9"
+
+services:
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: medora-api-gateway
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      AUTH_SERVICE_URL: http://auth-service:4001
+      PATIENT_SERVICE_URL: http://patient-service:4002
+      DOCTOR_SERVICE_URL: http://doctor-service:4003
+      APPOINTMENT_SERVICE_URL: http://appointment-service:4004
+      PAYMENT_SERVICE_URL: http://payment-service:4005
+      NOTIFICATION_SERVICE_URL: http://notification-service:4006
+      AI_SERVICE_URL: http://ai-service:4007
+    ports:
+      - "4000:4000"
+    depends_on:
+      - auth-service
+      - patient-service
+      - doctor-service
+      - appointment-service
+      - payment-service
+      - notification-service
+      - ai-service
+    networks:
+      - medora-network
+
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: medora-auth-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4001
+      MONGO_URI: mongodb://auth-mongodb:27017/auth_db
+      SERVICE_NAME: auth-service
+    ports:
+      - "4001:4001"
+    depends_on:
+      - auth-mongodb
+    networks:
+      - medora-network
+
+  auth-mongodb:
+    image: mongo:7
+    container_name: medora-auth-mongodb
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    volumes:
+      - auth-mongo-data:/data/db
+    networks:
+      - medora-network
+
+  patient-service:
+    build:
+      context: ./patient-service
+    container_name: medora-patient-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4002
+      MONGO_URI: mongodb://patient-mongodb:27017/patient_db
+      SERVICE_NAME: patient-service
+    ports:
+      - "4002:4002"
+    depends_on:
+      - patient-mongodb
+    networks:
+      - medora-network
+
+  patient-mongodb:
+    image: mongo:7
+    container_name: medora-patient-mongodb
+    restart: unless-stopped
+    ports:
+      - "27019:27017"
+    volumes:
+      - patient-mongo-data:/data/db
+    networks:
+      - medora-network
+
+  doctor-service:
+    build:
+      context: ./doctor-service
+    container_name: medora-doctor-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4003
+      MONGO_URI: mongodb://doctor-mongodb:27017/doctor_db
+      SERVICE_NAME: doctor-service
+    ports:
+      - "4003:4003"
+    depends_on:
+      - doctor-mongodb
+    networks:
+      - medora-network
+
+  doctor-mongodb:
+    image: mongo:7
+    container_name: medora-doctor-mongodb
+    restart: unless-stopped
+    ports:
+      - "27020:27017"
+    volumes:
+      - doctor-mongo-data:/data/db
+    networks:
+      - medora-network
+
+  appointment-service:
+    build:
+      context: ./appointment-service
+    container_name: medora-appointment-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4004
+      MONGO_URI: mongodb://appointment-mongodb:27017/appointment_db
+      SERVICE_NAME: appointment-service
+    ports:
+      - "4004:4004"
+    depends_on:
+      - appointment-mongodb
+    networks:
+      - medora-network
+
+  appointment-mongodb:
+    image: mongo:7
+    container_name: medora-appointment-mongodb
+    restart: unless-stopped
+    ports:
+      - "27021:27017"
+    volumes:
+      - appointment-mongo-data:/data/db
+    networks:
+      - medora-network
+
+  payment-service:
+    build:
+      context: ./payment-service
+    container_name: medora-payment-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4005
+      MONGO_URI: mongodb://payment-mongodb:27017/payment_db
+      SERVICE_NAME: payment-service
+    ports:
+      - "4005:4005"
+    depends_on:
+      - payment-mongodb
+    networks:
+      - medora-network
+
+  payment-mongodb:
+    image: mongo:7
+    container_name: medora-payment-mongodb
+    restart: unless-stopped
+    ports:
+      - "27022:27017"
+    volumes:
+      - payment-mongo-data:/data/db
+    networks:
+      - medora-network
+
+  notification-service:
+    build:
+      context: ./notification-service
+    container_name: medora-notification-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4006
+      MONGO_URI: mongodb://notification-mongodb:27017/notification_db
+      SERVICE_NAME: notification-service
+    ports:
+      - "4006:4006"
+    depends_on:
+      - notification-mongodb
+    networks:
+      - medora-network
+
+  notification-mongodb:
+    image: mongo:7
+    container_name: medora-notification-mongodb
+    restart: unless-stopped
+    ports:
+      - "27023:27017"
+    volumes:
+      - notification-mongo-data:/data/db
+    networks:
+      - medora-network
+
+  ai-service:
+    build:
+      context: ./ai-service
+    container_name: medora-ai-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4007
+      MONGO_URI: mongodb://ai-mongodb:27017/ai_db
+      SERVICE_NAME: ai-service
+    ports:
+      - "4007:4007"
+    depends_on:
+      - ai-mongodb
+    networks:
+      - medora-network
+
+  ai-mongodb:
+    image: mongo:7
+    container_name: medora-ai-mongodb
+    restart: unless-stopped
+    ports:
+      - "27024:27017"
+    volumes:
+      - ai-mongo-data:/data/db
+    networks:
+      - medora-network
+
+volumes:
+  auth-mongo-data:
+  patient-mongo-data:
+  doctor-mongo-data:
+  appointment-mongo-data:
+  payment-mongo-data:
+  notification-mongo-data:
+  ai-mongo-data:
+
+networks:
+  medora-network:
+    driver: bridge
