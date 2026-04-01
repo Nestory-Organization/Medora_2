@@ -2,7 +2,7 @@
 
 dotenv.config();
 
-const requiredVars = ['PORT', 'MONGO_URI'];
+const requiredVars = ['PORT', 'MONGO_URI', 'JWT_SECRET'];
 
 requiredVars.forEach((key) => {
   if (!process.env[key]) {
@@ -14,6 +14,8 @@ module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT),
   mongoUri: process.env.MONGO_URI,
+  jwtSecret: process.env.JWT_SECRET,
+  jwtExpire: process.env.JWT_EXPIRE || '7d',
   serviceName: process.env.SERVICE_NAME || 'auth-service'
 };
 
