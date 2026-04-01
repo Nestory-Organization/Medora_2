@@ -1,7 +1,7 @@
 info:
   name: Auth Register
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
