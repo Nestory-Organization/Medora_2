@@ -1,6 +1,17 @@
 const mongoose = require("mongoose");
 
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
+const CHRONIC_CONDITIONS = [
+  "diabetes",
+  "hypertension",
+  "asthma",
+  "heart_disease",
+  "kidney_disease",
+  "thyroid_disorder",
+  "arthritis",
+  "none",
+  "other",
+];
 
 const emergencyContactSchema = new mongoose.Schema(
   {
@@ -37,7 +48,7 @@ const patientSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, "Email is required"],
+      default: null,
       trim: true,
       lowercase: true,
       match: [
@@ -47,12 +58,12 @@ const patientSchema = new mongoose.Schema(
     },
     firstName: {
       type: String,
-      required: [true, "First name is required"],
+      default: null,
       trim: true,
     },
     lastName: {
       type: String,
-      required: [true, "Last name is required"],
+      default: null,
       trim: true,
     },
     dateOfBirth: {
@@ -81,6 +92,32 @@ const patientSchema = new mongoose.Schema(
     },
     emergencyContact: {
       type: emergencyContactSchema,
+      default: null,
+    },
+    medicalSummary: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    chronicConditions: {
+      type: [String],
+      enum: {
+        values: CHRONIC_CONDITIONS,
+        message: "Invalid chronic condition: {VALUE}",
+      },
+      default: [],
+    },
+    currentMedications: {
+      type: [String],
+      default: [],
+    },
+    medicalDocumentsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastVisitDate: {
+      type: Date,
       default: null,
     },
   },
