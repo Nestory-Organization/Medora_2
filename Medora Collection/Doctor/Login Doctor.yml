@@ -1,7 +1,7 @@
 info:
-  name: Auth Profile
+  name: Login Doctor
   type: http
-  seq: 3
+  seq: 4
 
 http:
   method: POST
@@ -10,8 +10,8 @@ http:
     type: json
     data: |-
       {
-        "email": "user@example.com",
-        "password": "User@123"
+        "email": "doctor1@test.com",
+        "password": "password123"
       }
   auth: inherit
 
