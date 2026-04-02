@@ -1,6 +1,30 @@
 const mongoose = require('mongoose');
 const bcryptjs = require('bcryptjs');
 
+const BLOOD_TYPES = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+
+const emergencyContactSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      trim: true,
+      required: [true, 'Emergency contact name is required']
+    },
+    phone: {
+      type: String,
+      trim: true,
+      required: [true, 'Emergency contact phone is required'],
+      match: [/^\+?[0-9\s()-]{7,20}$/, 'Please provide a valid emergency contact phone number']
+    },
+    relationship: {
+      type: String,
+      trim: true,
+      required: [true, 'Emergency contact relationship is required']
+    }
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     email: {
@@ -31,6 +55,30 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
+      default: null
+    },
+    dateOfBirth: {
+      type: Date,
+      default: null
+    },
+    bloodType: {
+      type: String,
+      enum: {
+        values: BLOOD_TYPES,
+        message: 'Invalid blood type: {VALUE}'
+      },
+      default: null
+    },
+    allergies: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (values) => Array.isArray(values) && values.every((item) => typeof item === 'string' && item.trim().length > 0),
+        message: 'Allergies must be a list of non-empty strings'
+      }
+    },
+    emergencyContact: {
+      type: emergencyContactSchema,
       default: null
     },
     isActive: {
