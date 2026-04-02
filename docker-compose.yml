@@ -94,6 +94,7 @@ services:
       NODE_ENV: production
       PORT: 4003
       MONGO_URI: mongodb://doctor-mongodb:27017/doctor_db
+      JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
       SERVICE_NAME: doctor-service
     ports:
       - "4003:4003"

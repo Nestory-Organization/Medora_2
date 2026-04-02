@@ -1,0 +1,33 @@
+info:
+  name: Add prescription
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: http://localhost:4003/doctor/prescription
+  body:
+    type: json
+    data: |-
+      {
+        "appointmentId": "APPOINTMENT_ID",
+        "medicines": [
+          {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "frequency": "Twice daily",
+            "duration": "5 days",
+            "instructions": "After meals"
+          }
+        ],
+        "notes": "Drink more water"
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5Y2U0Mjc0Njg0ZDFmYjMwMWY0NjNmOCIsImVtYWlsIjoiZG9jdG9yMUB0ZXN0LmNvbSIsInJvbGUiOiJkb2N0b3IiLCJpYXQiOjE3NzUxMjUyMzgsImV4cCI6MTc3NTczMDAzOH0.TQWFvYQ690oGnCWInw3qajWFPtLIl_LtSDnf5Ch2vbM
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

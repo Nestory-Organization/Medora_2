@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const systemRoutes = require('./routes/system.routes');
+const doctorRoutes = require('./routes/doctor.routes');
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
 app.use('/', systemRoutes);
+app.use('/', doctorRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
