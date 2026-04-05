@@ -5,20 +5,20 @@ info:
 
 http:
   method: POST
-  url: http://localhost:4003/doctor/profile
+  url: http://localhost:4000/api/doctors/doctor/profile
   body:
     type: json
     data: |-
       {
-      "firstName": "Sara",
-      "lastName": "Khan",
-      "specialization": "Cardiology",
-      "phone": "+94770000000",
+      "firstName": "Nikmal",
+      "lastName": "at",
+      "specialization": "Cardiologyaa",
+      "phone": "+947700054300",
       "qualification": "MBBS",
       "yearsOfExperience": 8,
       "consultationFee": 5000,
       "bio": "Heart specialist",
-      "clinicAddress": "Colombo"
+      "clinicAddress": "Codlombo"
       }
   auth:
     type: bearer
