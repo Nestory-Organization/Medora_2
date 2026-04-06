@@ -1,0 +1,56 @@
+info:
+  name: Get Prescriptions
+  type: http
+  seq: 12
+
+http:
+  method: GET
+  url: http://localhost:4002/api/patients/prescriptions?page=1&limit=10&status=active
+  auth:
+    type: bearer
+    token: {{PATIENT_JWT_TOKEN}}
+
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(200);
+    
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+    
+    // Test: Pagination Fields
+    bru.expect(body.data).to.have.property('prescriptions');
+    bru.expect(body.data).to.have.property('page').to.equal(1);
+    bru.expect(body.data).to.have.property('limit');
+    bru.expect(body.data).to.have.property('total');
+    bru.expect(body.data).to.have.property('totalPages');
+    
+    // Test: Prescriptions Array
+    bru.expect(body.data.prescriptions).to.be.an('array');
+    
+    // If prescriptions exist, verify structure
+    if (body.data.prescriptions.length > 0) {
+      const rx = body.data.prescriptions[0];
+      bru.expect(rx).to.have.property('_id');
+      bru.expect(rx).to.have.property('patientId');
+      bru.expect(rx).to.have.property('medication');
+      bru.expect(rx).to.have.property('dosage');
+    }
+    
+    console.log('✅ PASSED: Prescriptions retrieved');
+    console.log('💊 Total Prescriptions:', body.data.total);
+    console.log('📋 Prescriptions on Page:', body.data.prescriptions.length);
+    
+    // Save first prescription ID for Get Single Prescription
+    if (body.data.prescriptions.length > 0) {
+      bru.setVar('prescriptionId', body.data.prescriptions[0]._id);
+      console.log('💾 Saved prescriptionId:', body.data.prescriptions[0]._id);
+    }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

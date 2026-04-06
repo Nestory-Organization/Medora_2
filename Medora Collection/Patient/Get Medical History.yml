@@ -1,0 +1,55 @@
+info:
+  name: Get Medical History
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: http://localhost:4002/api/patients/history?page=1&limit=20&status=open
+  auth:
+    type: bearer
+    token: {{PATIENT_JWT_TOKEN}}
+
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(200);
+    
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+    
+    // Test: Pagination Fields
+    bru.expect(body.data).to.have.property('medicalHistory');
+    bru.expect(body.data).to.have.property('page').to.equal(1);
+    bru.expect(body.data).to.have.property('limit');
+    bru.expect(body.data).to.have.property('total');
+    bru.expect(body.data).to.have.property('totalPages');
+    
+    // Test: History Array
+    bru.expect(body.data.medicalHistory).to.be.an('array');
+    
+    // If records exist, verify structure
+    if (body.data.medicalHistory.length > 0) {
+      const history = body.data.medicalHistory[0];
+      bru.expect(history).to.have.property('_id');
+      bru.expect(history).to.have.property('title');
+      bru.expect(history).to.have.property('diagnosis');
+    }
+    
+    console.log('✅ PASSED: Medical history retrieved');
+    console.log('📊 Total Records:', body.data.total);
+    console.log('📋 Records on Page:', body.data.medicalHistory.length);
+    
+    // Save first history ID for Get Single History Entry
+    if (body.data.medicalHistory.length > 0) {
+      bru.setVar('historyId', body.data.medicalHistory[0]._id);
+      console.log('💾 Saved historyId:', body.data.medicalHistory[0]._id);
+    }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

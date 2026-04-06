@@ -1,21 +1,17 @@
 info:
-  name: Auth Register
+  name: Patient Login
   type: http
-  seq: 3
+  seq: 1
 
 http:
   method: POST
-  url: http://localhost:4001/auth/register
+  url: http://localhost:4001/auth/login
   body:
     type: json
     data: |-
       {
         "email": "patient_test_123@test.com",
-        "password": "Test@123",
-        "firstName": "John",
-        "lastName": "Doe",
-        "role": "patient",
-        "phone": "+1234567890"
+        "password": "Test@123"
       }
   auth: inherit
 

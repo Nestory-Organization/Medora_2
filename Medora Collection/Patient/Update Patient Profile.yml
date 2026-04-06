@@ -1,0 +1,49 @@
+info:
+  name: Update Patient Profile
+  type: http
+  seq: 3
+
+http:
+  method: PUT
+  url: http://localhost:4002/api/patients/profile
+  body:
+    type: json
+    data: |-
+      {
+        "medicalSummary": "Patient has asthma and allergies",
+        "chronicConditions": ["asthma"],
+        "currentMedications": ["Albuterol inhaler"]
+      }
+  auth:
+    type: bearer
+    token: {{PATIENT_JWT_TOKEN}}
+
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(200);
+    
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+    
+    // Test: Updated Fields
+    const patient = body.data.patient;
+    bru.expect(patient).to.have.property('medicalSummary');
+    bru.expect(patient).to.have.property('chronicConditions');
+    bru.expect(patient).to.have.property('currentMedications');
+    
+    // Test: Field Values
+    bru.expect(patient.medicalSummary).to.equal('Patient has asthma and allergies');
+    bru.expect(patient.chronicConditions).to.include('asthma');
+    bru.expect(patient.currentMedications).to.include('Albuterol inhaler');
+    
+    console.log('✅ PASSED: Patient profile updated');
+    console.log('📋 Medical Summary:', patient.medicalSummary);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

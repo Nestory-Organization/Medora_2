@@ -1,0 +1,64 @@
+info:
+  name: Add Medical History
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: http://localhost:4002/api/patients/history
+  body:
+    type: json
+    data: |-
+      {
+        "patientId": "{{patientId}}",
+        "title": "Follow-up visit",
+        "description": "Routine asthma follow-up",
+        "symptoms": ["Cough", "Mild wheezing"],
+        "diagnosis": "Mild persistent asthma",
+        "appointmentDate": "2026-04-02T10:30:00.000Z",
+        "visitNotes": "Continue inhaler for 30 days"
+      }
+  auth:
+    type: bearer
+    token: {{PATIENT_JWT_TOKEN}}
+
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(201);
+    
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+    
+    // Test: Medical History Fields
+    const history = body.data.medicalHistory;
+    bru.expect(history).to.have.property('_id');
+    bru.expect(history).to.have.property('patientId');
+    bru.expect(history).to.have.property('title');
+    bru.expect(history).to.have.property('description');
+    bru.expect(history).to.have.property('symptoms');
+    bru.expect(history).to.have.property('diagnosis');
+    bru.expect(history).to.have.property('appointmentDate');
+    bru.expect(history).to.have.property('visitNotes');
+    
+    // Test: Field Values
+    bru.expect(history.title).to.equal('Follow-up visit');
+    bru.expect(history.diagnosis).to.equal('Mild persistent asthma');
+    bru.expect(history.symptoms).to.be.an('array');
+    bru.expect(history.symptoms).to.include('Cough');
+    
+    console.log('✅ PASSED: Medical history added');
+    console.log('📝 History ID:', history._id);
+    console.log('🏥 Diagnosis:', history.diagnosis);
+    
+    // Save historyId for Get Single History Entry
+    bru.setVar('historyId', history._id);
+    console.log('💾 Saved historyId for reuse');
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
