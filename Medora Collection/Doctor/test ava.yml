@@ -1,0 +1,38 @@
+info:
+  name: test ava
+  type: http
+  seq: 8
+
+http:
+  method: post
+  url: http://localhost:4000/api/doctors/doctor/availability
+  headers:
+    - name: authorization
+      value: Bearer <TOKEN>
+    - name: content-type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "date": "2026-04-10",
+        "slots": [
+          {
+            "startTime": "09:00",
+            "endTime": "09:30"
+          },
+          {
+            "startTime": "10:00",
+            "endTime": "10:30"
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5Y2U0Mjc0Njg0ZDFmYjMwMWY0NjNmOCIsImVtYWlsIjoiZG9jdG9yMUB0ZXN0LmNvbSIsInJvbGUiOiJkb2N0b3IiLCJpYXQiOjE3NzUxMjc2MTMsImV4cCI6MTc3NTczMjQxM30.N9pdXNL479m3RQJ8UZ-qksj2hupE_9wXu_qBztjlWYE
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

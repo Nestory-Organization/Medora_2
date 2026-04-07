@@ -1,0 +1,31 @@
+info:
+  name: Create Doctor profile
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: http://localhost:4000/api/doctors/doctor/profile
+  body:
+    type: json
+    data: |-
+      {
+      "firstName": "Nikmal",
+      "lastName": "at",
+      "specialization": "Cardiologyaa",
+      "phone": "+947700054300",
+      "qualification": "MBBS",
+      "yearsOfExperience": 8,
+      "consultationFee": 5000,
+      "bio": "Heart specialist",
+      "clinicAddress": "Codlombo"
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5Y2U0Mjc0Njg0ZDFmYjMwMWY0NjNmOCIsImVtYWlsIjoiZG9jdG9yMUB0ZXN0LmNvbSIsInJvbGUiOiJkb2N0b3IiLCJpYXQiOjE3NzUxMjUyMzgsImV4cCI6MTc3NTczMDAzOH0.TQWFvYQ690oGnCWInw3qajWFPtLIl_LtSDnf5Ch2vbM
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
