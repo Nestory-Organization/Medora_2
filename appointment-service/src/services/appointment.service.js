@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Appointment = require('../models/appointment.model');
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -18,6 +19,14 @@ class AppointmentConflictError extends Error {
   }
 }
 
+class AppointmentNotFoundError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AppointmentNotFoundError';
+    this.statusCode = 404;
+  }
+}
+
 const requiredFields = [
   'patientId',
   'doctorId',
@@ -28,6 +37,8 @@ const requiredFields = [
   'consultationFee',
   'reason'
 ];
+
+const blockedUpdateStatuses = ['CANCELLED', 'COMPLETED'];
 
 const normalizeDateToDay = (value) => {
   const parsedDate = new Date(value);
@@ -94,6 +105,40 @@ const validatePayload = (payload) => {
   }
 };
 
+const validateUpdatePayload = (payload) => {
+  const allowedFields = ['appointmentDate', 'startTime', 'endTime', 'reason'];
+  const updateKeys = Object.keys(payload || {}).filter((key) =>
+    allowedFields.includes(key)
+  );
+
+  if (updateKeys.length === 0) {
+    throw new AppointmentValidationError(
+      'At least one updatable field is required: appointmentDate, startTime, endTime, reason'
+    );
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(payload, 'reason') &&
+    (typeof payload.reason !== 'string' || !payload.reason.trim())
+  ) {
+    throw new AppointmentValidationError('reason must be a non-empty string');
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(payload, 'startTime') &&
+    !TIME_PATTERN.test(payload.startTime)
+  ) {
+    throw new AppointmentValidationError('startTime must be in HH:mm format');
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(payload, 'endTime') &&
+    !TIME_PATTERN.test(payload.endTime)
+  ) {
+    throw new AppointmentValidationError('endTime must be in HH:mm format');
+  }
+};
+
 const createAppointment = async (payload) => {
   validatePayload(payload);
 
@@ -135,8 +180,88 @@ const createAppointment = async (payload) => {
   return mapAppointment(created);
 };
 
+const updateAppointment = async (appointmentId, payload) => {
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    throw new AppointmentValidationError('Invalid appointment id');
+  }
+
+  validateUpdatePayload(payload);
+
+  const existingAppointment = await Appointment.findById(appointmentId);
+
+  if (!existingAppointment) {
+    throw new AppointmentNotFoundError('Appointment not found');
+  }
+
+  if (blockedUpdateStatuses.includes(existingAppointment.status)) {
+    throw new AppointmentValidationError(
+      'Cannot modify appointment when status is ' + existingAppointment.status
+    );
+  }
+
+  const nextAppointmentDate = Object.prototype.hasOwnProperty.call(
+    payload,
+    'appointmentDate'
+  )
+    ? normalizeDateToDay(payload.appointmentDate)
+    : existingAppointment.appointmentDate;
+
+  const nextStartTime = Object.prototype.hasOwnProperty.call(payload, 'startTime')
+    ? payload.startTime.trim()
+    : existingAppointment.startTime;
+
+  const nextEndTime = Object.prototype.hasOwnProperty.call(payload, 'endTime')
+    ? payload.endTime.trim()
+    : existingAppointment.endTime;
+
+  if (nextEndTime <= nextStartTime) {
+    throw new AppointmentValidationError('endTime must be later than startTime');
+  }
+
+  const hasSlotChanged =
+    nextStartTime !== existingAppointment.startTime ||
+    nextAppointmentDate.getTime() !== existingAppointment.appointmentDate.getTime();
+
+  if (hasSlotChanged) {
+    const conflictingAppointment = await Appointment.findOne({
+      _id: { $ne: existingAppointment._id },
+      doctorId: existingAppointment.doctorId,
+      appointmentDate: nextAppointmentDate,
+      startTime: nextStartTime
+    }).lean();
+
+    if (conflictingAppointment) {
+      throw new AppointmentConflictError('Appointment slot is already booked');
+    }
+  }
+
+  existingAppointment.appointmentDate = nextAppointmentDate;
+  existingAppointment.startTime = nextStartTime;
+  existingAppointment.endTime = nextEndTime;
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'reason')) {
+    existingAppointment.reason = payload.reason.trim();
+  }
+
+  let updated;
+  try {
+    updated = await existingAppointment.save();
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new AppointmentConflictError('Appointment slot is already booked');
+    }
+
+    throw error;
+  }
+
+  // Future inter-service communication: publish appointment-rescheduled event to notification-service.
+  return mapAppointment(updated);
+};
+
 module.exports = {
   createAppointment,
+  updateAppointment,
   AppointmentValidationError,
-  AppointmentConflictError
+  AppointmentConflictError,
+  AppointmentNotFoundError
 };

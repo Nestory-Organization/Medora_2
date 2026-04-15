@@ -1,7 +1,9 @@
 const {
   createAppointment,
+  updateAppointment,
   AppointmentValidationError,
-  AppointmentConflictError
+  AppointmentConflictError,
+  AppointmentNotFoundError
 } = require('../services/appointment.service');
 
 const bookAppointment = async (req, res) => {
@@ -40,6 +42,51 @@ const bookAppointment = async (req, res) => {
   }
 };
 
+const modifyAppointment = async (req, res) => {
+  try {
+    const appointment = await updateAppointment(req.params.id, req.body || {});
+
+    return res.status(200).json({
+      success: true,
+      message: 'Appointment updated successfully',
+      data: appointment
+    });
+  } catch (error) {
+    console.error('Modify appointment error:', error);
+
+    if (error instanceof AppointmentValidationError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    if (error instanceof AppointmentConflictError) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    if (error instanceof AppointmentNotFoundError) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update appointment',
+      data: null
+    });
+  }
+};
+
 module.exports = {
-  bookAppointment
+  bookAppointment,
+  modifyAppointment
 };

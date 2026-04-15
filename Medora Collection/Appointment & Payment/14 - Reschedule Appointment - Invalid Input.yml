@@ -1,0 +1,23 @@
+info:
+  name: 14 - Reschedule Appointment - Invalid Input
+  type: http
+  seq: 14
+
+http:
+  method: PUT
+  url: http://127.0.0.1:4004/appointments/69dfd834ee9e053bbaccbe40
+  body:
+    type: json
+    data: |-
+      {
+        "appointmentDate": "",
+        "startTime": "",
+        "endTime": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
