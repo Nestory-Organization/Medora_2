@@ -1,0 +1,30 @@
+info:
+  name: Register Patient
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:4000/api/auth/register
+  body:
+    type: json
+    data: |-
+      {
+        "email": "patient_test_123@test.com",
+        "password": "Test@123",
+        "firstName": "John",
+        "lastName": "Doe",
+        "role": "patient",
+        "phone": "+1234567890"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

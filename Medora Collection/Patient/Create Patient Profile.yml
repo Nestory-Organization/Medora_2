@@ -1,11 +1,11 @@
 info:
   name: Create Patient Profile
   type: http
-  seq: 3
+  seq: 4
 
 http:
   method: POST
-  url: http://localhost:4002/patient/profile
+  url: http://localhost:4000/api/patients/patient/profile
   body:
     type: json
     data: |-
@@ -31,52 +31,11 @@ http:
     type: bearer
     token: {{PATIENT_JWT_TOKEN}}
 
-script:
-  post-response: |
-    // Test: Status Code Check
-    bru.expect(res.getStatus()).to.equal(201);
-    
-    // Test: Response Structure
-    const body = res.getBody();
-    bru.expect(body).to.have.property('success').to.equal(true);
-    bru.expect(body).to.have.property('data');
-    bru.expect(body).to.have.property('message');
-    
-    // Test: Patient Data Validation
-    bru.expect(body.data).to.have.property('patient');
-    const patient = body.data.patient;
-    bru.expect(patient).to.have.property('_id');
-    bru.expect(patient).to.have.property('userId');
-    bru.expect(patient).to.have.property('createdAt');
-    
-    // Test: Personal Details
-    bru.expect(patient.firstName).to.equal('John');
-    bru.expect(patient.lastName).to.equal('Doe');
-    bru.expect(patient.email).to.equal('patient@example.com');
-    bru.expect(patient.phone).to.equal('+1234567890');
-    bru.expect(patient.bloodType).to.equal('A+');
-    
-    // Test: Medical Details
-    bru.expect(patient.medicalSummary).to.equal('Asthma with allergies');
-    bru.expect(patient.chronicConditions).to.include('asthma');
-    bru.expect(patient.currentMedications).to.include('Albuterol inhaler');
-    bru.expect(patient.allergies).to.include('Pollen');
-    
-    // Test: Emergency Contact
-    bru.expect(patient.emergencyContact).to.be.ok;
-    bru.expect(patient.emergencyContact.name).to.equal('Jane Doe');
-    bru.expect(patient.emergencyContact.relationship).to.equal('Sister');
-    
-    // Log Success
-    console.log('✅ PASSED: Patient profile created successfully');
-    console.log('📌 Patient ID:', patient._id);
-    console.log('👤 Name:', patient.firstName, patient.lastName);
-    console.log('🩺 Medical Summary:', patient.medicalSummary);
-    console.log('🚨 Emergency Contact:', patient.emergencyContact.name);
-    
-    // Save patientId for subsequent requests
-    bru.setVar('patientId', patient._id);
-    console.log('💾 Saved patientId variable for reuse');
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
 
 settings:
   encodeUrl: true

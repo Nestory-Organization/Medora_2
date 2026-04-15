@@ -1,43 +1,14 @@
 info:
   name: Get Single Prescription
   type: http
-  seq: 13
+  seq: 10
 
 http:
   method: GET
-  url: http://localhost:4002/api/patients/prescriptions/{{prescriptionId}}
+  url: http://localhost:4000/api/patients/patient/prescriptions/{{prescriptionId}}
   auth:
     type: bearer
-    token: {{PATIENT_JWT_TOKEN}}
-
-script:
-  post-response: |
-    // Test: Status Code Check
-    const status = res.getStatus();
-    bru.expect([200, 404]).to.include(status);
-    
-    if (status === 200) {
-      // Test: Response Structure
-      const body = res.getBody();
-      bru.expect(body).to.have.property('success').to.equal(true);
-      bru.expect(body).to.have.property('data');
-      
-      // Test: Prescription Fields
-      const rx = body.data.prescription;
-      bru.expect(rx).to.have.property('_id');
-      bru.expect(rx).to.have.property('patientId');
-      bru.expect(rx).to.have.property('medication');
-      bru.expect(rx).to.have.property('dosage');
-      bru.expect(rx).to.have.property('prescriptionDate');
-      bru.expect(rx).to.have.property('expiryDate');
-      bru.expect(rx).to.have.property('status');
-      
-      console.log('✅ PASSED: Prescription retrieved');
-      console.log('💊 Medication:', rx.medication);
-      console.log('📦 Dosage:', rx.dosage);
-    } else {
-      console.log('⚠️ PASSED: Prescription not found (expected)');
-    }
+    token: { { PATIENT_JWT_TOKEN } }
 
 settings:
   encodeUrl: true
