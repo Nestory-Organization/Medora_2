@@ -26,7 +26,7 @@ router.use(
   "/auth",
   createProxyMiddleware({
     ...proxyOptions(env.authServiceUrl, "auth"),
-    pathRewrite: { "^/api/auth": "/api/auth" },
+    pathRewrite: (path) => `/auth${path}`,
   }),
 );
 
@@ -34,7 +34,7 @@ router.use(
   "/patients",
   createProxyMiddleware({
     ...proxyOptions(env.patientServiceUrl, "patients"),
-    pathRewrite: { "^/api/patients": "/api/patients" },
+    pathRewrite: (path) => `/api/patients${path}`,
   }),
 );
 
@@ -42,7 +42,7 @@ router.use(
   "/doctors",
   createProxyMiddleware({
     ...proxyOptions(env.doctorServiceUrl, "doctors"),
-    pathRewrite: { "^/api/doctors": "/api/doctors" },
+    pathRewrite: (path) => `/doctor${path}`,
   }),
 );
 
@@ -50,7 +50,7 @@ router.use(
   "/appointments",
   createProxyMiddleware({
     ...proxyOptions(env.appointmentServiceUrl, "appointments"),
-    pathRewrite: { "^/api/appointments": "/api/appointments" },
+    pathRewrite: (path) => `/appointments${path}`,
   }),
 );
 router.use(
@@ -67,10 +67,7 @@ router.use(
   "/ai",
   createProxyMiddleware({
     ...proxyOptions(env.aiServiceUrl, "ai"),
-    pathRewrite: (path, req) => {
-      console.log("Original Path:", path);
-      return path;
-    },
+    pathRewrite: (path) => `/api/ai${path}`,
   }),
 );
 

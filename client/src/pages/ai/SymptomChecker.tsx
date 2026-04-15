@@ -39,7 +39,12 @@ const SymptomChecker: React.FC = () => {
     setShowSpecialistModal(true);
     setLoadingExtras(true);
     try {
-      const response = await recommendSpecialist({ symptoms: results.symptoms });
+      const response = await recommendSpecialist({
+        symptoms: Array.isArray(results?.symptoms) ? results.symptoms : [],
+        conditions: Array.isArray(results?.conditions)
+          ? results.conditions.map((item: any) => item?.name).filter(Boolean)
+          : undefined,
+      });
       setSpecialists(response.data.specialists);
       setStep('recommendations');
     } catch (err: any) {
@@ -53,7 +58,11 @@ const SymptomChecker: React.FC = () => {
     setShowInsights(true);
     setLoadingExtras(true);
     try {
-      const response = await getHealthInsights({ symptoms: results.symptoms });
+      const response = await getHealthInsights({
+        symptoms: Array.isArray(results?.symptoms) ? results.symptoms : [],
+        medicalHistory: results?.medicalHistory || '',
+        age: Number(results?.age || 0),
+      });
       setInsights(response.data.insights);
     } catch (err: any) {
       setError(err.message || "Failed to fetch health insights");

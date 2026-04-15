@@ -28,27 +28,53 @@ const getGeminiClient = () => {
 const analyzeText = async (prompt) => {
   try {
     const client = getGeminiClient();
-    const model = client.getGenerativeModel({ model: env.geminiModel });
+    const modelCandidates = [
+      env.geminiModel,
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+    ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
-    // Create a promise that rejects after 30 seconds
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Gemini API request timeout (30s)")),
-        30000,
-      ),
-    );
+    let lastError = null;
 
-    // Race between the API call and timeout
-    const result = await Promise.race([
-      model.generateContent(prompt),
-      timeoutPromise,
-    ]);
+    for (const modelName of modelCandidates) {
+      try {
+        const model = client.getGenerativeModel({ model: modelName });
 
-    if (!result.response.text()) {
-      throw new Error("Empty response from Gemini API");
+        // Create a promise that rejects after 30 seconds
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Gemini API request timeout (30s)")),
+            30000,
+          ),
+        );
+
+        // Race between the API call and timeout
+        const result = await Promise.race([
+          model.generateContent(prompt),
+          timeoutPromise,
+        ]);
+
+        if (!result.response.text()) {
+          throw new Error("Empty response from Gemini API");
+        }
+
+        return result.response.text();
+      } catch (modelError) {
+        const msg = modelError?.message || "";
+        const modelMissing =
+          msg.includes("models/") && msg.includes("not found");
+
+        if (!modelMissing) {
+          throw modelError;
+        }
+
+        console.warn(`Gemini model unavailable: ${modelName}`);
+        lastError = modelError;
+      }
     }
 
-    return result.response.text();
+    throw lastError || new Error("No available Gemini model found");
   } catch (error) {
     if (error.message.includes("timeout")) {
       throw {
@@ -70,6 +96,17 @@ const analyzeText = async (prompt) => {
       throw {
         code: "RATE_LIMIT",
         message: "Gemini API rate limit exceeded",
+        originalError: error.message,
+      };
+    }
+
+    if (
+      error.message.includes("models/") &&
+      error.message.includes("not found")
+    ) {
+      throw {
+        code: "MODEL_NOT_FOUND",
+        message: "Configured Gemini model is not available",
         originalError: error.message,
       };
     }
