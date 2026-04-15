@@ -12,6 +12,7 @@ import MedicalHistory from './pages/patient/MedicalHistory';
 import Prescriptions from './pages/patient/Prescriptions';
 import MyAppointments from './pages/patient/MyAppointments';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
+import SymptomChecker from './pages/ai/SymptomChecker';
 import './App.css';
 
 function App() {
@@ -35,6 +36,9 @@ function App() {
         <Route path="/patient/prescriptions" element={<Prescriptions />} />
         <Route path="/patient/appointments" element={<MyAppointments />} />
         <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+        
+        {/* AI Services */}
+        <Route path="/ai/symptom-checker" element={<SymptomChecker />} />
       </Route>
 
       {/* Catch-all Redirect */}

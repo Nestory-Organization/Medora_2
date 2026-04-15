@@ -8,7 +8,8 @@ import {
   SignOut, 
   Pill,
   Bell,
-  Gear
+  Gear,
+  CirclesFour
 } from '@phosphor-icons/react';
 
 interface SidebarItemProps {
@@ -67,11 +68,11 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' }) {
         { to: '/patient/history', icon: Files, label: 'Medical History' },
         { to: '/patient/prescriptions', icon: Pill, label: 'Prescriptions' },
         { to: '/patient/upload-reports', icon: Files, label: 'Upload Reports' },
-        { to: '/patient/ai-checker', icon: ChatTeardropDots, label: 'AI Symptom Checker' },
+        { to: '/ai/symptom-checker', icon: ChatTeardropDots, label: 'AI Symptom Checker' },
         { to: '/patient/profile', icon: User, label: 'Profile' },
       ]
     : [
-        { to: '/doctor/dashboard', icon: SquaresFour, label: 'Dashboard' },
+        { to: '/doctor/dashboard', icon: CirclesFour, label: 'Dashboard' },
         { to: '/doctor/schedule', icon: CalendarCheck, label: 'Schedule', badge: 5 },
         { to: '/doctor/patients', icon: User, label: 'Patients' },
         { to: '/doctor/consultations', icon: ChatTeardropDots, label: 'Consultations' },
@@ -88,10 +89,10 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' }) {
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 space-y-1.5">
+      <div className="flex-1 space-y-1.5 overflow-y-auto pr-1 -mr-1 custom-scrollbar">
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-2">Main Menu</p>
         {navItems.map((item) => (
-          <SidebarItem key={item.to} {...item} />
+          <SidebarItem key={item.to} to={item.to} icon={item.icon} label={item.label} badge={item.badge} />
         ))}
       </div>
 
