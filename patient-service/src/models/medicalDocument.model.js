@@ -31,10 +31,35 @@ const medicalDocumentSchema = new mongoose.Schema(
       required: [true, "Document title is required"],
       trim: true,
     },
+    category: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     fileUrl: {
       type: String,
       required: [true, "Document fileUrl is required"],
       trim: true,
+    },
+    fileName: {
+      type: String,
+      required: [true, "Stored file name is required"],
+      trim: true,
+    },
+    originalName: {
+      type: String,
+      required: [true, "Original file name is required"],
+      trim: true,
+    },
+    mimeType: {
+      type: String,
+      required: [true, "File mimeType is required"],
+      trim: true,
+    },
+    size: {
+      type: Number,
+      required: [true, "File size is required"],
+      min: 0,
     },
     notes: {
       type: String,

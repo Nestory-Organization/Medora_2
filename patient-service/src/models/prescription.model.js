@@ -44,6 +44,16 @@ const prescriptionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    doctorName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    doctorSpecialty: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     medicalHistoryId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
