@@ -6,6 +6,19 @@ info:
 http:
   method: POST
   url: http://localhost:4004/appointments
+  body:
+    type: json
+    data: |-
+      {
+        "patientId": "pat-1001",
+        "doctorId": "doc-1001",
+        "specialty": "Cardiology",
+        "appointmentDate": "2026-04-17",
+        "startTime": "09:00",
+        "endTime": "09:30",
+        "consultationFee": 85,
+        "reason": "Chest pain and follow-up checkup"
+      }
   auth: inherit
 
 settings:

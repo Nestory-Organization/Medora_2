@@ -6,6 +6,14 @@ info:
 http:
   method: POST
   url: http://localhost:4004/appointments
+  body:
+    type: json
+    data: |-
+      {
+        "patientId": "pat-1001",
+        "doctorId": "doc-1001",
+        "specialty": "Cardiology"
+      }
   auth: inherit
 
 settings:
