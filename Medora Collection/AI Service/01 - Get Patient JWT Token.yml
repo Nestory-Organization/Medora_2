@@ -1,0 +1,41 @@
+info:
+  name: Get Patient JWT Token
+  description: Login as patient to get JWT token for AI endpoints
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:4000/api/auth/login
+  body:
+    type: json
+    data: |-
+      {
+        "email": "patient_test_123@test.com",
+        "password": "Test@123"
+      }
+
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(200);
+
+    // Parse response
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+    
+    // Save JWT token for AI endpoints
+    if (body.data && body.data.token) {
+      bru.setVar('AI_JWT_TOKEN', body.data.token);
+      console.log('✅ JWT Token obtained');
+      console.log('🔐 Token:', body.data.token.substring(0, 20) + '...');
+    } else {
+      console.log('❌ Failed to extract token from login response');
+    }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

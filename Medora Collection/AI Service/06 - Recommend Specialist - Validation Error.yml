@@ -1,0 +1,38 @@
+info:
+  name: Recommend Specialist - Empty Symptoms (Validation Error)
+  description: Test validation error for empty symptoms in specialist recommendation
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: http://localhost:4000/api/ai/recommend-specialist
+  body:
+    type: json
+    data: |-
+      {
+        "symptoms": [],
+        "conditions": []
+      }
+  auth:
+    type: bearer
+    token: { { AI_JWT_TOKEN } }
+
+script:
+  post-response: |
+    // Test: Status Code Check (should be 400)
+    bru.expect(res.getStatus()).to.equal(400);
+
+    // Parse response
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(false);
+    bru.expect(body.message).to.include('Symptoms array');
+
+    console.log('✅ PASSED: Validation error for empty symptoms in specialist recommendation');
+    console.log('⚠️  Error message:', body.message);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
