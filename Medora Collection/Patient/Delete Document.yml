@@ -1,0 +1,29 @@
+info:
+  name: Delete Document
+  type: http
+  seq: 15
+
+http:
+  method: DELETE
+  url: http://localhost:4000/api/patients/patient/documents/{{documentId}}
+  auth:
+    type: bearer
+    token: { { PATIENT_JWT_TOKEN } }
+
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(200);
+
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('message').to.match(/deleted|removed/);
+
+    console.log('✅ PASSED: Document deleted');
+    console.log('🗑️ Message:', body.message);
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

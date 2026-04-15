@@ -1,0 +1,67 @@
+info:
+  name: Create Patient Profile
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://localhost:4000/api/patients/patient/profile
+  body:
+    type: json
+    data: |-
+      {
+        "userId": "{{userId}}",
+        "email": "patient@example.com",
+        "firstName": "John",
+        "lastName": "Doe",
+        "phone": "+1234567890",
+        "dateOfBirth": "1995-05-12",
+        "bloodType": "A+",
+        "allergies": ["Pollen"],
+        "medicalSummary": "Asthma with allergies",
+        "chronicConditions": ["asthma"],
+        "currentMedications": ["Albuterol inhaler"],
+        "emergencyContact": {
+          "name": "Jane Doe",
+          "phone": "+1234567890",
+          "relationship": "Sister"
+        }
+      }
+  auth:
+    type: bearer
+    token: { { PATIENT_JWT_TOKEN } }
+
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(201);
+
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+    bru.expect(body).to.have.property('message');
+
+    // Test: Patient Data Validation
+    const patient = body.data.patient;
+    bru.expect(patient).to.have.property('_id');
+    bru.expect(patient).to.have.property('firstName').to.equal('John');
+    bru.expect(patient).to.have.property('lastName').to.equal('Doe');
+    bru.expect(patient).to.have.property('email').to.equal('patient@example.com');
+    bru.expect(patient).to.have.property('bloodType').to.equal('A+');
+    bru.expect(patient).to.have.property('medicalSummary');
+    bru.expect(patient).to.have.property('allergies').to.be.an('array');
+    bru.expect(patient).to.have.property('chronicConditions').to.be.an('array');
+
+    // Save patientId for subsequent requests
+    bru.setVar('patientId', patient._id);
+
+    console.log('✅ PASSED: Patient profile created successfully');
+    console.log('📌 Patient ID:', patient._id);
+    console.log('👤 Name:', patient.firstName, patient.lastName);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

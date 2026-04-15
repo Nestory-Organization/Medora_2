@@ -45,6 +45,16 @@ const medicalHistorySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    doctorName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    doctorSpecialty: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     appointmentId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
@@ -53,6 +63,16 @@ const medicalHistorySchema = new mongoose.Schema(
       type: Date,
       required: [true, "appointmentDate is required"],
       index: true,
+    },
+    title: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    description: {
+      type: String,
+      trim: true,
+      default: null,
     },
     diagnosis: {
       type: String,
@@ -68,6 +88,11 @@ const medicalHistorySchema = new mongoose.Schema(
       default: [],
     },
     notes: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    visitNotes: {
       type: String,
       trim: true,
       default: null,

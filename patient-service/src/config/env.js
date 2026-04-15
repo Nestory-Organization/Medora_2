@@ -1,19 +1,21 @@
-﻿const dotenv = require('dotenv');
+﻿const dotenv = require("dotenv");
 
 dotenv.config();
 
-const requiredVars = ['PORT', 'MONGO_URI'];
+const requiredVars = ["PORT", "MONGO_URI", "JWT_SECRET"];
 
 requiredVars.forEach((key) => {
   if (!process.env[key]) {
-    throw new Error('Missing required environment variable: ' + key);
+    throw new Error("Missing required environment variable: " + key);
   }
 });
 
 module.exports = {
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT),
   mongoUri: process.env.MONGO_URI,
-  serviceName: process.env.SERVICE_NAME || 'patient-service'
+  jwtSecret: process.env.JWT_SECRET,
+  uploadDir: process.env.UPLOAD_DIR || "./uploads/medical-documents",
+  maxFileSize: Number(process.env.MAX_FILE_SIZE || 10485760),
+  serviceName: process.env.SERVICE_NAME || "patient-service",
 };
-

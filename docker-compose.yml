@@ -66,6 +66,9 @@ services:
       NODE_ENV: production
       PORT: 4002
       MONGO_URI: mongodb://patient-mongodb:27017/patient_db
+      JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
+      UPLOAD_DIR: /app/uploads/medical-documents
+      MAX_FILE_SIZE: 10485760
       SERVICE_NAME: patient-service
     ports:
       - "4002:4002"
