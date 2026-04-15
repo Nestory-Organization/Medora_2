@@ -11,12 +11,14 @@ export default function DashboardLayout() {
   let user = null;
   try {
     user = userStr && userStr !== "undefined" ? JSON.parse(userStr) : null;
+    console.log("DashboardLayout - Token:", !!token, "User:", user);
   } catch (e) {
     console.error("Failed to parse user data", e);
     user = null;
   }
 
   if (!token || !user) {
+    console.warn("DashboardLayout - Redirecting to login: Access Denied", { token: !!token, user: !!user });
     return <Navigate to="/login" replace />;
   }
 

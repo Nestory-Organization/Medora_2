@@ -7,10 +7,9 @@ import {
   DotsThreeVertical,
   Plus
 } from '@phosphor-icons/react';
-import { motion } from 'framer-motion';
 
 const StatCard = ({ icon: Icon, label, value, color }: any) => (
-  <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 p-5 rounded-[1.5rem] flex items-center justify-between group hover:border-teal-500/20 transition-all duration-300 shadow-xl shadow-black/5">
+  <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 p-5 rounded-3xl flex items-center justify-between group hover:border-teal-500/20 transition-all duration-300 shadow-xl shadow-black/5">
     <div className="flex items-center gap-4">
       <div className={`p-3 rounded-xl ${color} bg-opacity-20 flex items-center justify-center text-white/90 shadow-lg ring-1 ring-white/10 group-hover:scale-110 transition-transform`}>
         <Icon size={22} weight="duotone" />
@@ -20,16 +19,15 @@ const StatCard = ({ icon: Icon, label, value, color }: any) => (
         <p className="text-2xl font-bold tracking-tight text-white mt-0.5 group-hover:text-teal-400 transition-colors">{value}</p>
       </div>
     </div>
-    <button className="text-slate-600 hover:text-white transition-colors">
+    <button title="More options" className="text-slate-600 hover:text-white transition-colors">
       <DotsThreeVertical size={20} weight="bold" />
     </button>
   </div>
 );
 
 const AppointmentCard = ({ doctor, date, time, status, type }: any) => {
-  const isVideo = type === 'Video Call';
   return (
-    <div className="px-5 py-4 bg-slate-800/20 hover:bg-slate-800/40 border border-white/5 rounded-[1.5rem] group transition-all duration-300 flex items-center justify-between">
+    <div className="px-5 py-4 bg-slate-800/20 hover:bg-slate-800/40 border border-white/5 rounded-3xl group transition-all duration-300 flex items-center justify-between">
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-slate-700/50 flex items-center justify-center group-hover:bg-teal-500/10 transition-colors text-slate-400 group-hover:text-teal-500">
           <CalendarCheck size={24} weight="duotone" />
@@ -53,7 +51,7 @@ const AppointmentCard = ({ doctor, date, time, status, type }: any) => {
           </span>
           <p className="text-[10px] font-bold text-slate-600 mt-1 uppercase tracking-tight">{type}</p>
         </div>
-        <button className="p-3 bg-slate-800/80 rounded-xl text-slate-400 hover:bg-teal-500 hover:text-white transition-all hover:scale-105 active:scale-95 shadow-xl group/btn">
+        <button title="View details" className="p-3 bg-slate-800/80 rounded-xl text-slate-400 hover:bg-teal-500 hover:text-white transition-all hover:scale-105 active:scale-95 shadow-xl group/btn">
           <ArrowRight size={16} weight="bold" className="group-hover/btn:translate-x-1 transition-transform" />
         </button>
       </div>
@@ -63,7 +61,7 @@ const AppointmentCard = ({ doctor, date, time, status, type }: any) => {
 
 export default function PatientDashboard() {
   const userStr = localStorage.getItem('user');
-  const user = userStr ? JSON.parse(userStr) : null;
+  const user = userStr && userStr !== "undefined" ? JSON.parse(userStr) : null;
 
   return (
     <div className="space-y-8">
@@ -71,11 +69,11 @@ export default function PatientDashboard() {
       <header className="flex flex-col md:flex-row md:items-end justify-between items-start gap-6">
         <div className="space-y-1">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-1.5 h-6 bg-gradient-to-b from-teal-400 to-blue-500 rounded-full" />
+            <div className="w-1.5 h-6 bg-linear-to-b from-teal-400 to-blue-500 rounded-full" />
             <span className="text-[10px] font-bold text-teal-400 tracking-widest uppercase">Health Pulse</span>
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1 leading-tight">
-            Hi, {user?.firstName}! 👋
+            Hi, {user?.firstName || 'Patient'}! 👋
           </h1>
           <p className="text-base font-medium text-slate-500 max-w-lg leading-relaxed">
             Your personalized health overview is ready.
@@ -86,7 +84,7 @@ export default function PatientDashboard() {
             Today
             <ArrowRight weight="bold" size={16} className="text-slate-500" />
           </button>
-          <button className="px-6 py-3.5 bg-gradient-to-r from-teal-400 to-blue-500 rounded-xl text-sm font-bold flex items-center gap-2.5 shadow-xl shadow-teal-500/10 hover:scale-105 transition-all text-white active:scale-95">
+          <button className="px-6 py-3.5 bg-linear-to-r from-teal-400 to-blue-500 rounded-xl text-sm font-bold flex items-center gap-2.5 shadow-xl shadow-teal-500/10 hover:scale-105 transition-all text-white active:scale-95">
             <Plus weight="bold" size={16} />
             New Appointment
           </button>
@@ -133,7 +131,7 @@ export default function PatientDashboard() {
         {/* Health Insights / Tips sidebar */}
         <section className="space-y-6">
           <h3 className="text-xl font-extrabold px-2">Daily Health Tips</h3>
-          <div className="bg-gradient-to-br from-teal-500/10 to-blue-500/10 border border-teal-500/20 p-6 rounded-[2rem] relative overflow-hidden group shadow-2xl">
+          <div className="bg-linear-to-br from-teal-500/10 to-blue-500/10 border border-teal-500/20 p-6 rounded-4xl relative overflow-hidden group shadow-2xl">
             <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-teal-500/20 transition-all duration-500" />
             <div className="relative z-10">
               <div className="p-2.5 bg-teal-500/20 rounded-xl w-fit mb-5 text-teal-400 group-hover:scale-110 transition-transform">
