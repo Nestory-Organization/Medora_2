@@ -426,6 +426,11 @@ services:
       PORT: 4002
     depends_on:
       - auth-service
+  
+  appointment-service:
+  build: ./appointment-service
+  ports:
+    - "5004:5004"
 
   # Other services...
 ```

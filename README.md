@@ -34,6 +34,10 @@ Each domain service has its own MongoDB container and database.
 - `/api/notifications/*` -> notification-service
 - `/api/ai/*` -> ai-service
 
+Appointment-service doctor search endpoint:
+
+- `/appointments/doctors/search?specialty=Cardiology`
+
 ## Quick Start
 
 1. Build and run all containers:
@@ -47,6 +51,7 @@ docker compose up --build
 - Gateway: `http://localhost:4000/health`
 - Auth service via gateway: `http://localhost:4000/api/auth/health`
 - Patient service via gateway: `http://localhost:4000/api/patients/health`
+- Appointment doctor search via service: `http://localhost:4004/appointments/doctors/search?specialty=Cardiology`
 
 ## Notes
 
