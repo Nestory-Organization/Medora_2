@@ -1,0 +1,15 @@
+info:
+  name: 06 - Book Appointment - Duplicate Slot
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: http://localhost:4004/appointments
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

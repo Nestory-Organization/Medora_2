@@ -1,0 +1,15 @@
+info:
+  name: 04 - Book Appointment - Success
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://localhost:4004/appointments
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
