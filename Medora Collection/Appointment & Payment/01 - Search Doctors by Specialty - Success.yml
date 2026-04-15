@@ -5,7 +5,11 @@ info:
 
 http:
   method: GET
-  url: ""
+  url: http://localhost:4004/appointments/doctors/search?specialty=Cardiology
+  params:
+    - name: specialty
+      value: Cardiology
+      type: query
   auth: inherit
 
 settings:

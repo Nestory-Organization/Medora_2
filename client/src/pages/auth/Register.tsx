@@ -1,99 +1,209 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeClosed, EnvelopeSimple, LockKey, User, Stethoscope, UserList } from '@phosphor-icons/react';
-import { Link } from 'react-router-dom';
+import { Eye, EyeClosed, EnvelopeSimple, LockKey, User, Stethoscope, UserList, CircleNotch, IdentificationBadge } from '@phosphor-icons/react';
+import { Link, useNavigate } from 'react-router-dom';
+import { register } from '../../api/auth';
 
 export default function Register() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    phone: '',
+    specialization: '', // Doctor only
+    licenseNumber: '', // Doctor only
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError(null);
+    
+    try {
+      const payload = {
+        ...formData,
+        role,
+      };
+      
+      const response = await register(payload);
+      if (response.success) {
+        // Access token and user from response.data based on backend controller
+        const { token, user } = response.data;
+        
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        if (role === 'doctor') {
+          navigate('/doctor/dashboard');
+        } else {
+          navigate('/patient/dashboard');
+        }
+      } else {
+        setError(response.message || 'Registration failed');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
     <>
       <div className="mb-6 text-center text-white">
-        <h2 className="text-3xl font-bold mb-2">Join Medora</h2>
-        <p className="text-slate-400">Begin your journey to smarter healthcare.</p>
+        <h2 className="text-3xl font-bold mb-2 tracking-tight">Join Medora</h2>
+        <p className="text-slate-400 font-medium tracking-wide leading-relaxed">Begin your journey to smarter healthcare.</p>
       </div>
+
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium flex items-center gap-3 backdrop-blur-sm shadow-xl"
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Role Selection */}
-      <div className="flex p-1 mb-8 bg-slate-900/50 rounded-xl relative">
+      <div className="flex p-1.5 mb-10 bg-slate-900/40 backdrop-blur-md rounded-2xl relative border border-slate-700/30 shadow-inner overflow-hidden">
         <motion.div
           layoutId="activeRole"
-          className="absolute inset-y-1 rounded-lg bg-teal-500/20 w-[calc(50%-4px)]"
+          className="absolute inset-y-1.5 rounded-xl bg-gradient-to-r from-teal-500/20 to-blue-500/20 w-[calc(50%-6px)]"
           initial={false}
-          animate={{ left: role === 'patient' ? 4 : 'calc(50% + 0px)' }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          animate={{ left: role === 'patient' ? 6 : 'calc(50% + 0px)' }}
+          transition={{ type: 'spring', stiffness: 350, damping: 25 }}
         />
         <button
-          className={`w-1/2 py-2 text-sm font-semibold rounded-lg z-10 flex items-center justify-center gap-2 transition-colors ${role === 'patient' ? 'text-teal-400' : 'text-slate-400 hover:text-slate-300'}`}
+          className={`w-1/2 py-2.5 text-[15px] font-bold rounded-xl z-10 flex items-center justify-center gap-2.5 transition-all duration-300 ${role === 'patient' ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
           onClick={() => setRole('patient')}
         >
-          <UserList weight="bold" /> Patient
+          <UserList weight="bold" size={20} /> Patient
         </button>
         <button
-          className={`w-1/2 py-2 text-sm font-semibold rounded-lg z-10 flex items-center justify-center gap-2 transition-colors ${role === 'doctor' ? 'text-teal-400' : 'text-slate-400 hover:text-slate-300'}`}
+          className={`w-1/2 py-2.5 text-[15px] font-bold rounded-xl z-10 flex items-center justify-center gap-2.5 transition-all duration-300 ${role === 'doctor' ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
           onClick={() => setRole('doctor')}
         >
-          <Stethoscope weight="bold" /> Doctor
+          <Stethoscope weight="bold" size={20} /> Doctor
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 text-white">
-        <div className="space-y-1">
-          <label className="ml-1 text-sm font-medium text-slate-300">Full Name</label>
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-teal-400 transition-colors">
-              <User size={20} weight="duotone" />
+      <form onSubmit={handleSubmit} className="space-y-5 text-white">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="ml-1 text-sm font-semibold text-slate-400">First Name</label>
+            <div className="relative group">
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                required
+                className="w-full bg-slate-900/30 border border-slate-700/50 text-white rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all placeholder-slate-600 shadow-inner"
+                placeholder="John"
+              />
             </div>
-            <input
-              type="text"
-              required
-              className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all placeholder-slate-500"
-              placeholder="John Doe"
-            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="ml-1 text-sm font-semibold text-slate-400">Last Name</label>
+            <div className="relative group">
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                required
+                className="w-full bg-slate-900/30 border border-slate-700/50 text-white rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all placeholder-slate-600 shadow-inner"
+                placeholder="Doe"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="ml-1 text-sm font-medium text-slate-300">Email Address</label>
+        <div className="space-y-1.5">
+          <label className="ml-1 text-sm font-semibold text-slate-400">Email Address</label>
           <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-teal-400 transition-colors">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-teal-400 transition-colors">
               <EnvelopeSimple size={20} weight="duotone" />
             </div>
             <input
               type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
               required
-              className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all placeholder-slate-500"
+              className="w-full bg-slate-900/30 border border-slate-700/50 text-white rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all placeholder-slate-600 shadow-inner"
               placeholder="name@example.com"
             />
           </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="ml-1 text-sm font-medium text-slate-300">Create Password</label>
+        {role === 'doctor' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-2 gap-4"
+          >
+            <div className="space-y-1.5">
+              <label className="ml-1 text-sm font-semibold text-slate-400">Specialization</label>
+              <input
+                type="text"
+                name="specialization"
+                value={formData.specialization}
+                onChange={handleChange}
+                required
+                className="w-full bg-slate-900/30 border border-slate-700/50 text-white rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all placeholder-slate-600 shadow-inner"
+                placeholder="Cardiology"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="ml-1 text-sm font-semibold text-slate-400">License Number</label>
+              <input
+                type="text"
+                name="licenseNumber"
+                value={formData.licenseNumber}
+                onChange={handleChange}
+                required
+                className="w-full bg-slate-900/30 border border-slate-700/50 text-white rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all placeholder-slate-600 shadow-inner"
+                placeholder="MD-12345"
+              />
+            </div>
+          </motion.div>
+        )}
+
+        <div className="space-y-1.5">
+          <label className="ml-1 text-sm font-semibold text-slate-400">Password</label>
           <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-teal-400 transition-colors">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-teal-400 transition-colors">
               <LockKey size={20} weight="duotone" />
             </div>
             <input
               type={showPassword ? 'text' : 'password'}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               required
-              className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-2xl py-3 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all placeholder-slate-500"
+              className="w-full bg-slate-900/30 border border-slate-700/50 text-white rounded-2xl py-3 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all placeholder-slate-600 shadow-inner"
               placeholder="••••••••"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-white transition-colors"
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
             >
               {showPassword ? <EyeClosed size={20} /> : <Eye size={20} />}
             </button>
@@ -101,27 +211,24 @@ export default function Register() {
         </div>
 
         <motion.button
-          whileHover={!isLoading ? { scale: 1.02 } : {}}
-          whileTap={!isLoading ? { scale: 0.98 } : {}}
+          whileHover={!isLoading ? { scale: 1.01, translateY: -1 } : {}}
+          whileTap={!isLoading ? { scale: 0.99 } : {}}
           disabled={isLoading}
           type="submit"
-          className="w-full py-3.5 mt-4 rounded-2xl bg-gradient-to-r from-teal-400 to-blue-500 text-white font-bold shadow-lg shadow-teal-500/20 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center mt-8"
+          className="relative w-full py-4 mt-8 rounded-2xl bg-gradient-to-r from-teal-400 to-blue-500 text-white font-bold shadow-xl shadow-teal-500/25 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center group overflow-hidden"
         >
+          <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
           {isLoading ? (
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-              className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full"
-            />
+            <CircleNotch size={24} weight="bold" className="animate-spin" />
           ) : (
-            `Sign Up as ${role === 'patient' ? 'Patient' : 'Doctor'}`
+            <span className="relative">Create {role === 'patient' ? 'Patient' : 'Doctor'} Profile</span>
           )}
         </motion.button>
       </form>
 
-      <p className="text-center text-slate-400 mt-6 text-sm">
+      <p className="text-center text-slate-400 mt-10 text-sm font-medium">
         Already have an account?{' '}
-        <Link to="/login" className="text-white font-semibold hover:text-teal-400 transition-colors">
+        <Link to="/login" className="text-white font-bold hover:text-teal-400 transition-all border-b border-white/20 hover:border-teal-400/50 pb-0.5 ml-1">
           Sign In
         </Link>
       </p>
