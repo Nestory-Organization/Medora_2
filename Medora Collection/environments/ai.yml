@@ -1,0 +1,4 @@
+variables:
+  AI_JWT_TOKEN: ""
+  api_gateway: "http://localhost:4000"
+  ai_service: "http://localhost:4007"
