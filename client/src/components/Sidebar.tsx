@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   SquaresFour, 
@@ -6,12 +5,11 @@ import {
   User, 
   ChatTeardropDots, 
   Files, 
-  Gear, 
   SignOut, 
   Pill,
-  Bell
+  Bell,
+  Gear
 } from '@phosphor-icons/react';
-import { motion } from 'framer-motion';
 
 interface SidebarItemProps {
   to: string;
@@ -63,10 +61,14 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' }) {
 
   const navItems = role === 'patient' 
     ? [
-        { to: '/patient/dashboard', icon: SquaresFour, label: 'Overview' },
-        { to: '/patient/appointments', icon: CalendarCheck, label: 'My Appointments', badge: 2 },
-        { to: '/patient/messages', icon: ChatTeardropDots, label: 'Messages' },
-        { to: '/patient/records', icon: Files, label: 'Health Records' },
+        { to: '/patient/dashboard', icon: SquaresFour, label: 'Dashboard' },
+        { to: '/patient/book-appointment', icon: CalendarCheck, label: 'Book Appointment' },
+        { to: '/patient/appointments', icon: CalendarCheck, label: 'My Appointments' },
+        { to: '/patient/history', icon: Files, label: 'Medical History' },
+        { to: '/patient/prescriptions', icon: Pill, label: 'Prescriptions' },
+        { to: '/patient/upload-reports', icon: Files, label: 'Upload Reports' },
+        { to: '/patient/ai-checker', icon: ChatTeardropDots, label: 'AI Symptom Checker' },
+        { to: '/patient/profile', icon: User, label: 'Profile' },
       ]
     : [
         { to: '/doctor/dashboard', icon: SquaresFour, label: 'Dashboard' },

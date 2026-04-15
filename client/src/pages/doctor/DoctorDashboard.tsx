@@ -1,6 +1,5 @@
 import { 
   Users, 
-  Calendar, 
   Clock, 
   VideoCamera,
   ArrowRight,
@@ -8,7 +7,6 @@ import {
   Pulse,
   Plus
 } from '@phosphor-icons/react';
-import { motion } from 'framer-motion';
 
 const StatCard = ({ icon: Icon, label, value, trend, color, trendColor }: any) => (
   <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 p-6 rounded-[1.5rem] flex flex-col justify-between group hover:border-blue-500/20 transition-all duration-300 shadow-2xl">

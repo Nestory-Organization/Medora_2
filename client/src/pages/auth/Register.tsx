@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeClosed, EnvelopeSimple, LockKey, User, Stethoscope, UserList, CircleNotch, IdentificationBadge } from '@phosphor-icons/react';
+import { Eye, EyeClosed, EnvelopeSimple, LockKey, Stethoscope, UserList, CircleNotch } from '@phosphor-icons/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register } from '../../api/auth';
 
