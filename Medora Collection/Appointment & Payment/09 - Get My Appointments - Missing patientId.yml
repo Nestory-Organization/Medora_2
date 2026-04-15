@@ -1,0 +1,15 @@
+info:
+  name: 09 - Get My Appointments - Missing patientId
+  type: http
+  seq: 9
+
+http:
+  method: GET
+  url: http://127.0.0.1:4004/appointments/my-appointments
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
