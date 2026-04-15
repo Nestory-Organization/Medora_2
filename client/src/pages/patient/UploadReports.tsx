@@ -8,6 +8,8 @@ import {
   CircleNotch,
   DownloadSimple
 } from '@phosphor-icons/react';
+import { usePatient } from '../../api/PatientContext';
+import { uploadMedicalReport } from '../../api/patient';
 
 const FileItem = ({ file, onRemove }: any) => (
   <motion.div 
@@ -18,21 +20,29 @@ const FileItem = ({ file, onRemove }: any) => (
     className="flex items-center justify-between p-4 bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl hover:border-teal-500/20 transition-all duration-300"
   >
     <div className="flex items-center gap-4">
-      <div className={`p-3 rounded-xl ${file.name.endsWith('.pdf') ? 'bg-rose-500/10 text-rose-400' : 'bg-blue-500/10 text-blue-400'}`}>
-        {file.name.endsWith('.pdf') ? <FilePdf size={24} weight="duotone" /> : <FileImage size={24} weight="duotone" />}
+      <div className={`p-3 rounded-xl ${(file.name || file.fileName || '').endsWith('.pdf') ? 'bg-rose-500/10 text-rose-400' : 'bg-blue-500/10 text-blue-400'}`}>
+        {(file.name || file.fileName || '').endsWith('.pdf') ? <FilePdf size={24} weight="duotone" /> : <FileImage size={24} weight="duotone" />}
       </div>
       <div>
-        <h4 className="font-semibold text-slate-100 text-sm truncate max-w-50">{file.name}</h4>
-        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+        <h4 className="font-semibold text-slate-100 text-sm truncate max-w-50">{file.name || file.fileName}</h4>
+        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{file.size ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : new Date(file.uploadedAt || file.date).toLocaleDateString()}</p>
       </div>
     </div>
     <div className="flex gap-2">
-      <button title="Download report" className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all">
-        <DownloadSimple size={18} />
-      </button>
+      {file.url && (
+        <a 
+          href={file.url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          title="Download report" 
+          className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all flex items-center justify-center"
+        >
+          <DownloadSimple size={18} />
+        </a>
+      )}
       <button 
         title="Remove report"
-        onClick={() => onRemove(file.id)}
+        onClick={() => onRemove(file.id || file._id)}
         className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
       >
         <Trash size={18} />
@@ -42,10 +52,13 @@ const FileItem = ({ file, onRemove }: any) => (
 );
 
 export default function UploadReports() {
-  const [files, setFiles] = useState<any[]>([]);
+  const { history, refreshHistory, setError } = usePatient();
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter history for items that have file attachments/reports
+  const reportFiles = history.filter((item: any) => item.reportUrl || item.fileName || item.url);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -68,28 +81,18 @@ export default function UploadReports() {
     try {
       const formData = new FormData();
       formData.append('report', newFiles[0]);
-      // const res = await uploadMedicalReport(formData);
-      // setFiles(prev => [...prev, res.data]);
-      
-      // Simulating for UI
-      setTimeout(() => {
-        const mockFile = {
-            id: Date.now(),
-            name: newFiles[0].name,
-            size: newFiles[0].size,
-            uploadedAt: new Date().toISOString()
-        };
-        setFiles(prev => [...prev, mockFile]);
-        setIsUploading(false);
-      }, 1500);
-    } catch (err) {
-      console.error("Upload failed", err);
+      await uploadMedicalReport(formData);
+      await refreshHistory();
+    } catch (err: any) {
+      setError(err.message || "Upload failed");
+    } finally {
       setIsUploading(false);
     }
   };
 
-  const removeFile = (id: number) => {
-    setFiles(files.filter(f => f.id !== id));
+  const removeFile = (_id: string) => {
+    // Logic for deleting a report could go here
+    console.log("Delete report", _id);
   };
 
   return (
@@ -115,8 +118,10 @@ export default function UploadReports() {
           
           <input 
             type="file" 
-        id="file-upload"
-        title="Upload Report"
+            id="file-upload"
+            ref={fileInputRef}
+            className="hidden"
+            title="Upload Report"
             onChange={(e) => e.target.files && handleFiles(e.target.files)} 
           />
 
@@ -134,8 +139,9 @@ export default function UploadReports() {
             </h3>
             <p className="text-slate-500 text-sm mb-6">PDF, JPG, PNG up to 10MB</p>
             <button 
+              disabled={isUploading}
               onClick={() => fileInputRef.current?.click()}
-              className="px-8 py-3.5 bg-gradient-to-r from-teal-400 to-blue-500 rounded-2xl font-bold text-white shadow-xl shadow-teal-500/20 active:scale-95 transition-all"
+              className="px-8 py-3.5 bg-gradient-to-r from-teal-400 to-blue-500 rounded-2xl font-bold text-white shadow-xl shadow-teal-500/20 active:scale-95 transition-all disabled:opacity-50"
             >
               Browse Files
             </button>
@@ -145,23 +151,21 @@ export default function UploadReports() {
 
       <div className="lg:col-span-2 space-y-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Recent Uploads</h2>
+          <h2 className="text-xl font-bold text-white">Recent Uploads</h2>
           <span className="bg-slate-800/50 px-3 py-1 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            {files.length} Total
+            {reportFiles.length} Total
           </span>
         </div>
-        
-        <div className="space-y-4 max-h-150 overflow-y-auto pr-2 custom-scrollbar">
-          <AnimatePresence>
-            {files.map((file) => (
-              <FileItem key={file.id} file={file} onRemove={removeFile} />
+
+        <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+          <AnimatePresence mode="popLayout">
+            {reportFiles.map((file: any) => (
+              <FileItem key={file._id || file.id} file={file} onRemove={removeFile} />
             ))}
+            {reportFiles.length === 0 && (
+              <p className="text-center text-slate-600 py-10 italic">No reports uploaded yet.</p>
+            )}
           </AnimatePresence>
-          {files.length === 0 && (
-            <div className="text-center py-12 border border-white/5 bg-slate-900/20 rounded-4xl">
-              <p className="text-slate-500 text-sm font-medium">No documents yet.</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

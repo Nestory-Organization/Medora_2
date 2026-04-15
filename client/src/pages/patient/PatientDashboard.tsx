@@ -7,6 +7,8 @@ import {
   DotsThreeVertical,
   Plus
 } from '@phosphor-icons/react';
+import { usePatient } from '../../api/PatientContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const StatCard = ({ icon: Icon, label, value, color }: any) => (
   <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 p-5 rounded-3xl flex items-center justify-between group hover:border-teal-500/20 transition-all duration-300 shadow-xl shadow-black/5">
@@ -60,11 +62,36 @@ const AppointmentCard = ({ doctor, date, time, status, type }: any) => {
 };
 
 export default function PatientDashboard() {
-  const userStr = localStorage.getItem('user');
-  const user = userStr && userStr !== "undefined" ? JSON.parse(userStr) : null;
+  const { profile, appointments, loading, error, clearError } = usePatient();
+
+  if (loading && !profile) {
+    return (
+      <div className="flex items-center justify-center p-20 text-slate-500 font-bold uppercase tracking-widest h-full">
+        Loading Health Insights...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
+      {/* Error Toast Mockup */}
+      <AnimatePresence>
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-8 right-8 z-[100] bg-rose-500/10 border border-rose-500/20 backdrop-blur-xl p-4 rounded-2xl flex items-center gap-4 text-rose-400 shadow-2xl"
+          >
+            <div className="w-2 h-2 rounded-full bg-rose-500" />
+            <p className="text-sm font-bold">{error}</p>
+            <button onClick={clearError} className="ml-4 p-1 hover:bg-white/5 rounded-lg transition-colors">
+              <DotsThreeVertical weight="bold" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between items-start gap-6">
         <div className="space-y-1">
@@ -73,7 +100,7 @@ export default function PatientDashboard() {
             <span className="text-[10px] font-bold text-teal-400 tracking-widest uppercase">Health Pulse</span>
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1 leading-tight">
-            Hi, {user?.firstName || 'Patient'}! 👋
+            Hi, {profile?.firstName || 'Patient'}! 👋
           </h1>
           <p className="text-base font-medium text-slate-500 max-w-lg leading-relaxed">
             Your personalized health overview is ready.
@@ -111,20 +138,22 @@ export default function PatientDashboard() {
           </div>
           
           <div className="grid gap-3">
-            <AppointmentCard 
-              doctor="Emily Carter" 
-              date="Feb 24, 2026" 
-              time="09:00 AM" 
-              status="Upcoming" 
-              type="Video Call" 
-            />
-            <AppointmentCard 
-              doctor="Marcus Wright" 
-              date="Feb 28, 2026" 
-              time="02:30 PM" 
-              status="Upcoming" 
-              type="In-Person" 
-            />
+            {appointments && appointments.length > 0 ? (
+              appointments.slice(0, 3).map((apt: any) => (
+                <AppointmentCard 
+                  key={apt.id || apt._id}
+                  doctor={apt.doctorName || 'Unknown Doctor'}
+                  date={apt.date}
+                  time={apt.time}
+                  status={apt.status === 'confirmed' ? 'Upcoming' : 'Pending'}
+                  type={apt.type || 'General'}
+                />
+              ))
+            ) : (
+              <div className="py-12 text-center border-2 border-dashed border-white/5 rounded-4xl bg-slate-900/20">
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">No upcoming appointments</p>
+              </div>
+            )}
           </div>
         </section>
 

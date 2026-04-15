@@ -8,9 +8,11 @@ import {
   Calendar, 
   GenderIntersex,
   PencilSimple,
-  CheckCircle
+  CheckCircle,
+  CircleNotch
 } from '@phosphor-icons/react';
-import { getPatientProfile, updatePatientProfile } from '../../api/patient';
+import { usePatient } from '../../api/PatientContext';
+import { updatePatientProfile } from '../../api/patient';
 
 const InputField = ({ label, name, value, onChange, disabled, icon: Icon, type = "text" }: any) => (
   <div className="space-y-2">
@@ -23,7 +25,7 @@ const InputField = ({ label, name, value, onChange, disabled, icon: Icon, type =
         type={type}
         name={name}
         id={name}
-        value={value}
+        value={value || ''}
         onChange={onChange}
         disabled={disabled}
         placeholder={label}
@@ -34,47 +36,33 @@ const InputField = ({ label, name, value, onChange, disabled, icon: Icon, type =
 );
 
 export default function PatientProfile() {
+  const { profile, refreshProfile, setError } = usePatient();
   const [isEditing, setIsEditing] = useState(false);
-  const [profile, setProfile] = useState<any>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    age: '',
-    gender: '',
-    address: ''
-  });
-  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await getPatientProfile();
-        setProfile(res.data);
-      } catch (err) {
-        console.error("Failed to fetch profile", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
-  }, []);
+    if (profile) setFormData(profile);
+  }, [profile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProfile({ ...profile, [e.target.name]: e.target.value });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSave = async () => {
+    setIsSaving(true);
     try {
-      await updatePatientProfile(profile);
+      await updatePatientProfile(formData);
+      await refreshProfile();
       setIsEditing(false);
-      // Optional: show toast
-    } catch (err) {
-      console.error("Update failed", err);
+    } catch (err: any) {
+      setError(err.message || "Update failed");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-slate-500">Loading profile...</div>;
+  if (!profile && !formData.email) return <div className="p-8 text-center text-slate-500">Loading profile...</div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -85,13 +73,15 @@ export default function PatientProfile() {
         </div>
         <button
           onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+          disabled={isSaving}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-lg ${
             isEditing 
             ? 'bg-teal-500 hover:bg-teal-400 text-white shadow-teal-500/20' 
             : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/5'
           }`}
         >
-          {isEditing ? <><CheckCircle weight="bold" /> Save Changes</> : <><PencilSimple weight="bold" /> Edit Profile</>}
+          {isSaving ? <CircleNotch className="animate-spin" /> : (isEditing ? <CheckCircle weight="bold" /> : <PencilSimple weight="bold" />)}
+          {isEditing ? ' Save Changes' : ' Edit Profile'}
         </button>
       </div>
 
@@ -103,23 +93,23 @@ export default function PatientProfile() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
           <InputField 
-            label="First Name" name="firstName" value={profile.firstName} 
+            label="First Name" name="firstName" value={formData.firstName} 
             onChange={handleChange} disabled={!isEditing} icon={User} 
           />
           <InputField 
-            label="Last Name" name="lastName" value={profile.lastName} 
+            label="Last Name" name="lastName" value={formData.lastName} 
             onChange={handleChange} disabled={!isEditing} icon={User} 
           />
           <InputField 
-            label="Email Address" name="email" value={profile.email} 
-            onChange={handleChange} disabled={!isEditing} icon={Envelope} type="email"
+            label="Email Address" name="email" value={formData.email} 
+            onChange={handleChange} disabled={true} icon={Envelope} type="email"
           />
           <InputField 
-            label="Phone Number" name="phone" value={profile.phone} 
+            label="Phone Number" name="phone" value={formData.phone} 
             onChange={handleChange} disabled={!isEditing} icon={Phone} 
           />
           <InputField 
-            label="Age" name="age" value={profile.age} 
+            label="Age" name="age" value={formData.age} 
             onChange={handleChange} disabled={!isEditing} icon={Calendar} type="number"
           />
           <div className="space-y-2">
@@ -129,11 +119,12 @@ export default function PatientProfile() {
               <select
                 name="gender"
                 title="Select Gender"
-                value={profile.gender}
+                value={formData.gender || ''}
                 onChange={(e: any) => handleChange(e)}
                 disabled={!isEditing}
-                className="w-full bg-slate-900/50 border border-white/5 rounded-2xl py-3.5 pl-12 pr-4 text-slate-100 appearance-none focus:outline-none focus:border-teal-500/50"
+                className="w-full bg-slate-900/50 border border-white/5 rounded-2xl py-3.5 pl-12 pr-4 text-slate-100 appearance-none focus:outline-none focus:border-teal-500/50 px-5"
               >
+                <option value="">Select Gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
                 <option value="Other">Other</option>
@@ -142,7 +133,7 @@ export default function PatientProfile() {
           </div>
           <div className="md:col-span-2">
             <InputField 
-              label="Home Address" name="address" value={profile.address} 
+              label="Home Address" name="address" value={formData.address} 
               onChange={handleChange} disabled={!isEditing} icon={MapPin} 
             />
           </div>
@@ -155,7 +146,7 @@ export default function PatientProfile() {
             className="mt-8 flex justify-end gap-4"
           >
             <button 
-              onClick={() => setIsEditing(false)}
+              onClick={() => { setIsEditing(false); setFormData(profile); }}
               className="px-6 py-3 rounded-xl font-bold bg-slate-800 text-slate-400 hover:text-white transition-colors"
             >
               Cancel

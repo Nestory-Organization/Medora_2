@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Pill, 
@@ -7,7 +7,8 @@ import {
   Plus, 
   Stethoscope, 
 } from '@phosphor-icons/react';
-import { getMedicalHistory, addMedicalHistory } from '../../api/patient';
+import { usePatient } from '../../api/PatientContext';
+import { addMedicalHistory } from '../../api/patient';
 
 const HistoryCard = ({ entry }: any) => (
   <motion.div 
@@ -25,8 +26,8 @@ const HistoryCard = ({ entry }: any) => (
         <Calendar size={20} weight="duotone" />
       </div>
       <div>
-        <p className="font-bold text-white text-lg tracking-tight">{entry.condition}</p>
-        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{entry.date}</p>
+        <p className="font-bold text-white text-lg tracking-tight">{entry.condition || entry.diagnosis}</p>
+        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{new Date(entry.date).toLocaleDateString()}</p>
       </div>
     </div>
     
@@ -54,31 +55,23 @@ const HistoryCard = ({ entry }: any) => (
 );
 
 export default function MedicalHistory() {
-  const [history, setHistory] = useState<any[]>([]);
+  const { history, refreshHistory, loading, setError } = usePatient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEntry, setNewEntry] = useState({ condition: '', date: '', doctorName: '', notes: '' });
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res = await getMedicalHistory();
-        setHistory(res.data);
-      } catch (err) {
-        console.error("Failed to load history", err);
-      }
-    };
-    fetchHistory();
-  }, []);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       await addMedicalHistory(newEntry);
-      setHistory([newEntry, ...history]);
+      await refreshHistory();
       setShowAddForm(false);
       setNewEntry({ condition: '', date: '', doctorName: '', notes: '' });
-    } catch (err) {
-      console.error("Failed to add history", err);
+    } catch (err: any) {
+      setError(err.message || "Failed to add record");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -136,7 +129,9 @@ export default function MedicalHistory() {
                 </div>
                 <div className="md:col-span-2 space-y-2 text-right">
                   <button type="button" onClick={() => setShowAddForm(false)} className="px-6 py-3 font-bold text-slate-400 hover:text-white transition-colors">Discard</button>
-                  <button type="submit" className="px-8 py-3 bg-teal-500 hover:bg-teal-400 rounded-xl font-bold text-white shadow-lg shadow-teal-500/10 transition-all">Save Entry</button>
+                  <button type="submit" disabled={isSaving} className="px-8 py-3 bg-teal-500 hover:bg-teal-400 rounded-xl font-bold text-white shadow-lg shadow-teal-500/10 transition-all">
+                    {isSaving ? "Saving..." : "Save Entry"}
+                  </button>
                 </div>
               </form>
             </div>
@@ -144,15 +139,21 @@ export default function MedicalHistory() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {history.length > 0 ? (
-          history.map((entry, idx) => <HistoryCard key={idx} entry={entry} />)
-        ) : (
-          <div className="col-span-2 py-24 text-center border border-white/5 border-dashed rounded-[3rem] bg-slate-900/20">
-            <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Your medical history is clear.</p>
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {history.length > 0 ? (
+            history.map((entry, idx) => <HistoryCard key={entry._id || idx} entry={entry} />)
+          ) : (
+            <div className="col-span-2 py-24 text-center border border-white/5 border-dashed rounded-[3rem] bg-slate-900/20">
+              <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Your medical history is clear.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

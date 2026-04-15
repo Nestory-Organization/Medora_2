@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Pill, 
@@ -11,7 +11,7 @@ import {
   FirstAid,
   Clock
 } from '@phosphor-icons/react';
-import { getPrescriptions } from '../../api/patient';
+import { usePatient } from '../../api/PatientContext';
 
 const PrescriptionCard = ({ prescription }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -37,7 +37,7 @@ const PrescriptionCard = ({ prescription }: any) => {
               <p className="font-bold text-white text-xl tracking-tight leading-tight mb-1">Dr. {prescription.doctorName}</p>
               <div className="flex items-center gap-3">
                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
-                  <Calendar size={12} weight="duotone" /> {prescription.date}
+                  <Calendar size={12} weight="duotone" /> {new Date(prescription.date).toLocaleDateString()}
                 </p>
                 <div className="w-1 h-1 rounded-full bg-slate-700" />
                 <p className="text-[10px] text-teal-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
@@ -89,7 +89,7 @@ const PrescriptionCard = ({ prescription }: any) => {
                   <Note size={14} weight="duotone" /> Doctor's Instructions
                 </p>
                 <p className="text-sm text-slate-500 leading-relaxed font-medium">
-                  {prescription.notes || "Ensure to take medicines after meals. Avoid cold beverages."}
+                  {prescription.notes || "No additional instructions provided."}
                 </p>
               </div>
             </div>
@@ -101,19 +101,7 @@ const PrescriptionCard = ({ prescription }: any) => {
 };
 
 export default function Prescriptions() {
-  const [prescriptions, setPrescriptions] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchPrescriptions = async () => {
-      try {
-        const res = await getPrescriptions();
-        setPrescriptions(res.data);
-      } catch (err) {
-        console.error("Failed to load prescriptions", err);
-      }
-    };
-    fetchPrescriptions();
-  }, []);
+  const { prescriptions, loading } = usePatient();
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -122,18 +110,24 @@ export default function Prescriptions() {
         <p className="text-base font-medium text-slate-500 max-w-lg leading-relaxed">View and download your prescribed medications directly from your doctors.</p>
       </div>
 
-      <div className="space-y-6">
-        {prescriptions.length > 0 ? (
-          prescriptions.map((p, idx) => <PrescriptionCard key={idx} prescription={p} />)
-        ) : (
-          <div className="py-24 text-center border-2 border-dashed border-white/5 rounded-[3rem] bg-slate-900/20">
-             <div className="p-4 bg-slate-800/40 inline-block rounded-2xl mb-4 text-slate-500">
-               <Pill size={32} weight="duotone" />
-             </div>
-             <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">No prescriptions found.</p>
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <div className="flex justify-center py-24">
+          <div className="w-10 h-10 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {prescriptions.length > 0 ? (
+            prescriptions.map((p, idx) => <PrescriptionCard key={p._id || idx} prescription={p} />)
+          ) : (
+            <div className="py-24 text-center border-2 border-dashed border-white/5 rounded-[3rem] bg-slate-900/20">
+              <div className="p-4 bg-slate-800/40 inline-block rounded-2xl mb-4 text-slate-500">
+                <Pill size={32} weight="duotone" />
+              </div>
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">No prescriptions found.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
