@@ -20,6 +20,31 @@ http:
     type: bearer
     token: { { PATIENT_JWT_TOKEN } }
 
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(201);
+
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+
+    // Test: Document Fields
+    const doc = body.data.document;
+    bru.expect(doc).to.have.property('_id');
+    bru.expect(doc).to.have.property('patientId');
+    bru.expect(doc).to.have.property('documentType');
+    bru.expect(doc).to.have.property('fileName');
+    bru.expect(doc).to.have.property('mimeType');
+    bru.expect(doc).to.have.property('size');
+
+    // Save documentId for Download/Delete operations
+    bru.setVar('documentId', doc._id);
+
+    console.log('✅ PASSED: Medical document uploaded');
+    console.log('📄 Document ID:', doc._id);
+    console.log('📦 File Size:', doc.size, 'bytes');
 settings:
   encodeUrl: true
   timeout: 0

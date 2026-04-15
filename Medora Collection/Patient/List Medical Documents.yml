@@ -10,6 +10,30 @@ http:
     type: bearer
     token: { { PATIENT_JWT_TOKEN } }
 
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(200);
+
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+
+    // Test: Pagination Fields
+    bru.expect(body.data).to.have.property('documents').to.be.an('array');
+    bru.expect(body.data).to.have.property('page').to.equal(1);
+    bru.expect(body.data).to.have.property('limit');
+    bru.expect(body.data).to.have.property('total');
+
+    // Save first document ID if exists
+    if (body.data.documents.length > 0) {
+      bru.setVar('documentId', body.data.documents[0]._id);
+    }
+
+    console.log('✅ PASSED: Documents listed');
+    console.log('📊 Total Documents:', body.data.total);
+    console.log('📋 Page Records:', body.data.documents.length);
 settings:
   encodeUrl: true
   timeout: 0

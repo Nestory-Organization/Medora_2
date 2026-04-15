@@ -20,6 +20,19 @@ http:
     type: bearer
     token: { { PATIENT_JWT_TOKEN } }
 
+script:
+  post-response: |
+    // Test: Status Code Check (Should be 400 for invalid file type)
+    bru.expect(res.getStatus()).to.equal(400);
+
+    // Test: Error Response
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(false);
+    bru.expect(body).to.have.property('message');
+    bru.expect(body.message).to.match(/not allowed|invalid|unsupported/);
+
+    console.log('✅ PASSED: Invalid document rejected');
+    console.log('❌ Error:', body.message);
 settings:
   encodeUrl: true
   timeout: 0

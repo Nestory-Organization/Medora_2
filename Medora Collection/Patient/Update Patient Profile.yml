@@ -18,6 +18,27 @@ http:
     type: bearer
     token: { { PATIENT_JWT_TOKEN } }
 
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(200);
+
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+
+    // Test: Updated Fields
+    const patient = body.data.patient;
+    bru.expect(patient).to.have.property('_id');
+    bru.expect(patient).to.have.property('medicalSummary');
+    bru.expect(patient).to.have.property('chronicConditions').to.be.an('array');
+    bru.expect(patient).to.have.property('currentMedications').to.be.an('array');
+    bru.expect(patient).to.have.property('updatedAt');
+
+    console.log('✅ PASSED: Patient profile updated');
+    console.log('📋 Medical Summary:', patient.medicalSummary);
+    console.log('💊 Medications:', patient.currentMedications.length);
 settings:
   encodeUrl: true
   timeout: 0

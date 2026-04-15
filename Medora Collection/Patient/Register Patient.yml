@@ -19,11 +19,41 @@ http:
       }
   auth: inherit
 
+script:
+  post-response: |
+    // Test: Status Code Check
+    bru.expect(res.getStatus()).to.equal(201);
+
+    // Test: Response Structure
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+    bru.expect(body).to.have.property('message');
+
+    // Test: User Data Validation
+    const user = body.data.user;
+    bru.expect(user).to.have.property('_id');
+    bru.expect(user).to.have.property('email').to.equal('patient_test_123@test.com');
+    bru.expect(user).to.have.property('firstName').to.equal('John');
+    bru.expect(user).to.have.property('lastName').to.equal('Doe');
+    bru.expect(user).to.have.property('role').to.equal('patient');
+
+    // Test: Token Validation
+    const token = body.data.token;
+    bru.expect(token).to.be.a('string');
+    bru.expect(token.length).to.be.greaterThan(0);
+    bru.expect(token).to.match(/^eyJ/);
+
+    // Capture variables for subsequent requests
+    bru.setVar('PATIENT_JWT_TOKEN', token);
+    bru.setVar('patientId', user._id);
+
+    console.log('✅ PASSED: Patient registered successfully');
+    console.log('👤 Email:', user.email);
+    console.log('🔐 User ID:', user._id);
+    console.log('💾 JWT Token captured');
+
 settings:
-  encodeUrl: true
-  timeout: 0
-  followRedirects: true
-  maxRedirects: 5
   encodeUrl: true
   timeout: 0
   followRedirects: true
