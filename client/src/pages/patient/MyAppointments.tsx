@@ -9,6 +9,9 @@ import {
   CaretUp
 } from '@phosphor-icons/react';
 import { getMyAppointments, cancelAppointment } from '../../api/patient';
+import PageTransition from '../../components/PageTransition';
+import EmptyState from '../../components/EmptyState';
+import { TableSkeleton } from '../../components/Skeleton';
 
 const AppointmentRow = ({ appointment, onCancel }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -102,14 +105,18 @@ const AppointmentRow = ({ appointment, onCancel }: any) => {
 
 export default function MyAppointments() {
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAppointments = async () => {
+      setLoading(true);
       try {
         const res = await getMyAppointments();
         setAppointments(res.data);
       } catch (err) {
         console.error("Failed to load appointments", err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchAppointments();
@@ -125,31 +132,38 @@ export default function MyAppointments() {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-end justify-between items-start gap-6">
-        <div className="space-y-2">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1 leading-tight">My Appointments</h1>
-          <p className="text-base font-medium text-slate-500 max-w-lg leading-relaxed">View all your upcoming and past consultations in one place.</p>
-        </div>
-        <div className="flex bg-slate-900/50 backdrop-blur-xl border border-white/5 p-1.5 rounded-2xl shadow-xl">
-           <button className="px-6 py-2.5 rounded-xl bg-teal-500 text-white font-bold text-[10px] uppercase shadow-lg shadow-teal-500/20 active:scale-95 transition-all">All</button>
-           <button className="px-6 py-2.5 rounded-xl text-slate-400 font-bold text-[10px] uppercase hover:text-white transition-colors">Upcoming</button>
-           <button className="px-6 py-2.5 rounded-xl text-slate-400 font-bold text-[10px] uppercase hover:text-white transition-colors">History</button>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        {appointments.length > 0 ? (
-          appointments.map((a, idx) => <AppointmentRow key={idx} appointment={a} onCancel={handleCancel} />)
-        ) : (
-          <div className="py-24 text-center border-2 border-dashed border-white/5 rounded-[3rem] bg-slate-900/20">
-             <div className="p-4 bg-slate-800/40 inline-block rounded-2xl mb-4 text-slate-500">
-               <CalendarCheck size={32} weight="duotone" />
-             </div>
-             <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">No appointments scheduled.</p>
+    <PageTransition>
+      <div className="space-y-8 max-w-7xl mx-auto pb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between items-start gap-6">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1 leading-tight">My Appointments</h1>
+            <p className="text-base font-medium text-slate-500 max-w-lg leading-relaxed">View all your upcoming and past consultations in one place.</p>
           </div>
-        )}
+          <div className="flex bg-slate-900/50 backdrop-blur-xl border border-white/5 p-1.5 rounded-2xl shadow-xl">
+             <button className="px-6 py-2.5 rounded-xl bg-teal-500 text-white font-bold text-[10px] uppercase shadow-lg shadow-teal-500/20 active:scale-95 transition-all">All</button>
+             <button className="px-6 py-2.5 rounded-xl text-slate-400 font-bold text-[10px] uppercase hover:text-white transition-colors">Upcoming</button>
+             <button className="px-6 py-2.5 rounded-xl text-slate-400 font-bold text-[10px] uppercase hover:text-white transition-colors">History</button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {loading ? (
+            <TableSkeleton rows={4} />
+          ) : appointments.length > 0 ? (
+            appointments.map((a, idx) => <AppointmentRow key={idx} appointment={a} onCancel={handleCancel} />)
+          ) : (
+            <EmptyState 
+              type="appointments"
+              title="No Appointments Found"
+              description="You haven't scheduled any consultations yet. Ready to start your health journey?"
+              action={{
+                label: "Book Your First Appointment",
+                onClick: () => console.log("Navigate to booking")
+              }}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

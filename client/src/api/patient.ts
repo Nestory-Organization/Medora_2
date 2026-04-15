@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 const patientApi = axios.create({
   baseURL: API_BASE_URL,
@@ -72,7 +72,7 @@ export const addMedicalHistory = async (data: any) => {
 };
 
 export const uploadMedicalReport = async (formData: FormData) => {
-    const response = await patientApi.post('/patients/upload-report', formData, {
+    const response = await patientApi.post('/patients/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response.data;

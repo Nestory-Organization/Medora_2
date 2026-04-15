@@ -9,6 +9,9 @@ import {
 } from '@phosphor-icons/react';
 import { usePatient } from '../../api/PatientContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import PageTransition from '../../components/PageTransition';
+import { StatCardSkeleton, TableSkeleton } from '../../components/Skeleton';
+import EmptyState from '../../components/EmptyState';
 
 const StatCard = ({ icon: Icon, label, value, color }: any) => (
   <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 p-5 rounded-3xl flex items-center justify-between group hover:border-teal-500/20 transition-all duration-300 shadow-xl shadow-black/5">
@@ -66,14 +69,40 @@ export default function PatientDashboard() {
 
   if (loading && !profile) {
     return (
-      <div className="flex items-center justify-center p-20 text-slate-500 font-bold uppercase tracking-widest h-full">
-        Loading Health Insights...
-      </div>
+      <PageTransition>
+        <div className="space-y-8 animate-in fade-in duration-700">
+          <header className="flex flex-col md:flex-row md:items-end justify-between items-start gap-6">
+            <div className="space-y-3">
+              <div className="h-4 w-32 bg-slate-800/50 rounded-full animate-pulse" />
+              <div className="h-10 w-64 bg-slate-800/50 rounded-xl animate-pulse" />
+            </div>
+            <div className="h-10 w-40 bg-slate-800/50 rounded-xl animate-pulse" />
+          </header>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="h-40 bg-slate-800/20 rounded-3xl animate-pulse" />
+              <TableSkeleton rows={3} />
+            </div>
+            <div className="space-y-6">
+              <div className="h-80 bg-slate-800/20 rounded-3xl animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </PageTransition>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <PageTransition>
+      <div className="space-y-8 pb-10">
       {/* Error Toast Mockup */}
       <AnimatePresence>
         {error && (
@@ -137,7 +166,7 @@ export default function PatientDashboard() {
             <button className="text-teal-400 font-bold text-xs hover:underline tracking-tight uppercase">View All</button>
           </div>
           
-          <div className="grid gap-3">
+          <div className="grid gap-4">
             {appointments && appointments.length > 0 ? (
               appointments.slice(0, 3).map((apt: any) => (
                 <AppointmentCard 
@@ -150,9 +179,15 @@ export default function PatientDashboard() {
                 />
               ))
             ) : (
-              <div className="py-12 text-center border-2 border-dashed border-white/5 rounded-4xl bg-slate-900/20">
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">No upcoming appointments</p>
-              </div>
+              <EmptyState 
+                type="appointments"
+                title="No Upcoming Consultations"
+                description="Your health journey starts with your first consultation. Schedule one today to stay on top of your health."
+                action={{
+                  label: "Book Appointment",
+                  onClick: () => console.log("Navigate to booking")
+                }}
+              />
             )}
           </div>
         </section>
@@ -177,6 +212,9 @@ export default function PatientDashboard() {
           </div>
         </section>
       </div>
-    </div>
+      </div>
+    </PageTransition>
   );
 }
+
+

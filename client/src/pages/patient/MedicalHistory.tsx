@@ -6,9 +6,13 @@ import {
   User, 
   Plus, 
   Stethoscope, 
+  CircleNotch
 } from '@phosphor-icons/react';
 import { usePatient } from '../../api/PatientContext';
 import { addMedicalHistory } from '../../api/patient';
+import PageTransition from '../../components/PageTransition';
+import EmptyState from '../../components/EmptyState';
+// Removed unused TableSkeleton import
 
 const HistoryCard = ({ entry }: any) => (
   <motion.div 
@@ -76,84 +80,98 @@ export default function MedicalHistory() {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-end justify-between items-start gap-6">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold bg-linear-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent">Medical History</h1>
-          <p className="text-slate-500 font-medium">Keep track of your past diagnoses and treatments.</p>
-        </div>
-        <button 
-          onClick={() => setShowAddForm(true)}
-          className="px-8 py-3.5 bg-linear-to-r from-teal-400 to-blue-500 rounded-2xl text-sm font-extrabold text-white shadow-xl shadow-teal-500/20 active:scale-95 transition-all flex items-center gap-2.5"
-        >
-          <Plus weight="bold" /> Add History
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {showAddForm && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden mb-8"
+    <PageTransition>
+      <div className="space-y-8 max-w-7xl mx-auto pb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between items-start gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1 leading-tight">Medical History</h1>
+            <p className="text-slate-500 font-medium">Keep track of your past diagnoses and treatments in one secure place.</p>
+          </div>
+          <button 
+            onClick={() => setShowAddForm(true)}
+            className="px-8 py-3.5 bg-linear-to-r from-teal-400 to-blue-500 rounded-2xl text-sm font-extrabold text-white shadow-xl shadow-teal-500/20 active:scale-95 transition-all flex items-center gap-2.5"
           >
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 border-dashed rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group hover:border-teal-500/40 transition-all duration-300">
-              <form onSubmit={handleAddSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Condition</label>
-                  <input 
-                    required placeholder="e.g. Seasonal Allergy" 
-                    title="Medical Condition"
-                    className="w-full bg-slate-950/50 border border-white/5 rounded-2xl py-3.5 px-5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-teal-500/50 transition-all"
-                    value={newEntry.condition} onChange={e => setNewEntry({...newEntry, condition: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Date</label>
-                  <input 
-                    required type="date"
-                    title="Diagnosis Date"
-                    className="w-full bg-slate-950/50 border border-white/5 rounded-2xl py-3.5 px-5 text-slate-100 focus:outline-none focus:border-teal-500/50 transition-all"
-                    value={newEntry.date} onChange={e => setNewEntry({...newEntry, date: e.target.value})}
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Doctor Name</label>
-                  <input 
-                    required placeholder="e.g. Smith" 
-                    title="Doctor's Name"
-                    className="w-full bg-slate-950/50 border border-white/5 rounded-2xl py-3.5 px-5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-teal-500/50 transition-all"
-                    value={newEntry.doctorName} onChange={e => setNewEntry({...newEntry, doctorName: e.target.value})}
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-2 text-right">
-                  <button type="button" onClick={() => setShowAddForm(false)} className="px-6 py-3 font-bold text-slate-400 hover:text-white transition-colors">Discard</button>
-                  <button type="submit" disabled={isSaving} className="px-8 py-3 bg-teal-500 hover:bg-teal-400 rounded-xl font-bold text-white shadow-lg shadow-teal-500/10 transition-all">
-                    {isSaving ? "Saving..." : "Save Entry"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <Plus weight="bold" /> Add History
+          </button>
+        </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {history.length > 0 ? (
-            history.map((entry, idx) => <HistoryCard key={entry._id || idx} entry={entry} />)
-          ) : (
-            <div className="col-span-2 py-24 text-center border border-white/5 border-dashed rounded-[3rem] bg-slate-900/20">
-              <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Your medical history is clear.</p>
-            </div>
+        <AnimatePresence>
+          {showAddForm && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0, y: -20 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -20 }}
+              className="overflow-hidden mb-8"
+            >
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-teal-500/20 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden ring-1 ring-white/10 shadow-black/40">
+                <form onSubmit={handleAddSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Condition</label>
+                    <input 
+                      required placeholder="e.g. Seasonal Allergy" 
+                      title="Medical Condition"
+                      className="w-full bg-slate-950/50 border border-white/5 rounded-2xl py-3.5 px-5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-teal-500/50 transition-all font-semibold"
+                      value={newEntry.condition} onChange={e => setNewEntry({...newEntry, condition: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Date</label>
+                    <input 
+                      required type="date"
+                      title="Diagnosis Date"
+                      className="w-full bg-slate-950/50 border border-white/5 rounded-2xl py-3.5 px-5 text-slate-100 focus:outline-none focus:border-teal-500/50 transition-all font-semibold"
+                      value={newEntry.date} onChange={e => setNewEntry({...newEntry, date: e.target.value})}
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Doctor Name</label>
+                    <input 
+                      required placeholder="e.g. Smith" 
+                      title="Doctor's Name"
+                      className="w-full bg-slate-950/50 border border-white/5 rounded-2xl py-3.5 px-5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-teal-500/50 transition-all font-semibold"
+                      value={newEntry.doctorName} onChange={e => setNewEntry({...newEntry, doctorName: e.target.value})}
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2 text-right">
+                    <button type="button" onClick={() => setShowAddForm(false)} className="px-6 py-3 font-bold text-slate-400 hover:text-white transition-colors">Discard</button>
+                    <button type="submit" disabled={isSaving} className="px-8 py-3 bg-teal-500 hover:bg-teal-400 rounded-xl font-bold text-white shadow-lg shadow-teal-500/10 transition-all inline-flex items-center gap-2">
+                      {isSaving ? <CircleNotch className="animate-spin" /> : null}
+                      {isSaving ? "Saving..." : "Save Entry"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
           )}
-        </div>
-      )}
-    </div>
+        </AnimatePresence>
+
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="h-48 bg-slate-800/20 rounded-4xl animate-pulse" />
+            <div className="h-48 bg-slate-800/20 rounded-4xl animate-pulse" />
+            <div className="h-48 bg-slate-800/20 rounded-4xl animate-pulse" />
+            <div className="h-48 bg-slate-800/20 rounded-4xl animate-pulse" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {history.length > 0 ? (
+              history.map((entry, idx) => <HistoryCard key={entry._id || idx} entry={entry} />)
+            ) : (
+              <div className="lg:col-span-2">
+                <EmptyState 
+                  type="history"
+                  title="No Medical History Records"
+                  description="Keep your clinical profile updated. Your history is empty. Start adding your past diagnoses or allergic conditions."
+                  action={{
+                    label: "Add Your First Record",
+                    onClick: () => setShowAddForm(true)
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </PageTransition>
   );
 }

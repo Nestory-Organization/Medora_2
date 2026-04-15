@@ -79,9 +79,13 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
   // Initial data load when token is present
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('user');
+    const userStr = localStorage.getItem('user');
     
-    if (token && user) {
+    // Check for either the object format or just having a token
+    if (token) {
+      if (!userStr) {
+        console.warn("PatientContext: authToken found but no 'user' object in localStorage");
+      }
       refreshProfile();
       refreshHistory();
       refreshPrescriptions();
