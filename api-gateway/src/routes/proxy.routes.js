@@ -68,8 +68,8 @@ router.use(
   createProxyMiddleware({
     ...proxyOptions(env.aiServiceUrl, "ai"),
     pathRewrite: (path, req) => {
-      console.log('Original Path:', path);
-      return path; 
+      console.log("Original Path:", path);
+      return path;
     },
   }),
 );
