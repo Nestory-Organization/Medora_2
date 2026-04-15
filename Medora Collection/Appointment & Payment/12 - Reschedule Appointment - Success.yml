@@ -1,0 +1,24 @@
+info:
+  name: 12 - Reschedule Appointment - Success
+  type: http
+  seq: 12
+
+http:
+  method: PUT
+  url: http://127.0.0.1:4004/appointments/69dfd834ee9e053bbaccbe40
+  body:
+    type: json
+    data: |-
+      {
+        "appointmentDate": "2026-04-18",
+        "startTime": "11:00",
+        "endTime": "11:30",
+        "reason": "Rescheduled due to personal work"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
