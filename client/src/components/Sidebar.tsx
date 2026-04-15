@@ -1,0 +1,128 @@
+import { ReactNode } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { 
+  SquaresFour, 
+  CalendarCheck, 
+  User, 
+  ChatTeardropDots, 
+  Files, 
+  Gear, 
+  SignOut, 
+  Pill,
+  Bell
+} from '@phosphor-icons/react';
+import { motion } from 'framer-motion';
+
+interface SidebarItemProps {
+  to: string;
+  icon: any;
+  label: string;
+  badge?: number;
+}
+
+const SidebarItem = ({ to, icon: Icon, label, badge }: SidebarItemProps) => {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) => `
+        group flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-300
+        ${isActive 
+          ? 'bg-gradient-to-r from-teal-500/20 to-blue-500/10 text-teal-400 shadow-sm border border-teal-500/20' 
+          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}
+      `}
+    >
+      <div className="flex items-center gap-2.5">
+        <Icon size={20} weight="duotone" className="group-hover:scale-110 transition-transform" />
+        <span className="font-semibold text-sm">{label}</span>
+      </div>
+      {badge && (
+        <span className="bg-teal-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+          {badge}
+        </span>
+      )}
+    </NavLink>
+  );
+};
+
+export default function Sidebar({ role }: { role: 'patient' | 'doctor' }) {
+  const navigate = useNavigate();
+  const userStr = localStorage.getItem('user');
+
+  let user = null;
+  try {
+    user = userStr && userStr !== "undefined" ? JSON.parse(userStr) : null;
+  } catch (e) {
+    user = null;
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
+  const navItems = role === 'patient' 
+    ? [
+        { to: '/patient/dashboard', icon: SquaresFour, label: 'Overview' },
+        { to: '/patient/appointments', icon: CalendarCheck, label: 'My Appointments', badge: 2 },
+        { to: '/patient/messages', icon: ChatTeardropDots, label: 'Messages' },
+        { to: '/patient/records', icon: Files, label: 'Health Records' },
+      ]
+    : [
+        { to: '/doctor/dashboard', icon: SquaresFour, label: 'Dashboard' },
+        { to: '/doctor/schedule', icon: CalendarCheck, label: 'Schedule', badge: 5 },
+        { to: '/doctor/patients', icon: User, label: 'Patients' },
+        { to: '/doctor/consultations', icon: ChatTeardropDots, label: 'Consultations' },
+      ];
+
+  return (
+    <aside className="w-64 h-screen fixed left-0 top-0 z-40 bg-slate-900 border-r border-white/5 flex flex-col p-5 overflow-hidden">
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 mb-8 px-1">
+        <div className="p-2 bg-gradient-to-br from-teal-400 to-blue-500 rounded-lg shadow-lg shadow-teal-500/20">
+          <Pill weight="fill" size={20} className="text-white" />
+        </div>
+        <span className="text-xl font-bold tracking-tight text-white italic">Medora</span>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex-1 space-y-1.5">
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-2">Main Menu</p>
+        {navItems.map((item) => (
+          <SidebarItem key={item.to} {...item} />
+        ))}
+      </div>
+
+      {/* User Card */}
+      <div className="mt-auto pt-5 border-t border-white/5 space-y-3">
+        <div className="flex items-center gap-2.5 p-1.5 group cursor-pointer">
+          <div className="relative">
+            <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-teal-400 group-hover:border-teal-500/50 transition-colors">
+              <User size={18} weight="duotone" />
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-slate-900 rounded-full" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-slate-200 truncate">{user?.firstName} {user?.lastName}</p>
+            <p className="text-[10px] font-medium text-slate-500 capitalize">{user?.role || role}</p>
+          </div>
+          <button className="text-slate-500 hover:text-white transition-colors">
+            <Bell size={16} weight="duotone" />
+          </button>
+        </div>
+
+        <div className="space-y-0.5">
+          <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all font-semibold text-sm">
+            <Gear size={20} weight="duotone" /> Settings
+          </button>
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-red-400/80 hover:bg-red-500/5 hover:text-red-400 transition-all font-semibold text-sm"
+          >
+            <SignOut size={20} weight="duotone" /> Logout
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
