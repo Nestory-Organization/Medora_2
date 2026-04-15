@@ -210,6 +210,8 @@ services:
       NODE_ENV: production
       PORT: 4007
       MONGO_URI: mongodb://ai-mongodb:27017/ai_db
+      JWT_SECRET: ${AUTH_JWT_SECRET:-3ac9ca3c5fbf24b40ae69852425be00943129e33e9463ebb5757ab1c6aaade93}
+      GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY:-AIzaSyCi-w8_v6A9Zh7a5lP5yAOrlPkKUGKYx60}
       SERVICE_NAME: ai-service
     ports:
       - "4007:4007"

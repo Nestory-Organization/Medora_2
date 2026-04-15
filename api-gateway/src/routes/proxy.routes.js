@@ -63,6 +63,15 @@ router.use(
     proxyOptions(env.notificationServiceUrl, "notifications"),
   ),
 );
-router.use("/ai", createProxyMiddleware(proxyOptions(env.aiServiceUrl, "ai")));
+router.use(
+  "/ai",
+  createProxyMiddleware({
+    ...proxyOptions(env.aiServiceUrl, "ai"),
+    pathRewrite: (path, req) => {
+      console.log('Original Path:', path);
+      return path; 
+    },
+  }),
+);
 
 module.exports = router;
