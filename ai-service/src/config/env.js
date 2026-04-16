@@ -26,4 +26,5 @@ module.exports = {
   geminiModel: process.env.GEMINI_MODEL || "gemini-1.5-flash",
   aiRateLimit: Number(process.env.AI_RATE_LIMIT) || 5,
   aiRateWindow: Number(process.env.AI_RATE_WINDOW) || 3600,
+  doctorServiceUrl: process.env.DOCTOR_SERVICE_URL,
 };

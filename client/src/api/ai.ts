@@ -20,6 +20,27 @@ type UiInsight = {
   category: string;
 };
 
+type UiSuggestedDoctor = {
+  doctorId: string;
+  name: string;
+  specialization: string;
+  yearsOfExperience?: number;
+  consultationFee?: number;
+  qualification?: string;
+  clinicAddress?: string;
+  reason?: string;
+  priority?: string;
+  matchedSpecialties?: string[];
+};
+
+type UiSpecialist = {
+  name: string;
+  reason: string;
+  priority?: string;
+  matchedDoctors?: UiSuggestedDoctor[];
+  externalSearchUrl?: string; // Added for web fallback
+};
+
 const clampPercentage = (value: unknown) => {
   const num = Number(value);
   if (Number.isNaN(num)) return 0;
@@ -133,26 +154,89 @@ export const analyzeSymptoms = async (data: {
   }
 };
 
+export const getAiHistory = async () => {
+  try {
+    const response = await aiApi.get('/history');
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error as AxiosError);
+  }
+};
+
+export const deleteAiHistoryItem = async (id: string) => {
+  try {
+    const response = await aiApi.delete(`/history/${id}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error as AxiosError);
+  }
+};
+
 export const recommendSpecialist = async (data: { symptoms: string[]; conditions?: string[] }) => {
   try {
     const response = await aiApi.post('/recommend-specialist', data);
     const payload = response.data?.data ?? response.data ?? {};
 
-    const specialists = Array.isArray(payload?.specialists)
-      ? payload.specialists
+    const specialists: UiSpecialist[] = Array.isArray(payload?.specialties)
+      ? payload.specialties.map((item: any) => ({
+          name: String(item?.specialty ?? 'Specialist'),
+          reason: String(item?.reason ?? ''),
+          priority: item?.priority,
+          externalSearchUrl: item?.externalSearchUrl, // Added
+          matchedDoctors: Array.isArray(item?.matchedDoctors)
+            ? item.matchedDoctors.map((doctor: any) => ({
+                doctorId: String(doctor?.doctorId ?? ''),
+                name: String(doctor?.name ?? 'Unknown Doctor'),
+                specialization: String(doctor?.specialization ?? item?.specialty ?? ''),
+                yearsOfExperience: doctor?.yearsOfExperience,
+                consultationFee: doctor?.consultationFee,
+                qualification: doctor?.qualification,
+                clinicAddress: doctor?.clinicAddress,
+                reason: doctor?.reason,
+                priority: doctor?.priority,
+              }))
+            : [],
+        }))
       : Array.isArray(payload?.specialtyRecommendations)
         ? payload.specialtyRecommendations.map((item: any) => ({
             name: String(item?.specialty ?? 'Specialist'),
             reason: String(item?.reason ?? ''),
             priority: item?.priority,
+            matchedDoctors: [],
           }))
-        : [];
+        : Array.isArray(payload?.specialists)
+          ? payload.specialists.map((item: any) => ({
+              name: String(item?.name ?? item?.specialty ?? 'Specialist'),
+              reason: String(item?.reason ?? ''),
+              priority: item?.priority,
+              matchedDoctors: [],
+            }))
+          : [];
+
+    const suggestedDoctors: UiSuggestedDoctor[] = Array.isArray(payload?.suggestedDoctors)
+      ? payload.suggestedDoctors.map((doctor: any) => ({
+          doctorId: String(doctor?.doctorId ?? ''),
+          name: String(doctor?.name ?? 'Unknown Doctor'),
+          specialization: String(doctor?.specialization ?? ''),
+          yearsOfExperience: doctor?.yearsOfExperience,
+          consultationFee: doctor?.consultationFee,
+          qualification: doctor?.qualification,
+          clinicAddress: doctor?.clinicAddress,
+          reason: doctor?.reason,
+          priority: doctor?.priority,
+          matchedSpecialties: Array.isArray(doctor?.matchedSpecialties)
+            ? doctor.matchedSpecialties.map((specialty: any) => String(specialty))
+            : [],
+        }))
+      : specialists.flatMap((specialist) => specialist.matchedDoctors || []);
 
     return {
       ...response.data,
       data: {
         ...payload,
         specialists,
+        suggestedDoctors,
+        doctorCoverage: payload?.doctorCoverage,
       },
     };
   } catch (error) {

@@ -12,16 +12,21 @@ const SymptomChecker: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [specialists, setSpecialists] = useState<any[]>([]);
+  const [suggestedDoctors, setSuggestedDoctors] = useState<any[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
   const [showSpecialistModal, setShowSpecialistModal] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [loadingExtras, setLoadingExtras] = useState(false);
+  const [doctorCoverage, setDoctorCoverage] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSymptomSubmit = async (formData: any) => {
     setLoading(true);
     setError(null);
     setResults(null);
+    setSpecialists([]);
+    setSuggestedDoctors([]);
+    setDoctorCoverage(null);
     setShowInsights(false);
     
     try {
@@ -46,6 +51,8 @@ const SymptomChecker: React.FC = () => {
           : undefined,
       });
       setSpecialists(response.data.specialists);
+      setSuggestedDoctors(response.data.suggestedDoctors || []);
+      setDoctorCoverage(response.data.doctorCoverage || null);
       setStep('recommendations');
     } catch (err: any) {
       setError(err.message || "Failed to fetch specialist recommendations");
@@ -188,6 +195,21 @@ const SymptomChecker: React.FC = () => {
           </motion.div>
 
           <div className="lg:col-span-7">
+            {step === 'recommendations' && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+              >
+                <p className="text-sm font-semibold">
+                  AI matched {doctorCoverage?.totalSuggestedDoctors ?? suggestedDoctors.length} registered doctors across {doctorCoverage?.specialtiesWithDoctors ?? 0} specialties.
+                </p>
+                <p className="text-xs text-emerald-100/70 mt-1">
+                  Open the doctor match panel to continue directly to booking with the most relevant specialization.
+                </p>
+              </motion.div>
+            )}
+
             <AnimatePresence mode="wait">
               {(loading || results) ? (
                 <motion.div
@@ -249,6 +271,7 @@ const SymptomChecker: React.FC = () => {
         {showSpecialistModal && (
           <SpecialistModal 
             specialists={specialists} 
+            suggestedDoctors={suggestedDoctors}
             loading={loadingExtras} 
             onClose={() => setShowSpecialistModal(false)} 
           />

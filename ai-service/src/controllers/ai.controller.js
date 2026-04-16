@@ -1,9 +1,160 @@
 const gemini = require("../config/gemini");
+const AiHistory = require("../models/aiHistory.model");
 const {
   buildSymptomAnalysisPrompt,
   buildSpecialistRecommendationPrompt,
   buildHealthInsightsPrompt,
 } = require("../utils/promptBuilder");
+const env = require("../config/env");
+
+const DOCTOR_FETCH_TIMEOUT_MS = 4000;
+const MAX_DOCTORS_PER_SPECIALTY = 3;
+
+const buildDoctorSearchUrls = () => {
+  const configuredBaseUrls = [
+    env.doctorServiceUrl,
+    "http://doctor-service:4003",
+    "http://localhost:4003",
+    "http://localhost:4000/api/doctors",
+  ].filter(Boolean);
+
+  return Array.from(
+    new Set(
+      configuredBaseUrls.map((baseUrl) =>
+        baseUrl.includes("/api/doctors") || baseUrl.includes("/doctor")
+          ? baseUrl.replace(/\/+$/, "")
+          : `${baseUrl.replace(/\/+$/, "")}/doctor`,
+      ),
+    ),
+  );
+};
+
+const tryFetchDoctors = async (specialty) => {
+  const searchUrls = buildDoctorSearchUrls();
+
+  for (const baseUrl of searchUrls) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DOCTOR_FETCH_TIMEOUT_MS);
+
+    try {
+      const url = `${baseUrl}/search?specialty=${encodeURIComponent(specialty)}`;
+      const response = await fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const payload = await response.json();
+      if (!payload?.success || !Array.isArray(payload?.data)) {
+        continue;
+      }
+
+      return payload.data;
+    } catch (error) {
+      continue;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  return [];
+};
+
+const normalizeSpecialistRecommendations = (recommendationResult) => {
+  if (Array.isArray(recommendationResult?.specialtyRecommendations)) {
+    return recommendationResult.specialtyRecommendations.map((item) => ({
+      specialty: String(item?.specialty || "General Physician"),
+      reason: String(item?.reason || "Based on symptom pattern"),
+      priority: String(item?.priority || "Medium"),
+    }));
+  }
+
+  if (Array.isArray(recommendationResult?.specialists)) {
+    return recommendationResult.specialists.map((item) => ({
+      specialty: String(item?.name || item?.specialty || "General Physician"),
+      reason: String(item?.reason || "Based on symptom pattern"),
+      priority: String(item?.priority || "Medium"),
+    }));
+  }
+
+  return [];
+};
+
+const enrichWithRegisteredDoctors = async (specialtyRecommendations) => {
+  const mapped = await Promise.all(
+    specialtyRecommendations.map(async (rec) => {
+      const doctors = await tryFetchDoctors(rec.specialty);
+      const topDoctors = doctors.slice(0, MAX_DOCTORS_PER_SPECIALTY);
+
+      const matchedDoctors = topDoctors.map((doctor) => ({
+        doctorId: doctor.doctorId,
+        name:
+          doctor.name ||
+          `Dr. ${doctor.firstName || ""} ${doctor.lastName || ""}`.trim(),
+        specialization: doctor.specialization || rec.specialty,
+        yearsOfExperience: doctor.yearsOfExperience,
+        consultationFee: doctor.consultationFee,
+        qualification: doctor.qualification,
+        clinicAddress: doctor.clinicAddress,
+        reason: rec.reason,
+        priority: rec.priority,
+      }));
+
+      // Find external links if no internal doctors are found
+      let externalSearchUrl = null;
+      if (matchedDoctors.length === 0) {
+        const query = encodeURIComponent(`${rec.specialty} doctors near me`);
+        externalSearchUrl = `https://www.google.com/search?q=${query}`;
+      }
+
+      return {
+        specialty: rec.specialty,
+        reason: rec.reason,
+        priority: rec.priority,
+        matchedDoctorCount: matchedDoctors.length,
+        matchedDoctors,
+        externalSearchUrl, // Added for web search fallback
+      };
+    }),
+  );
+
+  const dedupedDoctorMap = new Map();
+
+  mapped.forEach((entry) => {
+    entry.matchedDoctors.forEach((doctor) => {
+      if (!doctor?.doctorId) {
+        return;
+      }
+
+      if (!dedupedDoctorMap.has(doctor.doctorId)) {
+        dedupedDoctorMap.set(doctor.doctorId, {
+          ...doctor,
+          matchedSpecialties: [entry.specialty],
+        });
+      } else {
+        const existing = dedupedDoctorMap.get(doctor.doctorId);
+        existing.matchedSpecialties = Array.from(
+          new Set([...(existing.matchedSpecialties || []), entry.specialty]),
+        );
+      }
+    });
+  });
+
+  return {
+    specialties: mapped,
+    suggestedDoctors: Array.from(dedupedDoctorMap.values()),
+    doctorCoverage: {
+      totalSpecialties: mapped.length,
+      specialtiesWithDoctors: mapped.filter(
+        (item) => item.matchedDoctorCount > 0,
+      ).length,
+      totalSuggestedDoctors: dedupedDoctorMap.size,
+    },
+  };
+};
 
 /**
  * Validate input for symptom analysis
@@ -163,7 +314,22 @@ const analyzeSymptoms = async (req, res) => {
     } catch (parseError) {
       analysisResult = { raw: response };
     }
+// Save to history
+    try {
+      if (req.user?.id) {
+        await AiHistory.create({
+          userId: req.user.id,
+          type: "analysis",
+          inputData: { symptoms: sanitizedSymptoms, duration: sanitizedDuration, severity, age },
+          resultData: analysisResult,
+        });
+      }
+    } catch (historyError) {
+      console.error("Failed to save AI history:", historyError);
+      // Don't fail the request if history save fails
+    }
 
+    
     return res.status(200).json({
       success: true,
       message: "Symptom analysis completed",
@@ -241,19 +407,47 @@ const recommendSpecialist = async (req, res) => {
 
     // Parse response
     let recommendationResult;
+    const responsePayload = {
+      ...recommendationResult,
+      specialtyRecommendations,
+      specialties: doctorMatches.specialties,
+      suggestedDoctors: doctorMatches.suggestedDoctors,
+      doctorCoverage: doctorMatches.doctorCoverage,
+    };
+
+    // Save to history
     try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      recommendationResult = jsonMatch
-        ? JSON.parse(jsonMatch[0])
-        : { raw: response };
-    } catch (parseError) {
-      recommendationResult = { raw: response };
+      if (req.user?.id) {
+        await AiHistory.create({
+          userId: req.user.id,
+          type: "recommendation",
+          inputData: { symptoms: sanitizedSymptoms, conditions: sanitizedConditions },
+          resultData: responsePayload,
+        });
+      }
+    } catch (historyError) {
+      console.error("Failed to save AI history:", historyError);
     }
 
     return res.status(200).json({
       success: true,
       message: "Specialist recommendations generated",
-      data: recommendationResult,
+      data: responsePayloadst specialtyRecommendations =
+      normalizeSpecialistRecommendations(recommendationResult);
+    const doctorMatches = await enrichWithRegisteredDoctors(
+      specialtyRecommendations,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Specialist recommendations generated",
+      data: {
+        ...recommendationResult,
+        specialtyRecommendations,
+        specialties: doctorMatches.specialties,
+        suggestedDoctors: doctorMatches.suggestedDoctors,
+        doctorCoverage: doctorMatches.doctorCoverage,
+      },
     });
   } catch (error) {
     console.error("Error in recommendSpecialist:", error);
@@ -335,6 +529,20 @@ const getHealthInsights = async (req, res) => {
       insightsResult = { raw: response };
     }
 
+    // Save to history
+    try {
+      if (req.user?.id) {
+        await AiHistory.create({
+          userId: req.user.id,
+          type: "insight",
+          inputData: { symptoms: sanitizedSymptoms, age },
+          resultData: insightsResult,
+        });
+      }
+    } catch (historyError) {
+      console.error("Failed to save AI history:", historyError);
+    }
+
     return res.status(200).json({
       success: true,
       message: "Health insights generated",
@@ -375,8 +583,69 @@ const getHealthInsights = async (req, res) => {
   }
 };
 
+/**
+ * Get AI History for user
+ * GET /api/ai/history
+ */
+const getAiHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const history = await AiHistory.find({ userId, isDeleted: false })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return res.status(200).json({
+      success: true,
+      data: history,
+    });
+  } catch (error) {
+    console.error("Error in getAiHistory:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch AI history",
+    });
+  }
+};
+
+/**
+ * Delete AI History item
+ * DELETE /api/ai/history/:id
+ */
+const deleteAiHistoryItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const historyItem = await AiHistory.findOneAndUpdate(
+      { _id: id, userId },
+      { isDeleted: true },
+      { new: true },
+    );
+
+    if (!historyItem) {
+      return res.status(404).json({
+        success: false,
+        message: "History item not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "History item deleted",
+    });
+  } catch (error) {
+    console.error("Error in deleteAiHistoryItem:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete history item",
+    });
+  }
+};
+
 module.exports = {
   analyzeSymptoms,
   recommendSpecialist,
   getHealthInsights,
+  getAiHistory,
+  deleteAiHistoryItem,
 };

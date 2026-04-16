@@ -3,6 +3,8 @@ const {
   analyzeSymptoms,
   recommendSpecialist,
   getHealthInsights,
+  getAiHistory,
+  deleteAiHistoryItem,
 } = require("../controllers/ai.controller");
 const { authenticate } = require("../middleware/auth.middleware");
 const rateLimiter = require("../middleware/rateLimiter.middleware");
@@ -51,6 +53,18 @@ router.post("/recommend-specialist", recommendSpecialist);
  *   "age": 40
  * }
  */
+/**
+ * GET /api/ai/history
+ * Get AI history for the authenticated user
+ */
+router.get("/history", getAiHistory);
+
+/**
+ * DELETE /api/ai/history/:id
+ * Delete a history item
+ */
+router.delete("/history/:id", deleteAiHistoryItem);
+
 router.post("/health-insights", getHealthInsights);
 
 module.exports = router;
