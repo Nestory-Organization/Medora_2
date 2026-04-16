@@ -4,27 +4,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   UserCheck,
-  Calendar,
   DollarSign,
   TrendingUp,
   Activity,
   Search,
-  Bell,
-  ChevronRight,
-  MoreVertical,
-  ArrowUpRight,
   ShieldCheck,
-  CheckCircle2,
-  XCircle,
   RefreshCcw,
   Clock,
-  Filter
+  ArrowRight,
+  Zap,
+  Cpu,
+  Globe,
+  MoreVertical,
+  Bell,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -32,205 +28,330 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
+  Cell
 } from "recharts";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// --- MOCK DATA FOR UI ---
+// --- ENHANCED MOCK DATA ---
 const GROWTH_DATA = [
-  { name: "Jan", users: 400, revenue: 2400 },
-  { name: "Feb", users: 300, revenue: 1398 },
-  { name: "Mar", users: 600, revenue: 9800 },
-  { name: "Apr", users: 800, revenue: 3908 },
-  { name: "May", users: 1100, revenue: 4800 },
-  { name: "Jun", users: 1500, revenue: 13800 },
-  { name: "Jul", users: 2100, revenue: 15300 },
+  { name: "00:00", users: 400, revenue: 2400 },
+  { name: "04:00", users: 300, revenue: 1398 },
+  { name: "08:00", users: 600, revenue: 9800 },
+  { name: "12:00", users: 800, revenue: 3908 },
+  { name: "16:00", users: 1100, revenue: 4800 },
+  { name: "20:00", users: 1500, revenue: 13800 },
+  { name: "23:59", users: 2100, revenue: 15300 },
+];
+
+const DISTRIBUTION_DATA = [
+  { category: "Cardiology", value: 45, color: "#3b82f6" },
+  { category: "Neurology", value: 32, color: "#8b5cf6" },
+  { category: "Pediatrics", value: 28, color: "#ec4899" },
+  { category: "General", value: 55, color: "#10b981" },
 ];
 
 const RECENT_ACTIVITY = [
-  { id: 1, type: "doctor", message: "Dr. Sarah Smith verified by Admin", time: "2 mins ago", color: "text-blue-400", icon: ShieldCheck },
-  { id: 2, type: "user", message: "New patient registration: John Doe", time: "15 mins ago", color: "text-purple-400", icon: Users },
-  { id: 3, type: "app", message: "Appointment #BK-882 confirmed", time: "1 hour ago", color: "text-cyan-400", icon: Calendar },
-  { id: 4, type: "payment", message: "Revenue milestone reached: $50k", time: "3 hours ago", color: "text-emerald-400", icon: DollarSign },
+  { id: 1, type: "success", message: "Kernel: Dr. Sarah Smith verified", time: "2m ago", icon: CheckCircle2 },
+  { id: 2, type: "info", message: "Inbound: New patient registration", time: "15m ago", icon: Zap },
+  { id: 3, type: "warning", message: "System: High latency on Auth node", time: "1h ago", icon: AlertCircle },
+  { id: 4, type: "success", message: "Revenue: Milestone $50k reached", time: "3h ago", icon: DollarSign },
 ];
 
 // --- COMPONENTS ---
 
-const GlassCard = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-  <div className={`relative overflow-hidden rounded-3xl bg-white/[0.03] backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] ${className}`}>
-    {children}
-  </div>
-);
-
-const StatCard = ({ title, value, icon: Icon, trend, color, delay = 0 }: any) => (
-  <motion.div
-    initial={{ opacity: 0, y: 30 }}
+const DashboardCard = ({ children, className = "", title = "", subtitle = "", action = null }: { 
+  children: React.ReactNode, 
+  className?: string, 
+  title?: string, 
+  subtitle?: string,
+  action?: React.ReactNode 
+}) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.5, ease: "easeOut" }}
-    whileHover={{ y: -8, transition: { duration: 0.2 } }}
-    className="group"
+    className={`group relative overflow-hidden rounded-[2.5rem] bg-[#0a0f18] border border-white/5 hover:border-blue-500/30 transition-all duration-500 ${className}`}
   >
-    <GlassCard className="p-6 h-full transition-all duration-300 group-hover:border-white/20">
-      <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${color} opacity-10 blur-3xl group-hover:opacity-20 transition-opacity`} />
-      
-      <div className="flex justify-between items-start mb-6">
-        <div className={`p-4 rounded-2xl bg-gradient-to-br ${color} shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform duration-300`}>
-          <Icon className="w-6 h-6 text-white" />
+    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+    <div className="relative p-8 h-full flex flex-col">
+      {(title || subtitle || action) && (
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h3 className="text-lg font-bold text-white tracking-tight">{title}</h3>
+            <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mt-1">{subtitle}</p>
+          </div>
+          {action}
         </div>
-        <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold bg-emerald-400/10 px-3 py-1.5 rounded-full border border-emerald-400/20">
-          <TrendingUp className="w-3.5 h-3.5" />
-          {trend}
-        </div>
-      </div>
-      
-      <p className="text-slate-400 text-sm font-semibold mb-1 uppercase tracking-wider">{title}</p>
-      <div className="flex items-baseline gap-2">
-        <h3 className="text-3xl font-black text-white tracking-tighter">
-          {typeof value === 'number' ? value.toLocaleString() : value}
-        </h3>
-        <span className="text-slate-500 text-xs font-medium">this month</span>
-      </div>
-    </GlassCard>
+      )}
+      {children}
+    </div>
   </motion.div>
 );
 
-const SkeletonCard = () => (
-    <div className="animate-pulse p-6 rounded-3xl bg-white/5 border border-white/10 h-40">
-        <div className="flex justify-between mb-6">
-            <div className="w-12 h-12 bg-white/10 rounded-2xl"></div>
-            <div className="w-16 h-6 bg-white/10 rounded-full"></div>
+interface StatDisplayProps {
+  label: string;
+  value: string | number;
+  icon: React.ElementType;
+  trend: string;
+  isPositive: boolean;
+  color: string;
+}
+
+const StatDisplay = ({ label, value, icon: Icon, trend, isPositive, color }: StatDisplayProps) => (
+  <div className="relative flex-1 group">
+    <div className={`absolute -inset-1 rounded-3xl blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500 bg-gradient-to-r ${color}`} />
+    <div className="relative p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all duration-300">
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-3 rounded-2xl bg-gradient-to-br ${color} shadow-lg shadow-black/20`}>
+          <Icon className="w-5 h-5 text-white" />
         </div>
-        <div className="w-24 h-4 bg-white/10 rounded mb-2"></div>
-        <div className="w-32 h-8 bg-white/10 rounded"></div>
+        <div className={`flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg ${isPositive ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'}`}>
+          {isPositive ? '+' : '-'}{trend}
+        </div>
+      </div>
+      <div>
+        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em] mb-1">{label}</p>
+        <h4 className="text-2xl font-black text-white tracking-tighter">
+          {typeof value === 'number' ? value.toLocaleString() : value}
+        </h4>
+      </div>
     </div>
+  </div>
 );
 
-const FilesIcon = ({className}: {className?: string}) => (
-    <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        width="24" 
-        height="24" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        strokeWidth="2" 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
-        className={className}
-    >
-        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-        <polyline points="14 2 14 8 20 8" />
-    </svg>
-);
-
-const AdminDashboard = () => {
+const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalDoctors: 0,
     pendingDoctorVerifications: 0,
     revenue: 0,
   });
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("revenue");
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
-    setLoading(true);
     const token = localStorage.getItem("authToken");
     try {
-      const [statsRes, doctorsRes] = await Promise.all([
-        axios.get("http://localhost:4000/api/admin/stats", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get("http://localhost:4000/api/admin/doctors", {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      ]);
-
+      const statsRes = await axios.get("http://localhost:4000/api/admin/stats", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (statsRes.data.success) setStats(statsRes.data.data);
-      if (doctorsRes.data.success) setDoctors(doctorsRes.data.data.slice(0, 5));
-      
-    } catch (error) {
-      toast.error("Failed to sync platform data");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    } catch {
+      toast.error("Telemetry link failed - Retrying protocol");
     }
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
-    toast.info("Updating real-time stats...");
-  };
-
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-200 selection:bg-blue-500/30 lg:ml-60">
-        <ToastContainer theme="dark" position="top-right" />
-        
-        <main className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10">
-                <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}>
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="w-2 h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
-                        <h1 className="text-4xl font-black text-white tracking-tighter">System Console</h1>
+    <div className="">
+      <ToastContainer theme="dark" position="bottom-right" />
+      
+      {/* Background Ambience */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-600/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-600/5 blur-[120px] rounded-full translate-y-1/3 -translate-x-1/3" />
+      </div>
+
+      <main className="relative w-full px-6 py-8 md:px-12 md:py-12 space-y-12">
+        {/* Navigation / Top Bar */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 bg-white/[0.02] border border-white/5 p-6 rounded-[2.5rem] backdrop-blur-xl">
+          <div className="flex items-center gap-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-500 blur-md opacity-20 animate-pulse" />
+              <div className="relative p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+                <Cpu className="w-8 h-8 text-blue-400" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Command Center</h1>
+              </div>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Deployment: Production-Alpha-09</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative group overflow-hidden bg-white/[0.03] border border-white/5 rounded-2xl flex items-center px-4 py-3 focus-within:border-blue-500/40 transition-all w-full md:w-80">
+              <Search className="w-4 h-4 text-slate-500 group-focus-within:text-blue-400" />
+              <input 
+                type="text" 
+                placeholder="Query system files..." 
+                className="bg-transparent border-none outline-none text-sm ml-3 w-full text-slate-200 placeholder:text-slate-600 font-medium"
+              />
+            </div>
+            <button className="relative p-3.5 bg-white/[0.03] border border-white/5 rounded-2xl hover:bg-white/[0.06] transition-all text-slate-400 hover:text-white">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-3.5 right-3.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-[#05070a]" />
+            </button>
+            <button className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-blue-600/20">
+              <RefreshCcw className="w-3.5 h-3.5" /> Initialize Sync
+            </button>
+          </div>
+        </div>
+
+        {/* Core Metrics Visualizer */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatDisplay label="Patient Node" value={stats.totalUsers} icon={Users} trend="12%" isPositive={true} color="from-blue-600 to-indigo-600" />
+          <StatDisplay label="Medical Link" value={stats.totalDoctors} icon={UserCheck} trend="8%" isPositive={true} color="from-purple-600 to-violet-600" />
+          <StatDisplay label="Audit Queue" value={stats.pendingDoctorVerifications} icon={ShieldCheck} trend="High" isPositive={false} color="from-orange-600 to-amber-600" />
+          <StatDisplay label="Gross Revenue" value={`$${stats.revenue}`} icon={DollarSign} trend="22%" isPositive={true} color="from-emerald-600 to-teal-600" />
+        </div>
+
+        {/* Primary Data Grids */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Main Visualizer */}
+          <DashboardCard 
+            className="lg:col-span-8" 
+            title="Telemetry Stream" 
+            subtitle="Real-time Network Velocity"
+            action={
+              <div className="flex bg-white/5 p-1 rounded-xl">
+                {["revenue", "users"].map((tab) => (
+                  <button 
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            }
+          >
+            <div className="h-[400px] w-full mt-auto">
+              <ResponsiveContainer width="99%" height="100%">
+                <AreaChart data={GROWTH_DATA} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorWave" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#fff1" vertical={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 10, fontWeight: 800}} dy={15} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 10, fontWeight: 800}} />
+                  <Tooltip 
+                    cursor={{ stroke: '#3b82f6', strokeWidth: 2 }}
+                    contentStyle={{ backgroundColor: '#0a0f18', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '20px', padding: '16px' }}
+                    itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: '900' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey={activeTab === 'revenue' ? "revenue" : "users"} 
+                    stroke="#3b82f6" 
+                    strokeWidth={4} 
+                    fillOpacity={1} 
+                    fill="url(#colorWave)" 
+                    animationDuration={2000}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </DashboardCard>
+
+          {/* Side Module: System Intel */}
+          <div className="lg:col-span-4 space-y-8 flex flex-col">
+            <DashboardCard title="Sector Load" subtitle="Consultation Distribution" className="flex-1">
+              <div className="h-[200px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={DISTRIBUTION_DATA} layout="vertical" margin={{ left: -20 }}>
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="category" type="category" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}} width={80} />
+                    <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={20}>
+                      {DISTRIBUTION_DATA.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-8 space-y-4">
+                {DISTRIBUTION_DATA.map((item) => (
+                  <div key={item.category} className="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                    <span className="text-xs font-bold text-slate-400">{item.category}</span>
+                    <span className="text-sm font-black text-white">{item.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </DashboardCard>
+          </div>
+        </div>
+
+        {/* Secondary Modules */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* Signal Feed */}
+          <DashboardCard title="Uplink Activity" subtitle="Real-time Event Log" className="xl:col-span-2">
+            <div className="space-y-4">
+              {RECENT_ACTIVITY.map((activity, idx) => (
+                <div key={activity.id} className="flex items-center justify-between p-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 rounded-2xl transition-all group cursor-pointer">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-xl ${activity.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' : activity.type === 'warning' ? 'bg-orange-500/10 text-orange-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                      <activity.icon className="w-5 h-5" />
                     </div>
-                    <p className="text-slate-500 font-medium ml-5 italic">Intelligence & Control</p>
-                </motion.div>
-
-                <div className="flex items-center gap-4 flex-wrap">
-                    <div className="relative group min-w-[300px]">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input type="text" placeholder="Find patients..." className="w-full pl-12 pr-4 py-3 bg-white/[0.02] border border-white/10 rounded-2xl outline-none" />
+                    <div>
+                      <p className="text-sm font-bold text-slate-200">{activity.message}</p>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">{activity.time}</p>
                     </div>
-                    <button onClick={handleRefresh} className={`p-3 bg-white/[0.02] border border-white/10 rounded-2xl ${refreshing ? 'animate-spin' : ''}`}><RefreshCcw className="w-5 h-5" /></button>
+                  </div>
+                  <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-white/10 rounded-lg transition-all">
+                    <MoreVertical className="w-4 h-4 text-slate-500" />
+                  </button>
                 </div>
+              ))}
             </div>
+          </DashboardCard>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {loading ? [1,2,3,4].map(i => <SkeletonCard key={i} />) : (
-                    <>
-                        <StatCard title="Patients" value={stats.totalUsers} icon={Users} trend="+42%" color="from-blue-500 to-cyan-400" delay={0.1} />
-                        <StatCard title="Medical Staff" value={stats.totalDoctors} icon={UserCheck} trend="+18%" color="from-purple-500 to-pink-500" delay={0.2} />
-                        <StatCard title="Approvals" value={stats.pendingDoctorVerifications} icon={ShieldCheck} trend="Critical" color="from-orange-500 to-amber-500" delay={0.3} />
-                        <StatCard title="Revenue" value={`$${stats.revenue}`} icon={DollarSign} trend="+14%" color="from-emerald-500 to-teal-500" delay={0.4} />
-                    </>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-5">
-                    <GlassCard className="p-8 h-full">
-                        <h3 className="text-xl font-black mb-10 flex items-center gap-2"><TrendingUp /> Growth</h3>
-                        <div className="h-[400px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={GROWTH_DATA}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#fff1" vertical={false} />
-                                    <XAxis dataKey="name" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#3b82f633" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </GlassCard>
-                </motion.div>
-                <div className="lg:col-span-2 space-y-4">
-                  <GlassCard className="p-6">
-                      <h3 className="text-lg font-black mb-6">Live Feed</h3>
-                      <div className="space-y-6">
-                          {RECENT_ACTIVITY.map(a => <div key={a.id} className="text-sm"><b>{a.message}</b><br/><span className="text-xs text-slate-500">{a.time}</span></div>)}
-                      </div>
-                  </GlassCard>
+          {/* Quick Actions / Status */}
+          <DashboardCard title="Hardware Status" subtitle="Global Node Integrity" className="bg-gradient-to-br from-[#1e3a8a]/10 to-transparent">
+            <div className="space-y-6">
+              {[
+                { label: "Auth Gateway", status: "Active", ping: "24ms", color: "#10b981" },
+                { label: "Patient Database", status: "Nominal", ping: "8ms", color: "#10b981" },
+                { label: "Payment API", status: "Maintenance", ping: "--", color: "#f59e0b" },
+              ].map((node) => (
+                <div key={node.label} className="flex items-center gap-4">
+                  <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: node.color }} />
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-bold text-slate-300">{node.label}</span>
+                      <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">{node.ping}</span>
+                    </div>
+                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: node.status === 'Active' ? '100%' : '60%' }} className="h-full" style={{ backgroundColor: node.color, opacity: 0.3 }} />
+                    </div>
+                  </div>
                 </div>
+              ))}
+              
+              <div className="pt-6">
+                <button 
+                  onClick={() => window.location.href = '/admin/verify-doctors'}
+                  className="w-full flex items-center justify-between p-5 bg-blue-600/10 border border-blue-500/20 hover:bg-blue-500/20 rounded-3xl transition-all group"
+                >
+                  <div className="flex items-center gap-4 text-left">
+                    <div className="p-3 bg-blue-400/10 rounded-xl">
+                      <ShieldCheck className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div>
+                      <span className="block text-sm font-black text-white uppercase tracking-tight">Audit Portal</span>
+                      <span className="text-[10px] font-bold text-blue-400/60 uppercase">Manual Override Required</span>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
             </div>
-        </main>
+          </DashboardCard>
+        </div>
+      </main>
     </div>
   );
 };
 
 export default AdminDashboard;
+
