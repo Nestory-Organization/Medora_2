@@ -20,6 +20,9 @@ module.exports = {
   payHereReturnUrl: process.env.PAYHERE_RETURN_URL,
   payHereCancelUrl: process.env.PAYHERE_CANCEL_URL,
   payHereNotifyUrl: process.env.PAYHERE_NOTIFY_URL,
-  payHereCheckoutUrl: process.env.PAYHERE_CHECKOUT_URL
+  payHereCheckoutUrl: process.env.PAYHERE_CHECKOUT_URL,
+  appointmentServiceUrl:
+    process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:4004',
+  serviceRequestTimeoutMs: Number(process.env.SERVICE_REQUEST_TIMEOUT_MS || 5000)
 };
 
