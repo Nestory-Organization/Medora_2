@@ -37,8 +37,17 @@ exports.register = async (req, res) => {
       });
     }
 
+    const resolvedRole = role || 'patient';
+
+    if (resolvedRole === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin accounts cannot be created through public registration'
+      });
+    }
+
     // Doctor-specific validation
-    if (role === 'doctor' && (!specialization || !licenseNumber)) {
+    if (resolvedRole === 'doctor' && (!specialization || !licenseNumber)) {
       return res.status(400).json({
         success: false,
         message: 'Specialization and license number are required for doctors'
@@ -51,10 +60,11 @@ exports.register = async (req, res) => {
       password,
       firstName,
       lastName,
-      role: role || 'patient',
+      role: resolvedRole,
       phone: phone || null,
       specialization: specialization || null,
-      licenseNumber: licenseNumber || null
+      licenseNumber: licenseNumber || null,
+      doctorVerificationStatus: resolvedRole === 'doctor' ? 'pending' : 'n_a'
     });
 
     await user.save();

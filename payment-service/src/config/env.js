@@ -20,6 +20,7 @@ module.exports = {
   port: Number(process.env.PORT),
   mongoUri: process.env.MONGO_URI,
   serviceName: process.env.SERVICE_NAME || 'payment-service',
+  internalApiKey: process.env.INTERNAL_API_KEY || '',
   payHereSandbox: process.env.PAYHERE_SANDBOX,
   payHereMerchantId: process.env.PAYHERE_MERCHANT_ID,
   payHereReturnUrl: process.env.PAYHERE_RETURN_URL,

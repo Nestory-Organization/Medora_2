@@ -16,6 +16,8 @@ module.exports = {
   mongoUri: process.env.MONGO_URI,
   jwtSecret: process.env.JWT_SECRET,
   jwtExpire: process.env.JWT_EXPIRE || '7d',
-  serviceName: process.env.SERVICE_NAME || 'auth-service'
+  serviceName: process.env.SERVICE_NAME || 'auth-service',
+  paymentServiceUrl: process.env.PAYMENT_SERVICE_URL || '',
+  internalApiKey: process.env.INTERNAL_API_KEY || ''
 };
 

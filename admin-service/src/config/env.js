@@ -18,5 +18,12 @@ module.exports = {
   authServiceUrl:
     process.env.AUTH_SERVICE_URL ||
     (process.env.NODE_ENV === 'production' ? 'http://auth-service:4001' : 'http://localhost:4001'),
+  paymentServiceUrl:
+    process.env.PAYMENT_SERVICE_URL ||
+    (process.env.NODE_ENV === 'production'
+      ? 'http://payment-service:4005'
+      : 'http://localhost:4005'),
+  internalApiKey: process.env.INTERNAL_API_KEY || '',
+  serviceRequestTimeoutMs: Number(process.env.SERVICE_REQUEST_TIMEOUT_MS || 8000),
   serviceName: process.env.SERVICE_NAME || 'admin-service'
 };

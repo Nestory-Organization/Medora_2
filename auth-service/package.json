@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "node test.js",
-    "seed:admin": "node scripts/seedAdmin.js"
+    "seed:admin": "node scripts/create-admin.js"
   },
   "keywords": ["medora", "healthcare", "microservice"],
   "license": "MIT",

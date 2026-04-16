@@ -1,7 +1,7 @@
 info:
   name: Admin Login
   type: http
-  seq: 4
+  seq: 1
 
 http:
   method: POST
@@ -10,7 +10,7 @@ http:
     type: json
     data: |-
       {
-        "email": "admin@medora.com",
+        "email": "admin@gmail.com",
         "password": "admin123"
       }
   auth:

@@ -5,6 +5,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 const systemRoutes = require('./routes/system.routes');
 const authRoutes = require('./routes/auth.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use(morgan('combined'));
 
 app.use('/', systemRoutes);
 app.use('/auth', authRoutes);
+app.use('/admin', adminRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

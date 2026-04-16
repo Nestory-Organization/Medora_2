@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const systemRoutes = require('./routes/system.routes');
+const internalRoutes = require('./routes/internal.routes');
 const paymentRoutes = require('./routes/payment.routes');
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
 app.use('/', systemRoutes);
+app.use('/internal', internalRoutes);
 app.use('/payment', paymentRoutes);
 
 app.use((req, res) => {
