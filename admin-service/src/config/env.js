@@ -18,6 +18,9 @@ module.exports = {
   authServiceUrl:
     process.env.AUTH_SERVICE_URL ||
     (process.env.NODE_ENV === 'production' ? 'http://auth-service:4001' : 'http://localhost:4001'),
+  doctorServiceUrl:
+    process.env.DOCTOR_SERVICE_URL ||
+    (process.env.NODE_ENV === 'production' ? 'http://doctor-service:4003' : 'http://localhost:4003'),
   paymentServiceUrl:
     process.env.PAYMENT_SERVICE_URL ||
     (process.env.NODE_ENV === 'production'
