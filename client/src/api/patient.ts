@@ -9,6 +9,19 @@ const patientApi = axios.create({
   },
 });
 
+export const getUserId = (user: any) => user?.id || user?._id || user?.userId || null;
+
+export const getStoredUser = () => {
+  try {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const getStoredUserId = () => getUserId(getStoredUser());
+
 // Add a request interceptor to include the auth token
 patientApi.interceptors.request.use(
   (config) => {
@@ -124,7 +137,10 @@ export const getPrescriptions = async () => {
 };
 
 export const getMyAppointments = async () => {
-    const response = await patientApi.get('/appointments/my-appointments');
+    const patientId = getStoredUserId();
+    const response = await patientApi.get('/appointments/my-appointments', {
+      params: patientId ? { patientId } : undefined,
+    });
     return response.data;
 };
 

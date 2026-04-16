@@ -5,7 +5,9 @@ import {
   getMedicalHistory, 
   getMedicalDocuments,
   getPrescriptions, 
-  getMyAppointments 
+  getMyAppointments,
+  getStoredUser,
+  getUserId,
 } from '../api/patient';
 
 interface PatientState {
@@ -19,7 +21,7 @@ interface PatientState {
 }
 
 interface PatientContextType extends PatientState {
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<any>;
   refreshHistory: () => Promise<void>;
   refreshPrescriptions: () => Promise<void>;
   refreshDocuments: () => Promise<void>;
@@ -46,27 +48,34 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
     try {
       const data = await getPatientProfile();
       setState(prev => ({ ...prev, profile: data, loading: false, error: null }));
+      return data;
     } catch (err: any) {
       const status = err?.response?.status;
 
       // Bootstrap profile for patient accounts that do not yet have a patient-service record
       if (status === 404) {
         try {
-          const userStr = localStorage.getItem('user');
-          const user = userStr ? JSON.parse(userStr) : null;
+          const user = getStoredUser();
+          const userId = getUserId(user);
 
-          if (user?.id) {
-            await registerPatientProfile({
-              userId: user.id,
-              email: user.email,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              phone: user.phone,
-            });
+          if (userId) {
+            try {
+              await registerPatientProfile({
+                userId,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                phone: user.phone,
+              });
+            } catch (registerErr: any) {
+              if (registerErr?.response?.status !== 409) {
+                throw registerErr;
+              }
+            }
 
             const createdProfile = await getPatientProfile();
             setState(prev => ({ ...prev, profile: createdProfile, loading: false, error: null }));
-            return;
+            return createdProfile;
           }
         } catch (bootstrapErr: any) {
           console.error('[PatientContext] Failed to bootstrap profile:', bootstrapErr.message);
@@ -75,6 +84,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
 
       console.error('[PatientContext] Failed to fetch profile:', err.message);
       setState(prev => ({ ...prev, profile: null, loading: false, error: `Failed to load profile: ${err.message}` }));
+      return null;
     }
   };
 
@@ -130,22 +140,21 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
   // Initial data load when token is present
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    const userStr = localStorage.getItem('user');
+    const user = getStoredUser();
     
     // Check if user is actually a patient before fetching
-    let user = null;
-    try {
-      user = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      user = null;
-    }
-
     if (token && user?.role === 'patient') {
-      refreshProfile();
-      refreshHistory();
-      refreshDocuments();
-      refreshPrescriptions();
-      refreshAppointments();
+      const loadPatientData = async () => {
+        await refreshProfile();
+        await Promise.all([
+          refreshHistory(),
+          refreshDocuments(),
+          refreshPrescriptions(),
+          refreshAppointments(),
+        ]);
+      };
+
+      loadPatientData();
     }
   }, []);
 
