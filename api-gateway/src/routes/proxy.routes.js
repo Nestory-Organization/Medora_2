@@ -71,4 +71,12 @@ router.use(
   }),
 );
 
+router.use(
+  "/admin",
+  createProxyMiddleware({
+    ...proxyOptions(env.adminServiceUrl, "admin"),
+    pathRewrite: (path) => `/admin${path}`,
+  }),
+);
+
 module.exports = router;
