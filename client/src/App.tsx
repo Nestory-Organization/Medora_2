@@ -15,6 +15,7 @@ import BookingPage from './pages/patient/BookingPage';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import AvailabilityManagement from './pages/doctor/AvailabilityManagement';
 import SymptomChecker from './pages/ai/SymptomChecker';
+import AiHistory from './pages/ai/AiHistory';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
@@ -51,6 +52,7 @@ function App() {
         
         {/* AI Services */}
         <Route path="/ai/symptom-checker" element={<SymptomChecker />} />
+        <Route path="/ai/history" element={<AiHistory />} />
       </Route>
 
       {/* Catch-all Redirect */}

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MagnifyingGlass, Clock, UserCircle, Star, Sparkle, WarningCircle } from 'phosphor-react';
 import axios from 'axios';
+import { useSearchParams } from 'react-router-dom';
 import PageTransition from '../../components/PageTransition';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
@@ -19,6 +20,7 @@ interface Doctor {
 }
 
 const BookingPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,6 +29,27 @@ const BookingPage: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    const specialtyParam = searchParams.get('specialty');
+    if (specialtyParam && specialtyParam.trim()) {
+      setSearchTerm(specialtyParam.trim());
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      return;
+    }
+
+    const specialtyParam = searchParams.get('specialty');
+    if (!specialtyParam || specialtyParam.trim().toLowerCase() !== searchTerm.trim().toLowerCase()) {
+      return;
+    }
+
+    handleSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, selectedDate, searchParams]);
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -60,8 +83,6 @@ const BookingPage: React.FC = () => {
 
   const handleBook = async () => {
     if (!selectedDoctor || !selectedSlot) return;
-
-    setBookingLoading(true);
     setMessage(null);
 
     try {

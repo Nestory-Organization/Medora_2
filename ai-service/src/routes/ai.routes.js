@@ -3,15 +3,16 @@ const {
   analyzeSymptoms,
   recommendSpecialist,
   getHealthInsights,
+  getAiHistory,
+  deleteAiHistoryItem,
 } = require("../controllers/ai.controller");
 const { authenticate } = require("../middleware/auth.middleware");
 const rateLimiter = require("../middleware/rateLimiter.middleware");
 
 const router = express.Router();
 
-// All AI endpoints require authentication and rate limiting
+// All AI endpoints require authentication
 router.use(authenticate);
-router.use(rateLimiter);
 
 /**
  * POST /api/ai/analyze-symptoms
@@ -26,7 +27,7 @@ router.use(rateLimiter);
  *   "medicalHistory": "diabetes" (optional)
  * }
  */
-router.post("/analyze-symptoms", analyzeSymptoms);
+router.post("/analyze-symptoms", rateLimiter, analyzeSymptoms);
 
 /**
  * POST /api/ai/recommend-specialist
@@ -38,7 +39,7 @@ router.post("/analyze-symptoms", analyzeSymptoms);
  *   "conditions": ["condition1"] (optional)
  * }
  */
-router.post("/recommend-specialist", recommendSpecialist);
+router.post("/recommend-specialist", rateLimiter, recommendSpecialist);
 
 /**
  * POST /api/ai/health-insights
@@ -51,6 +52,18 @@ router.post("/recommend-specialist", recommendSpecialist);
  *   "age": 40
  * }
  */
-router.post("/health-insights", getHealthInsights);
+/**
+ * GET /api/ai/history
+ * Get AI history for the authenticated user
+ */
+router.get("/history", getAiHistory);
+
+/**
+ * DELETE /api/ai/history/:id
+ * Delete a history item
+ */
+router.delete("/history/:id", deleteAiHistoryItem);
+
+router.post("/health-insights", rateLimiter, getHealthInsights);
 
 module.exports = router;

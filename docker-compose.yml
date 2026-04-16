@@ -233,6 +233,9 @@ services:
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
       GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY:-AIzaSyCi-w8_v6A9Zh7a5lP5yAOrlPkKUGKYx60}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      AI_RATE_LIMIT: ${AI_RATE_LIMIT:-120}
+      AI_RATE_WINDOW: ${AI_RATE_WINDOW:-3600}
+      DOCTOR_SERVICE_URL: http://doctor-service:4003
       SERVICE_NAME: ai-service
     ports:
       - "4007:4007"

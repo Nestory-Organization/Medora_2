@@ -9,6 +9,7 @@ import {
   Bell,
   Gear,
   CirclesFour,
+  Clock,
   type IconProps
 } from '@phosphor-icons/react';
 
@@ -68,6 +69,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
         { to: '/patient/prescriptions', icon: Pill, label: 'Prescriptions' },
         { to: '/patient/upload-reports', icon: Files, label: 'Upload Reports' },
         { to: '/ai/symptom-checker', icon: ChatTeardropDots, label: 'AI Symptom Checker' },
+        { to: '/ai/history', icon: Clock, label: 'Analysis History' },
         { to: '/patient/profile', icon: User, label: 'Profile' },
       ]
     : role === 'doctor' 

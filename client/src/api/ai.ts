@@ -20,6 +20,36 @@ type UiInsight = {
   category: string;
 };
 
+type UiSuggestedDoctor = {
+  doctorId: string;
+  name: string;
+  specialization: string;
+  yearsOfExperience?: number;
+  consultationFee?: number;
+  qualification?: string;
+  clinicAddress?: string;
+  reason?: string;
+  priority?: string;
+  matchedSpecialties?: string[];
+};
+
+type UiSpecialist = {
+  name: string;
+  reason: string;
+  priority?: string;
+  matchedDoctors?: UiSuggestedDoctor[];
+  externalSearchUrl?: string; // Added for web fallback
+};
+
+export type AiHistoryItem = {
+  _id: string;
+  type: 'analysis' | 'recommendation' | 'insight';
+  inputData: Record<string, unknown>;
+  resultData: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const clampPercentage = (value: unknown) => {
   const num = Number(value);
   if (Number.isNaN(num)) return 0;
@@ -133,26 +163,92 @@ export const analyzeSymptoms = async (data: {
   }
 };
 
-export const recommendSpecialist = async (data: { symptoms: string[]; conditions?: string[] }) => {
+export const getAiHistory = async () => {
+  try {
+    const response = await aiApi.get('/history');
+    return {
+      ...response.data,
+      data: Array.isArray(response.data?.data) ? (response.data.data as AiHistoryItem[]) : [],
+    };
+  } catch (error) {
+    throw handleApiError(error as AxiosError);
+  }
+};
+
+export const deleteAiHistoryItem = async (id: string) => {
+  try {
+    const response = await aiApi.delete(`/history/${id}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error as AxiosError);
+  }
+};
+
+export const recommendSpecialist = async (data: { symptoms: string[]; conditions?: string[]; analysisHistoryId?: string }) => {
   try {
     const response = await aiApi.post('/recommend-specialist', data);
     const payload = response.data?.data ?? response.data ?? {};
 
-    const specialists = Array.isArray(payload?.specialists)
-      ? payload.specialists
+    const specialists: UiSpecialist[] = Array.isArray(payload?.specialties)
+      ? payload.specialties.map((item: any) => ({
+          name: String(item?.specialty ?? 'Specialist'),
+          reason: String(item?.reason ?? ''),
+          priority: item?.priority,
+          externalSearchUrl: item?.externalSearchUrl, // Added
+          matchedDoctors: Array.isArray(item?.matchedDoctors)
+            ? item.matchedDoctors.map((doctor: any) => ({
+                doctorId: String(doctor?.doctorId ?? ''),
+                name: String(doctor?.name ?? 'Unknown Doctor'),
+                specialization: String(doctor?.specialization ?? item?.specialty ?? ''),
+                yearsOfExperience: doctor?.yearsOfExperience,
+                consultationFee: doctor?.consultationFee,
+                qualification: doctor?.qualification,
+                clinicAddress: doctor?.clinicAddress,
+                reason: doctor?.reason,
+                priority: doctor?.priority,
+              }))
+            : [],
+        }))
       : Array.isArray(payload?.specialtyRecommendations)
         ? payload.specialtyRecommendations.map((item: any) => ({
             name: String(item?.specialty ?? 'Specialist'),
             reason: String(item?.reason ?? ''),
             priority: item?.priority,
+            matchedDoctors: [],
           }))
-        : [];
+        : Array.isArray(payload?.specialists)
+          ? payload.specialists.map((item: any) => ({
+              name: String(item?.name ?? item?.specialty ?? 'Specialist'),
+              reason: String(item?.reason ?? ''),
+              priority: item?.priority,
+              matchedDoctors: [],
+            }))
+          : [];
+
+    const suggestedDoctors: UiSuggestedDoctor[] = Array.isArray(payload?.suggestedDoctors)
+      ? payload.suggestedDoctors.map((doctor: any) => ({
+          doctorId: String(doctor?.doctorId ?? ''),
+          name: String(doctor?.name ?? 'Unknown Doctor'),
+          specialization: String(doctor?.specialization ?? ''),
+          yearsOfExperience: doctor?.yearsOfExperience,
+          consultationFee: doctor?.consultationFee,
+          qualification: doctor?.qualification,
+          clinicAddress: doctor?.clinicAddress,
+          reason: doctor?.reason,
+          priority: doctor?.priority,
+          matchedSpecialties: Array.isArray(doctor?.matchedSpecialties)
+            ? doctor.matchedSpecialties.map((specialty: any) => String(specialty))
+            : [],
+        }))
+      : specialists.flatMap((specialist) => specialist.matchedDoctors || []);
 
     return {
       ...response.data,
       data: {
         ...payload,
         specialists,
+        suggestedDoctors,
+        doctorCoverage: payload?.doctorCoverage,
       },
     };
   } catch (error) {
@@ -160,7 +256,7 @@ export const recommendSpecialist = async (data: { symptoms: string[]; conditions
   }
 };
 
-export const getHealthInsights = async (data: { symptoms: string[]; medicalHistory?: string; age?: number }) => {
+export const getHealthInsights = async (data: { symptoms: string[]; medicalHistory?: string; age?: number; analysisHistoryId?: string }) => {
   try {
     const response = await aiApi.post('/health-insights', data);
     const payload = response.data?.data ?? response.data ?? {};
@@ -182,24 +278,34 @@ const handleApiError = (error: AxiosError) => {
   if (error.response) {
     const status = error.response.status;
     const data = error.response.data as any;
+    let message = 'An unexpected error occurred.';
 
     if (status === 400) {
-      return new Error(data.message || 'Validation error. Please check your inputs.');
-    }
-    if (status === 401) {
+      message = data.message || 'Validation error. Please check your inputs.';
+    } else if (status === 401) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      return new Error('Your session has expired or is invalid. Please log in again.');
+      message = 'Your session has expired or is invalid. Please log in again.';
+    } else if (status === 503) {
+      message = data.message || 'AI service temporarily unavailable. Please try again later.';
+    } else if (status === 504) {
+      message = 'Request timeout. Please try again.';
+    } else if (status === 429) {
+      message = 'Too many requests. Please try again later.';
+    } else if (status >= 500) {
+      message = data.message || 'Server error. Please try again later.';
+    } else {
+      message = data.message || 'An unexpected error occurred.';
     }
-    if (status === 429) {
-      return new Error('Too many requests. Please try again later.');
-    }
-    if (status >= 500) {
-      return new Error('AI service unavailable. Please try again later.');
-    }
-    return new Error(data.message || 'An unexpected error occurred.');
+
+    // Create error with response attached for frontend error handling
+    const err = new Error(message) as any;
+    err.response = error.response;
+    return err;
   }
-  return new Error('Network error. Please check your connection.');
+  const err = new Error('Network error. Please check your connection.') as any;
+  err.response = error.response;
+  return err;
 };
 
 export default aiApi;
