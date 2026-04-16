@@ -11,7 +11,9 @@ import UploadReports from './pages/patient/UploadReports';
 import MedicalHistory from './pages/patient/MedicalHistory';
 import Prescriptions from './pages/patient/Prescriptions';
 import MyAppointments from './pages/patient/MyAppointments';
+import BookingPage from './pages/patient/BookingPage';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
+import AvailabilityManagement from './pages/doctor/AvailabilityManagement';
 import SymptomChecker from './pages/ai/SymptomChecker';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -39,7 +41,9 @@ function App() {
         <Route path="/patient/history" element={<MedicalHistory />} />
         <Route path="/patient/prescriptions" element={<Prescriptions />} />
         <Route path="/patient/appointments" element={<MyAppointments />} />
+        <Route path="/patient/book" element={<BookingPage />} />
         <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+        <Route path="/doctor/availability" element={<AvailabilityManagement />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/doctors" element={<AdminDashboard />} />
         <Route path="/admin/users" element={<ManageUsers />} />

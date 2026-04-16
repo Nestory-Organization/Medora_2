@@ -7,6 +7,7 @@ import {
   Pulse,
   Plus
 } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router-dom';
 
 const StatCard = ({ icon: Icon, label, value, trend, color, trendColor }: any) => (
   <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 p-4 rounded-2xl flex flex-col justify-between group hover:border-blue-500/20 transition-all duration-300 shadow-2xl">
@@ -55,6 +56,7 @@ const PatientProgressRow = ({ name, status, time, condition }: any) => (
 export default function DoctorDashboard() {
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : null;
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-6">
@@ -73,7 +75,10 @@ export default function DoctorDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl font-black text-white shadow-2xl shadow-blue-500/20 hover:scale-105 transition-all active:scale-95 flex items-center gap-2 uppercase tracking-widest text-[10px]">
+          <button 
+            onClick={() => navigate('/doctor/availability')}
+            className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl font-black text-white shadow-2xl shadow-blue-500/20 hover:scale-105 transition-all active:scale-95 flex items-center gap-2 uppercase tracking-widest text-[10px]"
+          >
             <Plus weight="bold" size={14} />
             Set Availability
           </button>

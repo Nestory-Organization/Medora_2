@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   CalendarCheck, 
   Users, 
@@ -104,6 +105,7 @@ const AppointmentRow = ({ appointment, onCancel }: any) => {
 };
 
 export default function MyAppointments() {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -158,7 +160,7 @@ export default function MyAppointments() {
               description="You haven't scheduled any consultations yet. Ready to start your health journey?"
               action={{
                 label: "Book Your First Appointment",
-                onClick: () => console.log("Navigate to booking")
+                onClick: () => navigate("/patient/book")
               }}
             />
           )}
