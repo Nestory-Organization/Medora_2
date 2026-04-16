@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeClosed, EnvelopeSimple, LockKey, Stethoscope, UserList, CircleNotch } from '@phosphor-icons/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register } from '../../api/auth';
+import { registerPatientProfile } from '../../api/patient';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -46,6 +47,17 @@ export default function Register() {
         if (role === 'doctor') {
           navigate('/doctor/dashboard');
         } else {
+          try {
+            await registerPatientProfile({
+              userId: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              phone: user.phone,
+            });
+          } catch (bootstrapErr) {
+            // Profile bootstrap is best-effort; PatientContext also auto-recovers on first load.
+          }
           navigate('/patient/dashboard');
         }
       } else {

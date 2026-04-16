@@ -57,6 +57,10 @@ const registerPatient = async (req, res) => {
       email,
       firstName,
       lastName,
+      phone,
+      address,
+      age,
+      gender,
       dateOfBirth,
       bloodType,
       allergies,
@@ -82,6 +86,10 @@ const registerPatient = async (req, res) => {
       email: email || null,
       firstName: firstName || null,
       lastName: lastName || null,
+      phone: phone || null,
+      address: address || null,
+      age: typeof age === "number" ? age : null,
+      gender: gender || null,
       dateOfBirth: dateOfBirth || null,
       bloodType: bloodType || null,
       allergies: Array.isArray(allergies) ? allergies : [],
@@ -122,6 +130,10 @@ const getPatientProfile = async (req, res) => {
       userId: patient.userId,
       firstName: patient.firstName,
       lastName: patient.lastName,
+      phone: patient.phone,
+      address: patient.address,
+      age: patient.age,
+      gender: patient.gender,
       email: patient.email,
       dateOfBirth: patient.dateOfBirth,
       bloodType: patient.bloodType,
@@ -161,6 +173,16 @@ const updatePatientProfile = async (req, res) => {
 
     const payload = {};
     const allowedFields = [
+      "firstName",
+      "lastName",
+      "phone",
+      "address",
+      "age",
+      "gender",
+      "dateOfBirth",
+      "bloodType",
+      "allergies",
+      "emergencyContact",
       "medicalSummary",
       "chronicConditions",
       "currentMedications",
@@ -206,6 +228,35 @@ const updatePatientProfile = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "currentMedications must be an array",
+      });
+    }
+
+    if (payload.allergies && !Array.isArray(payload.allergies)) {
+      return res.status(400).json({
+        success: false,
+        message: "allergies must be an array",
+      });
+    }
+
+    if (
+      payload.age !== undefined &&
+      payload.age !== null &&
+      (typeof payload.age !== "number" || payload.age < 0 || payload.age > 150)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "age must be a number between 0 and 150",
+      });
+    }
+
+    if (
+      payload.gender !== undefined &&
+      payload.gender !== null &&
+      !["Male", "Female", "Other"].includes(payload.gender)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "gender must be Male, Female, or Other",
       });
     }
 

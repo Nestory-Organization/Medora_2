@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { 
   getPatientProfile, 
+  registerPatientProfile,
   getMedicalHistory, 
+  getMedicalDocuments,
   getPrescriptions, 
   getMyAppointments 
 } from '../api/patient';
@@ -9,6 +11,7 @@ import {
 interface PatientState {
   profile: any | null;
   history: any[];
+  documents: any[];
   prescriptions: any[];
   appointments: any[];
   loading: boolean;
@@ -19,6 +22,7 @@ interface PatientContextType extends PatientState {
   refreshProfile: () => Promise<void>;
   refreshHistory: () => Promise<void>;
   refreshPrescriptions: () => Promise<void>;
+  refreshDocuments: () => Promise<void>;
   refreshAppointments: () => Promise<void>;
   clearError: () => void;
   setError: (msg: string) => void;
@@ -30,6 +34,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<PatientState>({
     profile: null,
     history: [],
+    documents: [],
     prescriptions: [],
     appointments: [],
     loading: false,
@@ -40,8 +45,34 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
     setState(prev => ({ ...prev, loading: true }));
     try {
       const data = await getPatientProfile();
-      setState(prev => ({ ...prev, profile: data.data || data, loading: false, error: null }));
+      setState(prev => ({ ...prev, profile: data, loading: false, error: null }));
     } catch (err: any) {
+      const status = err?.response?.status;
+
+      // Bootstrap profile for patient accounts that do not yet have a patient-service record
+      if (status === 404) {
+        try {
+          const userStr = localStorage.getItem('user');
+          const user = userStr ? JSON.parse(userStr) : null;
+
+          if (user?.id) {
+            await registerPatientProfile({
+              userId: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              phone: user.phone,
+            });
+
+            const createdProfile = await getPatientProfile();
+            setState(prev => ({ ...prev, profile: createdProfile, loading: false, error: null }));
+            return;
+          }
+        } catch (bootstrapErr: any) {
+          console.error('[PatientContext] Failed to bootstrap profile:', bootstrapErr.message);
+        }
+      }
+
       console.error('[PatientContext] Failed to fetch profile:', err.message);
       setState(prev => ({ ...prev, profile: null, loading: false, error: `Failed to load profile: ${err.message}` }));
     }
@@ -50,17 +81,27 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
   const refreshHistory = async () => {
     try {
       const data = await getMedicalHistory();
-      setState(prev => ({ ...prev, history: data.data || data || [], error: null }));
+      setState(prev => ({ ...prev, history: data || [], error: null }));
     } catch (err: any) {
       console.error('[PatientContext] Failed to fetch medical history:', err.message);
       setState(prev => ({ ...prev, history: [] }));
     }
   };
 
+  const refreshDocuments = async () => {
+    try {
+      const data = await getMedicalDocuments();
+      setState(prev => ({ ...prev, documents: data || [], error: null }));
+    } catch (err: any) {
+      console.error('[PatientContext] Failed to fetch documents:', err.message);
+      setState(prev => ({ ...prev, documents: [] }));
+    }
+  };
+
   const refreshPrescriptions = async () => {
     try {
       const data = await getPrescriptions();
-      setState(prev => ({ ...prev, prescriptions: data.data || data || [], error: null }));
+      setState(prev => ({ ...prev, prescriptions: data || [], error: null }));
     } catch (err: any) {
       console.error('[PatientContext] Failed to fetch prescriptions:', err.message);
       setState(prev => ({ ...prev, prescriptions: [] }));
@@ -102,6 +143,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
     if (token && user?.role === 'patient') {
       refreshProfile();
       refreshHistory();
+      refreshDocuments();
       refreshPrescriptions();
       refreshAppointments();
     }
@@ -113,6 +155,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
       refreshProfile, 
       refreshHistory, 
       refreshPrescriptions, 
+      refreshDocuments,
       refreshAppointments,
       clearError,
       setError

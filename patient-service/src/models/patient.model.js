@@ -66,6 +66,27 @@ const patientSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    phone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    address: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    age: {
+      type: Number,
+      min: 0,
+      max: 150,
+      default: null,
+    },
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other", null],
+      default: null,
+    },
     dateOfBirth: {
       type: Date,
       default: null,

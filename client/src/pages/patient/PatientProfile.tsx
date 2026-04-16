@@ -52,7 +52,14 @@ export default function PatientProfile() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await updatePatientProfile(formData);
+      const payload = {
+        ...formData,
+        age:
+          formData.age === '' || formData.age === null || formData.age === undefined
+            ? null
+            : Number(formData.age),
+      };
+      await updatePatientProfile(payload);
       await refreshProfile();
       setIsEditing(false);
     } catch (err: any) {
