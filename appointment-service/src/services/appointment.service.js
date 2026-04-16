@@ -39,6 +39,13 @@ const requiredFields = [
 ];
 
 const blockedUpdateStatuses = ['CANCELLED', 'COMPLETED'];
+const APPOINTMENT_STATUSES = [
+  'PENDING_PAYMENT',
+  'CONFIRMED',
+  'CANCELLED',
+  'COMPLETED'
+];
+const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'FAILED', 'REFUNDED'];
 
 const normalizeDateToDay = (value) => {
   const parsedDate = new Date(value);
@@ -288,10 +295,73 @@ const cancelAppointment = async (appointmentId) => {
   return mapAppointment(updated);
 };
 
+const updateAppointmentPaymentState = async (appointmentId, payload) => {
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    throw new AppointmentValidationError('Invalid appointment id');
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    throw new AppointmentValidationError('Request payload is required');
+  }
+
+  const hasPaymentStatus = Object.prototype.hasOwnProperty.call(
+    payload,
+    'paymentStatus'
+  );
+
+  if (!hasPaymentStatus) {
+    throw new AppointmentValidationError('paymentStatus is required');
+  }
+
+  const paymentStatus = String(payload.paymentStatus).trim().toUpperCase();
+
+  if (!PAYMENT_STATUSES.includes(paymentStatus)) {
+    throw new AppointmentValidationError(
+      'paymentStatus must be one of: ' + PAYMENT_STATUSES.join(', ')
+    );
+  }
+
+  const nextStatus = Object.prototype.hasOwnProperty.call(payload, 'status')
+    ? String(payload.status).trim().toUpperCase()
+    : null;
+
+  if (nextStatus && !APPOINTMENT_STATUSES.includes(nextStatus)) {
+    throw new AppointmentValidationError(
+      'status must be one of: ' + APPOINTMENT_STATUSES.join(', ')
+    );
+  }
+
+  const existingAppointment = await Appointment.findById(appointmentId);
+
+  if (!existingAppointment) {
+    throw new AppointmentNotFoundError('Appointment not found');
+  }
+
+  if (
+    nextStatus === 'CONFIRMED' &&
+    ['CANCELLED', 'COMPLETED'].includes(existingAppointment.status)
+  ) {
+    throw new AppointmentValidationError(
+      'Cannot confirm appointment when status is ' + existingAppointment.status
+    );
+  }
+
+  existingAppointment.paymentStatus = paymentStatus;
+
+  if (nextStatus) {
+    existingAppointment.status = nextStatus;
+  }
+
+  const updated = await existingAppointment.save();
+
+  return mapAppointment(updated);
+};
+
 module.exports = {
   createAppointment,
   updateAppointment,
   cancelAppointment,
+  updateAppointmentPaymentState,
   AppointmentValidationError,
   AppointmentConflictError,
   AppointmentNotFoundError
