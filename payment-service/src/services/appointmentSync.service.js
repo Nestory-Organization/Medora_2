@@ -4,10 +4,24 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
   const normalizedPaymentStatus = String(paymentStatus || '').toUpperCase();
 
   if (!['SUCCESS', 'FAILED'].includes(normalizedPaymentStatus)) {
-    return { skipped: true, reason: 'No appointment sync required for this status' };
+    return {
+      skipped: true,
+      success: false,
+      reason: 'No appointment sync required for this status'
+    };
   }
 
-  const endpoint =
+  if (!appointmentId || !String(appointmentId).trim()) {
+    return {
+      skipped: false,
+      success: false,
+      statusCode: null,
+      targetUrl: null,
+      error: 'appointmentId is required for appointment sync'
+    };
+  }
+
+  const targetUrl =
     env.appointmentServiceUrl.replace(/\/$/, '') +
     '/appointments/' +
     encodeURIComponent(String(appointmentId)) +
@@ -24,7 +38,7 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
   }, env.serviceRequestTimeoutMs);
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(targetUrl, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json'
@@ -35,7 +49,13 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
 
     let responseBody = null;
     try {
-      responseBody = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        responseBody = await response.json();
+      } else {
+        responseBody = await response.text();
+      }
     } catch (parseError) {
       responseBody = null;
     }
@@ -45,8 +65,10 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
         skipped: false,
         success: false,
         statusCode: response.status,
+        targetUrl,
+        responseBody,
         error:
-          responseBody?.message ||
+          (typeof responseBody === 'object' && responseBody?.message) ||
           'Appointment-service returned a non-success response'
       };
     }
@@ -55,13 +77,18 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
       skipped: false,
       success: true,
       statusCode: response.status,
-      data: responseBody?.data || null
+      targetUrl,
+      data:
+        typeof responseBody === 'object' && responseBody !== null
+          ? responseBody?.data || null
+          : null
     };
   } catch (error) {
     return {
       skipped: false,
       success: false,
       statusCode: null,
+      targetUrl,
       error:
         error.name === 'AbortError'
           ? 'Request timed out while calling appointment-service'

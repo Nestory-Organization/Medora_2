@@ -188,8 +188,10 @@ const processWebhook = async (payload) => {
     if (!syncResult.success && !syncResult.skipped) {
       console.error('Appointment-service sync failed:', {
         appointmentId: updated.appointmentId,
+        targetUrl: syncResult.targetUrl,
         paymentStatus: updated.status,
         statusCode: syncResult.statusCode,
+        responseBody: syncResult.responseBody,
         error: syncResult.error
       });
     }
