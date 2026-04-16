@@ -1,0 +1,25 @@
+info:
+  name: 01 - Create Payment Session - Success
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://127.0.0.1:4005/payment/create-session
+  body:
+    type: json
+    data: |-
+      {
+        "appointmentId": "69dfd834ee9e053bbaccbe40",
+        "patientId": "pat-1001",
+        "amount": 85,
+        "currency": "LKR",
+        "paymentMethod": "CARD"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

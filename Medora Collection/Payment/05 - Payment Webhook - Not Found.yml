@@ -1,0 +1,24 @@
+info:
+  name: 05 - Payment Webhook - Not Found
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://127.0.0.1:4005/payment/webhook
+  body:
+    type: json
+    data: |-
+      {
+        "order_id": "680000000000000000000000",
+        "status_code": 2,
+        "payment_id": "PH_TXN_999999",
+        "payment_method": "VISA"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
