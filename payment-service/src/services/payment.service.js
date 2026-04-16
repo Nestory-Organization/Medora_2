@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 const Payment = require('../models/payment.model');
 const payHereConfig = require('../config/payhere');
+<<<<<<< Updated upstream
+=======
+const env = require('../config/env');
+>>>>>>> Stashed changes
 const { updateAppointmentFromPayment } = require('./appointmentSync.service');
 
 class PaymentValidationError extends Error {
@@ -20,6 +24,47 @@ class PaymentNotFoundError extends Error {
 }
 
 const requiredCreateFields = ['appointmentId', 'patientId', 'amount', 'currency'];
+
+const publishNotificationEvent = async (eventType, payload) => {
+  const baseUrl = String(env.notificationServiceUrl || '').replace(/\/$/, '');
+
+  if (!baseUrl) {
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, env.serviceRequestTimeoutMs);
+
+  try {
+    const response = await fetch(baseUrl + '/notify/event', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        eventType,
+        ...payload
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      console.error('notification-service event publish failed:', {
+        eventType,
+        statusCode: response.status
+      });
+    }
+  } catch (error) {
+    console.error('notification-service event publish error:', {
+      eventType,
+      error: error.name === 'AbortError' ? 'Request timed out' : error.message
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 
 const mapPayment = (payment) => ({
   paymentId: payment._id,
@@ -197,17 +242,52 @@ const processWebhook = async (payload) => {
     }
 
     if (updated.status === 'SUCCESS') {
-      // Future inter-service communication: publish payment-success event to notification-service.
+      publishNotificationEvent('PAYMENT_SUCCESS', {
+        paymentId: String(updated._id),
+        appointmentId: updated.appointmentId,
+        patientId: updated.patientId,
+        amount: updated.amount,
+        currency: updated.currency,
+        transactionId: updated.transactionId,
+        metadata: {
+          gateway: updated.gateway,
+          paymentMethod: updated.paymentMethod
+        },
+        email: payload.customer_email || null,
+        phone: payload.customer_phone || null
+      });
     }
 
     if (updated.status === 'FAILED') {
-      // Future inter-service communication: publish payment-failure event to notification-service.
+      publishNotificationEvent('PAYMENT_FAILED', {
+        paymentId: String(updated._id),
+        appointmentId: updated.appointmentId,
+        patientId: updated.patientId,
+        amount: updated.amount,
+        currency: updated.currency,
+        metadata: {
+          gateway: updated.gateway,
+          paymentMethod: updated.paymentMethod
+        },
+        email: payload.customer_email || null,
+        phone: payload.customer_phone || null
+      });
     }
   }
 
   if (updated.status === 'REFUNDED') {
     // Future inter-service communication: notify appointment-service to reflect refunded payment state.
-    // Future inter-service communication: publish payment-refunded event to notification-service.
+    publishNotificationEvent('PAYMENT_REFUNDED', {
+      paymentId: String(updated._id),
+      appointmentId: updated.appointmentId,
+      patientId: updated.patientId,
+      amount: updated.amount,
+      currency: updated.currency,
+      metadata: {
+        gateway: updated.gateway,
+        paymentMethod: updated.paymentMethod
+      }
+    });
   }
 
   return mapPayment(updated);
