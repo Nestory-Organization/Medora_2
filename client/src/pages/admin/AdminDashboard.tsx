@@ -1,172 +1,234 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Users,
+  UserCheck,
+  Calendar,
+  DollarSign,
+  TrendingUp,
+  Activity,
+  Search,
+  Bell,
+  ChevronRight,
+  MoreVertical,
+  ArrowUpRight,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  RefreshCcw,
+  Clock,
+  Filter
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from "recharts";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
-interface DoctorProfile {
-  doctorId: string;
-  firstName: string;
-  lastName: string;
-  specialization: string;
-  isVerified: boolean;
-}
+// --- MOCK DATA FOR UI ---
+const GROWTH_DATA = [
+  { name: "Jan", users: 400, revenue: 2400 },
+  { name: "Feb", users: 300, revenue: 1398 },
+  { name: "Mar", users: 600, revenue: 9800 },
+  { name: "Apr", users: 800, revenue: 3908 },
+  { name: "May", users: 1100, revenue: 4800 },
+  { name: "Jun", users: 1500, revenue: 13800 },
+  { name: "Jul", users: 2100, revenue: 15300 },
+];
 
-const AdminDashboard: React.FC = () => {
-  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
+const RECENT_ACTIVITY = [
+  { id: 1, type: "doctor", message: "Dr. Sarah Smith verified by Admin", time: "2 mins ago", color: "text-blue-400", icon: ShieldCheck },
+  { id: 2, type: "user", message: "New patient registration: John Doe", time: "15 mins ago", color: "text-purple-400", icon: Users },
+  { id: 3, type: "app", message: "Appointment #BK-882 confirmed", time: "1 hour ago", color: "text-cyan-400", icon: Calendar },
+  { id: 4, type: "payment", message: "Revenue milestone reached: $50k", time: "3 hours ago", color: "text-emerald-400", icon: DollarSign },
+];
+
+// --- COMPONENTS ---
+
+const GlassCard = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
+  <div className={`relative overflow-hidden rounded-3xl bg-white/[0.03] backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] ${className}`}>
+    {children}
+  </div>
+);
+
+const StatCard = ({ title, value, icon: Icon, trend, color, delay = 0 }: any) => (
+  <motion.div
+    initial={{ opacity: 0, y: 30 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay, duration: 0.5, ease: "easeOut" }}
+    whileHover={{ y: -8, transition: { duration: 0.2 } }}
+    className="group"
+  >
+    <GlassCard className="p-6 h-full transition-all duration-300 group-hover:border-white/20">
+      <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${color} opacity-10 blur-3xl group-hover:opacity-20 transition-opacity`} />
+      
+      <div className="flex justify-between items-start mb-6">
+        <div className={`p-4 rounded-2xl bg-gradient-to-br ${color} shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform duration-300`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+        <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold bg-emerald-400/10 px-3 py-1.5 rounded-full border border-emerald-400/20">
+          <TrendingUp className="w-3.5 h-3.5" />
+          {trend}
+        </div>
+      </div>
+      
+      <p className="text-slate-400 text-sm font-semibold mb-1 uppercase tracking-wider">{title}</p>
+      <div className="flex items-baseline gap-2">
+        <h3 className="text-3xl font-black text-white tracking-tighter">
+          {typeof value === 'number' ? value.toLocaleString() : value}
+        </h3>
+        <span className="text-slate-500 text-xs font-medium">this month</span>
+      </div>
+    </GlassCard>
+  </motion.div>
+);
+
+const SkeletonCard = () => (
+    <div className="animate-pulse p-6 rounded-3xl bg-white/5 border border-white/10 h-40">
+        <div className="flex justify-between mb-6">
+            <div className="w-12 h-12 bg-white/10 rounded-2xl"></div>
+            <div className="w-16 h-6 bg-white/10 rounded-full"></div>
+        </div>
+        <div className="w-24 h-4 bg-white/10 rounded mb-2"></div>
+        <div className="w-32 h-8 bg-white/10 rounded"></div>
+    </div>
+);
+
+const FilesIcon = ({className}: {className?: string}) => (
+    <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width="24" 
+        height="24" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        className={className}
+    >
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+        <polyline points="14 2 14 8 20 8" />
+    </svg>
+);
+
+const AdminDashboard = () => {
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalDoctors: 0,
+    pendingDoctorVerifications: 0,
+    revenue: 0,
+  });
+  const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchDoctors();
+    fetchDashboardData();
   }, []);
 
-  const fetchDoctors = async () => {
-    const token = localStorage.getItem('authToken');
-    const userStr = localStorage.getItem('user');
-
-    if (!token || !userStr) {
-      navigate('/login');
-      return;
-    }
-
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    const token = localStorage.getItem("authToken");
     try {
-      const response = await fetch('http://localhost:4000/api/admin/doctors', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setDoctors(data.data || []);
-      } else {
-        setError(data.message);
-      }
-    } catch (err) {
-      setError('Failed to fetch doctors');
+      const [statsRes, doctorsRes] = await Promise.all([
+        axios.get("http://localhost:4000/api/admin/stats", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get("http://localhost:4000/api/admin/doctors", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ]);
+
+      if (statsRes.data.success) setStats(statsRes.data.data);
+      if (doctorsRes.data.success) setDoctors(doctorsRes.data.data.slice(0, 5));
+      
+    } catch (error) {
+      toast.error("Failed to sync platform data");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleVerify = async (doctorId: string, status: boolean) => {
-    const token = localStorage.getItem('authToken');
-    try {
-      const response = await fetch(`http://localhost:4000/api/admin/doctor/${doctorId}/verify`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status })
-      });
-      const data = await response.json();
-      if (data.success) {
-        fetchDoctors(); // Refresh list
-      }
-    } catch (err) {
-      alert('Error updating status');
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    navigate('/login');
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardData();
+    toast.info("Updating real-time stats...");
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-white tracking-tight uppercase">Verify Doctors</h1>
-        <p className="text-slate-400 text-sm">Review doctor applications and system verification status</p>
-      </div>
+    <div className="min-h-screen bg-[#070b14] text-slate-200 selection:bg-blue-500/30 lg:ml-60">
+        <ToastContainer theme="dark" position="top-right" />
+        
+        <main className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10">
+                <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}>
+                    <div className="flex items-center gap-3 mb-1">
+                        <div className="w-2 h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+                        <h1 className="text-4xl font-black text-white tracking-tighter">System Console</h1>
+                    </div>
+                    <p className="text-slate-500 font-medium ml-5 italic">Intelligence & Control</p>
+                </motion.div>
 
-      <div className="bg-slate-900/50 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl">
-        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-          <div>
-            <h2 className="text-lg font-bold text-white uppercase">Verification Requests</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Approve licenses to grant access to the platform</p>
-          </div>
-          <button 
-            onClick={fetchDoctors} 
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-white/5 flex items-center gap-2"
-          >
-            Refresh Data
-          </button>
-        </div>
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="relative group min-w-[300px]">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input type="text" placeholder="Find patients..." className="w-full pl-12 pr-4 py-3 bg-white/[0.02] border border-white/10 rounded-2xl outline-none" />
+                    </div>
+                    <button onClick={handleRefresh} className={`p-3 bg-white/[0.02] border border-white/10 rounded-2xl ${refreshing ? 'animate-spin' : ''}`}><RefreshCcw className="w-5 h-5" /></button>
+                </div>
+            </div>
 
-        <div className="p-0">
-          {loading ? (
-            <div className="p-20 text-center text-slate-500 text-sm italic">Loading verify requests...</div>
-          ) : error ? (
-            <div className="m-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              {error}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {loading ? [1,2,3,4].map(i => <SkeletonCard key={i} />) : (
+                    <>
+                        <StatCard title="Patients" value={stats.totalUsers} icon={Users} trend="+42%" color="from-blue-500 to-cyan-400" delay={0.1} />
+                        <StatCard title="Medical Staff" value={stats.totalDoctors} icon={UserCheck} trend="+18%" color="from-purple-500 to-pink-500" delay={0.2} />
+                        <StatCard title="Approvals" value={stats.pendingDoctorVerifications} icon={ShieldCheck} trend="Critical" color="from-orange-500 to-amber-500" delay={0.3} />
+                        <StatCard title="Revenue" value={`$${stats.revenue}`} icon={DollarSign} trend="+14%" color="from-emerald-500 to-teal-500" delay={0.4} />
+                    </>
+                )}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/5 bg-white/[0.01]">
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Doctor Name</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Specialization</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest text-center">Status</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest text-right">Verification Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {doctors.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-slate-500 text-sm italic">No pending doctor profiles found.</td>
-                    </tr>
-                  ) : (
-                    doctors.map(doc => (
-                      <tr key={doc.doctorId} className="group hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center text-teal-400 font-bold text-xs border border-teal-500/20 uppercase">
-                              {doc.firstName[0]}{doc.lastName[0]}
-                            </div>
-                            <span className="text-sm font-semibold text-slate-200 uppercase tracking-wide">{doc.firstName} {doc.lastName}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{doc.specialization}</span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`
-                            inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider
-                            ${doc.isVerified 
-                              ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}
-                          `}>
-                            <span className={`w-1 h-1 rounded-full ${doc.isVerified ? 'bg-green-500' : 'bg-amber-500'}`} />
-                            {doc.isVerified ? 'Verified' : 'Pending'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {!doc.isVerified ? (
-                            <button 
-                              onClick={() => handleVerify(doc.doctorId, true)}
-                              className="px-4 py-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 text-[11px] font-bold rounded-lg transition-all shadow-lg shadow-teal-500/20 uppercase"
-                            >
-                              Approve
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={() => handleVerify(doc.doctorId, false)}
-                              className="px-4 py-1.5 bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 text-[11px] font-bold rounded-lg transition-all border border-white/5 hover:border-red-500/30 uppercase"
-                            >
-                              Revoke
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+
+            <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-5">
+                    <GlassCard className="p-8 h-full">
+                        <h3 className="text-xl font-black mb-10 flex items-center gap-2"><TrendingUp /> Growth</h3>
+                        <div className="h-[400px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={GROWTH_DATA}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#fff1" vertical={false} />
+                                    <XAxis dataKey="name" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#3b82f633" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </GlassCard>
+                </motion.div>
+                <div className="lg:col-span-2 space-y-4">
+                  <GlassCard className="p-6">
+                      <h3 className="text-lg font-black mb-6">Live Feed</h3>
+                      <div className="space-y-6">
+                          {RECENT_ACTIVITY.map(a => <div key={a.id} className="text-sm"><b>{a.message}</b><br/><span className="text-xs text-slate-500">{a.time}</span></div>)}
+                      </div>
+                  </GlassCard>
+                </div>
             </div>
-          )}
-        </div>
-      </div>
+        </main>
     </div>
   );
 };
