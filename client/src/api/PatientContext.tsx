@@ -81,11 +81,15 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
     const token = localStorage.getItem('authToken');
     const userStr = localStorage.getItem('user');
     
-    // Check for either the object format or just having a token
-    if (token) {
-      if (!userStr) {
-        console.warn("PatientContext: authToken found but no 'user' object in localStorage");
-      }
+    // Check if user is actually a patient before fetching
+    let user = null;
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+
+    if (token && user?.role === 'patient') {
       refreshProfile();
       refreshHistory();
       refreshPrescriptions();

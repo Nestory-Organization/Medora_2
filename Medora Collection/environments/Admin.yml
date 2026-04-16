@@ -1,4 +1,4 @@
 variables:
-  adminToken: ""
+  adminToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZGZmZmZmNDFjZmYzZjVlMWYxZjQ5ZCIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzc2MzM3MjA4LCJleHAiOjE3NzY5NDIwMDh9.aPMAwgcxwfYM7Oskd6PFIJxxAQKJfQ_a1TlKuRbvxI4"
   api_gateway: "http://localhost:4000"
   admin_service: "http://localhost:4008"

@@ -3,20 +3,24 @@ const {
   getAllDoctorsProfiles, 
   verifyDoctorProfile,
   getAllUsers,
-  adminLogin
+  setUserActiveState,
+  getTransactions,
+  getDashboardStats,
+  getReports
 } = require('../controllers/admin.controller');
 const { authenticate, authorizeAdmin } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
-// Public admin login
-router.post('/login', adminLogin);
-
-// Protected routes
+// All admin routes require authentication and authorization
 router.use(authenticate, authorizeAdmin);
 
 router.get('/doctors', getAllDoctorsProfiles);
 router.patch('/doctor/:doctorId/verify', verifyDoctorProfile);
 router.get('/users', getAllUsers);
+router.patch('/users/:userId/active', setUserActiveState);
+router.get('/transactions', getTransactions);
+router.get('/stats', getDashboardStats);
+router.get('/reports', getReports);
 
 module.exports = router;

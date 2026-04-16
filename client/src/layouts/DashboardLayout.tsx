@@ -25,13 +25,15 @@ export default function DashboardLayout() {
   // Ensure routing matches role (basic check)
   const isDoctorRoute = location.pathname.startsWith('/doctor');
   const isPatientRoute = location.pathname.startsWith('/patient');
+  const isAdminRoute = location.pathname.startsWith('/admin');
 
+  if (isAdminRoute && user.role !== 'admin') return <Navigate to="/login" replace />;
   if (isDoctorRoute && user.role !== 'doctor') return <Navigate to="/patient/dashboard" replace />;
   if (isPatientRoute && user.role !== 'patient') return <Navigate to="/doctor/dashboard" replace />;
 
   return (
     <div className="flex bg-slate-950 min-h-screen font-sans selection:bg-teal-500/20 text-[13px]">
-      <Sidebar role={user.role as 'patient' | 'doctor'} />
+      <Sidebar role={user.role as 'patient' | 'doctor' | 'admin'} />
       <main className="flex-1 ml-60 p-6 overflow-y-auto text-white relative">
         {/* Background blobs for aesthetic */}
         <div className="absolute top-0 right-0 w-[350px] h-[350px] bg-teal-500/5 rounded-full blur-[90px] pointer-events-none -mr-28 -mt-12" />

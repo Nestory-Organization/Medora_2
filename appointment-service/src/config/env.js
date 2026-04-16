@@ -2,6 +2,11 @@
 
 dotenv.config();
 
+const defaultNotificationServiceUrl =
+  process.env.NODE_ENV === 'production'
+    ? 'http://notification-service:4006'
+    : 'http://localhost:4006';
+
 const requiredVars = ['PORT', 'MONGO_URI'];
 
 requiredVars.forEach((key) => {
@@ -16,6 +21,9 @@ module.exports = {
   mongoUri: process.env.MONGO_URI,
   serviceName: process.env.SERVICE_NAME || 'appointment-service',
   doctorSearchSource: process.env.DOCTOR_SEARCH_SOURCE || 'mock',
-  doctorServiceUrl: process.env.DOCTOR_SERVICE_URL || 'http://doctor-service:4003'
+  doctorServiceUrl: process.env.DOCTOR_SERVICE_URL || 'http://doctor-service:4003',
+  notificationServiceUrl:
+    process.env.NOTIFICATION_SERVICE_URL || defaultNotificationServiceUrl,
+  serviceRequestTimeoutMs: Number(process.env.SERVICE_REQUEST_TIMEOUT_MS || 5000)
 };
 

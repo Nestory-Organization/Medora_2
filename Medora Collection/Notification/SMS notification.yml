@@ -1,16 +1,17 @@
 info:
-  name: 02 - Create Payment Session - Missing Fields
+  name: SMS notification
   type: http
   seq: 2
 
 http:
   method: POST
-  url: http://127.0.0.1:4005/payment/create-session
+  url: http://localhost:4000/api/notifications/notify/sms
   body:
     type: json
     data: |-
       {
-        "appointmentId": "69dfd834ee9e053bbaccbe40"
+        "to": "+94771234567",
+        "message": "Your appointment is confirmed for tomorrow at 09:00."
       }
   auth: inherit
 

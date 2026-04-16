@@ -132,6 +132,8 @@ services:
       PORT: 4004
       MONGO_URI: mongodb://appointment-mongodb:27017/appointment_db
       SERVICE_NAME: appointment-service
+      NOTIFICATION_SERVICE_URL: http://notification-service:4006
+      SERVICE_REQUEST_TIMEOUT_MS: 5000
     ports:
       - "4004:4004"
     depends_on:
@@ -161,6 +163,9 @@ services:
       MONGO_URI: mongodb://payment-mongodb:27017/payment_db
       SERVICE_NAME: payment-service
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-medora_dev_internal_key}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:4004
+      NOTIFICATION_SERVICE_URL: http://notification-service:4006
+      SERVICE_REQUEST_TIMEOUT_MS: 5000
     ports:
       - "4005:4005"
     depends_on:
@@ -189,6 +194,14 @@ services:
       PORT: 4006
       MONGO_URI: mongodb://notification-mongodb:27017/notification_db
       SERVICE_NAME: notification-service
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@medora.local}
+      NOTIFICATION_EMAIL_MODE: ${NOTIFICATION_EMAIL_MODE:-mock}
+      NOTIFICATION_SMS_MODE: ${NOTIFICATION_SMS_MODE:-mock}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
     ports:
       - "4006:4006"
     depends_on:
@@ -249,6 +262,7 @@ services:
       MONGO_URI: mongodb://admin-mongodb:27017/admin_db
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
       SERVICE_NAME: admin-service
+      AUTH_SERVICE_URL: http://auth-service:4001
     ports:
       - "4008:4008"
     depends_on:

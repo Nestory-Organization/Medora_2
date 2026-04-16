@@ -1,55 +1,155 @@
 const DoctorProfile = require('../models/doctorProfile.model');
-const User = require('../models/user.model');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
+const axios = require('axios');
 const env = require('../config/env');
 
-// Admin Login
-const adminLogin = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+const createServiceClient = (baseURL, timeout) =>
+  axios.create({
+    baseURL: String(baseURL || '').replace(/\/$/, ''),
+    timeout
+  });
 
-    // In a real microservice, we would call the auth-service to verify credentials
-    // For now, we search the local sync/shared user model or cross-check
-    // Note: This assumes admin-service has access to admin users in its own DB
-    const admin = await User.findOne({ email, role: 'admin' });
+const authApi = createServiceClient(env.authServiceUrl, env.serviceRequestTimeoutMs);
+const paymentApi = createServiceClient(
+  env.paymentServiceUrl,
+  env.serviceRequestTimeoutMs
+);
 
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid admin credentials'
-      });
+const escapeRegex = (value) =>
+  String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const parseBoolean = (value) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) {
+      return true;
     }
 
-    // Since we don't have password hashing here yet in this service (it was handled by auth),
-    // we should ideally delegate login to auth-service. 
-    // BUT since the user asked for an admin login API for the admin part:
-    
-    const token = jwt.sign(
-      { id: admin._id, email: admin.email, role: 'admin' },
-      env.jwtSecret,
-      { expiresIn: '1d' }
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        token,
-        admin: {
-          id: admin._id,
-          firstName: admin.firstName,
-          lastName: admin.lastName,
-          email: admin.email
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Admin login error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Admin login failed'
-    });
+    if (['false', '0', 'no', 'n'].includes(normalized)) {
+      return false;
+    }
   }
+
+  return null;
+};
+
+const mapAuthServiceError = (error, fallbackMessage) => {
+  if (error.response) {
+    return {
+      statusCode: error.response.status || 502,
+      message: error.response.data?.message || fallbackMessage
+    };
+  }
+
+  return {
+    statusCode: 502,
+    message: fallbackMessage
+  };
+};
+
+const fetchUsersFromAuth = async (authHeader) => {
+  const response = await authApi.get('/auth/users', {
+    headers: {
+      Authorization: authHeader || ''
+    }
+  });
+
+  return Array.isArray(response.data?.data) ? response.data.data : [];
+};
+
+const fetchTransactionsFromPayment = async (query = {}) => {
+  if (!env.internalApiKey) {
+    return {
+      items: [],
+      pagination: { page: 1, limit: 20, total: 0 },
+      revenue: 0
+    };
+  }
+
+  const response = await paymentApi.get('/internal/transactions', {
+    params: query,
+    headers: {
+      'x-internal-key': env.internalApiKey
+    }
+  });
+
+  return response.data?.data || {
+    items: [],
+    pagination: { page: 1, limit: 20, total: 0 },
+    revenue: 0
+  };
+};
+
+const withDefaultVerification = (users) =>
+  users.map((user) => {
+    const clone = { ...user };
+
+    if (
+      clone.role === 'doctor' &&
+      (clone.doctorVerificationStatus === undefined ||
+        clone.doctorVerificationStatus === null)
+    ) {
+      clone.doctorVerificationStatus = 'pending';
+    }
+
+    return clone;
+  });
+
+const summarizeReports = (users, transactions, doctors) => {
+  const usersByRole = users.reduce(
+    (acc, user) => {
+      const role = ['patient', 'doctor', 'admin'].includes(user.role)
+        ? user.role
+        : 'patient';
+      acc[role] += 1;
+      return acc;
+    },
+    { patient: 0, doctor: 0, admin: 0 }
+  );
+
+  const usersByStatus = users.reduce(
+    (acc, user) => {
+      if (user.isActive) {
+        acc.active += 1;
+      } else {
+        acc.disabled += 1;
+      }
+      return acc;
+    },
+    { active: 0, disabled: 0 }
+  );
+
+  const doctorsByVerification = doctors.reduce(
+    (acc, doctor) => {
+      if (doctor.isVerified) {
+        acc.verified += 1;
+      } else {
+        acc.pending += 1;
+      }
+      return acc;
+    },
+    { verified: 0, pending: 0 }
+  );
+
+  const transactionsByStatus = transactions.reduce((acc, tx) => {
+    const normalized = String(tx.status || '').toUpperCase();
+    if (!acc[normalized]) {
+      acc[normalized] = 0;
+    }
+    acc[normalized] += 1;
+    return acc;
+  }, {});
+
+  return {
+    usersByRole,
+    usersByStatus,
+    doctorsByVerification,
+    transactionsByStatus
+  };
 };
 
 // Get all doctors profiles
@@ -103,6 +203,30 @@ const verifyDoctorProfile = async (req, res) => {
       });
     }
 
+    try {
+      await authApi.put(
+        '/admin/verify-doctor',
+        {
+          userId: doctorId,
+          status: status ? 'approved' : 'rejected'
+        },
+        {
+          headers: {
+            Authorization: req.headers.authorization || ''
+          }
+        }
+      );
+    } catch (error) {
+      const mapped = mapAuthServiceError(
+        error,
+        'Failed to update doctor verification status in auth service'
+      );
+      return res.status(mapped.statusCode).json({
+        success: false,
+        message: mapped.message
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: `Doctor profile ${status ? 'verified' : 'unverified'} successfully`,
@@ -120,18 +244,192 @@ const verifyDoctorProfile = async (req, res) => {
 // Get all users (Patients/Doctors)
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({});
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+    const role = String(req.query.role || '').trim().toLowerCase();
+    const search = String(req.query.search || '').trim();
+    const isActive = parseBoolean(req.query.isActive);
+
+    let users = await fetchUsersFromAuth(req.headers.authorization || '');
+    users = withDefaultVerification(users);
+
+    if (['patient', 'doctor', 'admin'].includes(role)) {
+      users = users.filter((user) => user.role === role);
+    }
+
+    if (isActive !== null) {
+      users = users.filter((user) => Boolean(user.isActive) === isActive);
+    }
+
+    if (search) {
+      const pattern = new RegExp(escapeRegex(search), 'i');
+      users = users.filter((user) =>
+        pattern.test(user.email || '') ||
+        pattern.test(user.firstName || '') ||
+        pattern.test(user.lastName || '')
+      );
+    }
+
+    const total = users.length;
+    const pagedUsers = users.slice(skip, skip + limit);
+
     return res.status(200).json({
       success: true,
-      data: users
+      data: pagedUsers,
+      meta: {
+        page,
+        limit,
+        total
+      }
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Failed to retrieve users' });
+    const mapped = mapAuthServiceError(
+      error,
+      'Failed to retrieve users from auth service'
+    );
+
+    return res.status(mapped.statusCode).json({
+      success: false,
+      message: mapped.message
+    });
+  }
+};
+
+const setUserActiveState = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const isActive = parseBoolean(req.body?.isActive);
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user identifier'
+      });
+    }
+
+    if (isActive === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'isActive (boolean) is required'
+      });
+    }
+
+    const authResponse = await authApi.patch(
+      `/admin/users/${encodeURIComponent(userId)}/active`,
+      { isActive },
+      {
+        headers: {
+          Authorization: req.headers.authorization || ''
+        }
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: authResponse.data?.message || `User ${isActive ? 'enabled' : 'disabled'}`,
+      data: authResponse.data?.data || null
+    });
+  } catch (error) {
+    const mapped = mapAuthServiceError(error, 'Failed to update user status');
+    return res.status(mapped.statusCode).json({
+      success: false,
+      message: mapped.message
+    });
+  }
+};
+
+const getTransactions = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const status = String(req.query.status || '').trim().toLowerCase();
+
+    const data = await fetchTransactionsFromPayment({
+      page,
+      limit,
+      status: status || undefined
+    });
+
+    return res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    const mapped = mapAuthServiceError(
+      error,
+      'Failed to retrieve transactions from payment service'
+    );
+    return res.status(mapped.statusCode).json({
+      success: false,
+      message: mapped.message
+    });
+  }
+};
+
+const getDashboardStats = async (req, res) => {
+  try {
+    const [users, doctors, transactionsData] = await Promise.all([
+      fetchUsersFromAuth(req.headers.authorization || ''),
+      DoctorProfile.find({}).lean(),
+      fetchTransactionsFromPayment({ page: 1, limit: 1 })
+    ]);
+
+    const totalUsers = users.length;
+    const totalDoctors = users.filter((user) => user.role === 'doctor').length;
+    const revenue = Number(transactionsData.revenue || 0);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalUsers,
+        totalDoctors,
+        revenue,
+        pendingDoctorVerifications: doctors.filter((doc) => !doc.isVerified).length
+      }
+    });
+  } catch (error) {
+    const mapped = mapAuthServiceError(error, 'Failed to retrieve dashboard stats');
+    return res.status(mapped.statusCode).json({
+      success: false,
+      message: mapped.message
+    });
+  }
+};
+
+const getReports = async (req, res) => {
+  try {
+    const [users, doctors, transactionsData] = await Promise.all([
+      fetchUsersFromAuth(req.headers.authorization || ''),
+      DoctorProfile.find({}).lean(),
+      fetchTransactionsFromPayment({ page: 1, limit: 200 })
+    ]);
+
+    const report = summarizeReports(users, transactionsData.items || [], doctors);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        report,
+        revenue: Number(transactionsData.revenue || 0)
+      }
+    });
+  } catch (error) {
+    const mapped = mapAuthServiceError(error, 'Failed to generate reports');
+    return res.status(mapped.statusCode).json({
+      success: false,
+      message: mapped.message
+    });
   }
 };
 
 module.exports = {
   getAllDoctorsProfiles,
   verifyDoctorProfile,
-  getAllUsers
+  getAllUsers,
+  setUserActiveState,
+  getTransactions,
+  getDashboardStats,
+  getReports
 };

@@ -15,6 +15,7 @@ import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import SymptomChecker from './pages/ai/SymptomChecker';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import ManageUsers from './pages/admin/ManageUsers';
 import './App.css';
 
 function App() {
@@ -40,6 +41,8 @@ function App() {
         <Route path="/patient/appointments" element={<MyAppointments />} />
         <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/doctors" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<ManageUsers />} />
         
         {/* AI Services */}
         <Route path="/ai/symptom-checker" element={<SymptomChecker />} />

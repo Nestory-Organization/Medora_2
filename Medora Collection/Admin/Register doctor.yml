@@ -1,0 +1,28 @@
+info:
+  name: Register doctor
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://localhost:4000/api/auth/register
+  body:
+    type: json
+    data: |-
+      {
+        "email": "doctora@gmail.com.com",
+        "password": "doctor@123",
+        "firstName": "John",
+        "lastName": "Smith",
+        "role": "doctor",
+        "phone": "+94771234567",
+        "specialization": "Cardiology",
+        "licenseNumber": "DOC-1001"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
