@@ -41,6 +41,15 @@ type UiSpecialist = {
   externalSearchUrl?: string; // Added for web fallback
 };
 
+export type AiHistoryItem = {
+  _id: string;
+  type: 'analysis' | 'recommendation' | 'insight';
+  inputData: Record<string, unknown>;
+  resultData: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const clampPercentage = (value: unknown) => {
   const num = Number(value);
   if (Number.isNaN(num)) return 0;
@@ -157,7 +166,10 @@ export const analyzeSymptoms = async (data: {
 export const getAiHistory = async () => {
   try {
     const response = await aiApi.get('/history');
-    return response.data;
+    return {
+      ...response.data,
+      data: Array.isArray(response.data?.data) ? (response.data.data as AiHistoryItem[]) : [],
+    };
   } catch (error) {
     throw handleApiError(error as AxiosError);
   }
@@ -172,7 +184,7 @@ export const deleteAiHistoryItem = async (id: string) => {
   }
 };
 
-export const recommendSpecialist = async (data: { symptoms: string[]; conditions?: string[] }) => {
+export const recommendSpecialist = async (data: { symptoms: string[]; conditions?: string[]; analysisHistoryId?: string }) => {
   try {
     const response = await aiApi.post('/recommend-specialist', data);
     const payload = response.data?.data ?? response.data ?? {};
@@ -244,7 +256,7 @@ export const recommendSpecialist = async (data: { symptoms: string[]; conditions
   }
 };
 
-export const getHealthInsights = async (data: { symptoms: string[]; medicalHistory?: string; age?: number }) => {
+export const getHealthInsights = async (data: { symptoms: string[]; medicalHistory?: string; age?: number; analysisHistoryId?: string }) => {
   try {
     const response = await aiApi.post('/health-insights', data);
     const payload = response.data?.data ?? response.data ?? {};

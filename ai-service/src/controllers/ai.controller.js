@@ -10,6 +10,183 @@ const env = require("../config/env");
 const DOCTOR_FETCH_TIMEOUT_MS = 4000;
 const MAX_DOCTORS_PER_SPECIALTY = 3;
 
+const isGeminiServiceUnavailable = (error) => {
+  const message = String(error?.message || "");
+  const originalError = String(error?.originalError || "");
+  return (
+    message.includes("503 Service Unavailable") ||
+    originalError.includes("503 Service Unavailable") ||
+    originalError.includes("high demand")
+  );
+};
+
+const buildFallbackSymptomAnalysis = (symptoms = [], severity = 5) => {
+  const severityNum = Number(severity);
+  const severityLevel =
+    severityNum <= 3 ? "Low" : severityNum <= 7 ? "Medium" : "High";
+  const symptomList = Array.isArray(symptoms)
+    ? symptoms.map((s) => String(s).toLowerCase())
+    : [];
+
+  const likelyConditions = [];
+  if (symptomList.includes("fever") || symptomList.includes("cough")) {
+    likelyConditions.push({
+      name: "Viral Respiratory Infection",
+      probability: 60,
+    });
+  }
+  if (symptomList.includes("headache") || symptomList.includes("fatigue")) {
+    likelyConditions.push({
+      name: "General Fatigue / Tension Related",
+      probability: 55,
+    });
+  }
+  if (likelyConditions.length === 0) {
+    likelyConditions.push({
+      name: "Non-specific Symptom Pattern",
+      probability: 50,
+    });
+  }
+
+  const redFlags = [
+    "Severe chest pain",
+    "Shortness of breath",
+    "Persistent high fever",
+    "Confusion or drowsiness",
+  ];
+
+  return {
+    disclaimer:
+      "This fallback analysis is informational only and does not replace professional medical diagnosis.",
+    conditions: likelyConditions,
+    severityLevel,
+    advice:
+      "Monitor symptoms, stay hydrated, and seek clinical assessment if symptoms worsen or persist.",
+    redFlags,
+    recommendations: [
+      "Rest and maintain hydration.",
+      "Track symptoms every 6-8 hours.",
+      "Consult a doctor if no improvement within 24-48 hours.",
+    ],
+    fallback: true,
+  };
+};
+
+const buildFallbackSpecialistRecommendations = (symptoms = []) => {
+  const symptomList = Array.isArray(symptoms)
+    ? symptoms.map((s) => String(s).toLowerCase())
+    : [];
+  const recommendations = [];
+
+  if (
+    symptomList.some((s) =>
+      ["chest pain", "palpitation", "shortness of breath"].includes(s),
+    )
+  ) {
+    recommendations.push({
+      specialty: "Cardiology",
+      reason: "Cardiac-related symptoms may require cardiovascular evaluation.",
+      priority: "High",
+    });
+  }
+
+  if (
+    symptomList.some((s) => ["headache", "dizziness", "seizure"].includes(s))
+  ) {
+    recommendations.push({
+      specialty: "Neurology",
+      reason: "Neurological symptoms benefit from specialist review.",
+      priority: "Medium",
+    });
+  }
+
+  if (symptomList.some((s) => ["cough", "fever", "sore throat"].includes(s))) {
+    recommendations.push({
+      specialty: "General Physician",
+      reason: "General symptoms should be assessed by a primary care doctor.",
+      priority: "Medium",
+    });
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push({
+      specialty: "General Physician",
+      reason: "A primary evaluation is recommended for non-specific symptoms.",
+      priority: "Medium",
+    });
+  }
+
+  return recommendations;
+};
+
+const attachAiResponse = (resultData, aiResponseText) => ({
+  ...(resultData || {}),
+  aiResponse:
+    typeof aiResponseText === "string"
+      ? aiResponseText
+      : JSON.stringify(aiResponseText || {}),
+});
+
+const buildFallbackHealthInsights = (
+  symptoms = [],
+  medicalHistory = "",
+  age,
+) => {
+  const symptomList = Array.isArray(symptoms)
+    ? symptoms.map((s) => String(s).toLowerCase())
+    : [];
+
+  const lifestyleModifications = [
+    "Maintain a regular sleep schedule with 7-8 hours of rest.",
+    "Stay hydrated throughout the day and monitor symptom changes.",
+  ];
+
+  const dietaryRecommendations = [
+    "Choose balanced meals with vegetables, fruits, and lean proteins.",
+    "Limit highly processed foods and excess sugar while recovering.",
+  ];
+
+  const exerciseSuggestions = [
+    "Prefer light activity such as short walks unless symptoms worsen.",
+    "Avoid intense exercise until symptoms improve.",
+  ];
+
+  const preventiveMeasures = [
+    "Track symptom progression and seek medical review if symptoms persist.",
+    "Wash hands frequently and follow general infection prevention practices.",
+  ];
+
+  if (symptomList.includes("fever") || symptomList.includes("cough")) {
+    preventiveMeasures.push(
+      "Use a mask in crowded areas and monitor body temperature daily.",
+    );
+  }
+
+  if (Number(age) >= 60) {
+    preventiveMeasures.push(
+      "Given your age, seek early clinical evaluation for persistent symptoms.",
+    );
+  }
+
+  if (medicalHistory) {
+    preventiveMeasures.push(
+      "Consider your prior medical history and follow your clinician's ongoing treatment guidance.",
+    );
+  }
+
+  return {
+    disclaimer:
+      "These recommendations are generated from a fallback health rules engine and do not replace professional medical advice.",
+    lifestyleModifications,
+    dietaryRecommendations,
+    exerciseSuggestions,
+    preventiveMeasures,
+    whenToSeekHelp:
+      "Seek urgent care if you have chest pain, breathing difficulty, persistent high fever, confusion, dehydration, or rapidly worsening symptoms.",
+    fallback: true,
+  };
+};
+
 const buildDoctorSearchUrls = () => {
   const configuredBaseUrls = [
     env.doctorServiceUrl,
@@ -202,7 +379,7 @@ const validateSymptomInput = (req) => {
  * Validate input for specialist recommendation
  */
 const validateSpecialistInput = (req) => {
-  const { symptoms, conditions } = req.body;
+  const { symptoms, conditions, analysisHistoryId } = req.body;
 
   if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
     return {
@@ -215,6 +392,13 @@ const validateSpecialistInput = (req) => {
     return { valid: false, message: "Conditions must be an array if provided" };
   }
 
+  if (analysisHistoryId && typeof analysisHistoryId !== "string") {
+    return {
+      valid: false,
+      message: "analysisHistoryId must be a string if provided",
+    };
+  }
+
   return { valid: true };
 };
 
@@ -222,7 +406,7 @@ const validateSpecialistInput = (req) => {
  * Validate input for health insights
  */
 const validateHealthInsightsInput = (req) => {
-  const { symptoms, medicalHistory, age } = req.body;
+  const { symptoms, medicalHistory, age, analysisHistoryId } = req.body;
 
   if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
     return {
@@ -246,6 +430,13 @@ const validateHealthInsightsInput = (req) => {
     return {
       valid: false,
       message: "Age must be a valid number between 0 and 150",
+    };
+  }
+
+  if (analysisHistoryId && typeof analysisHistoryId !== "string") {
+    return {
+      valid: false,
+      message: "analysisHistoryId must be a string if provided",
     };
   }
 
@@ -314,36 +505,91 @@ const analyzeSymptoms = async (req, res) => {
     } catch (parseError) {
       analysisResult = { raw: response };
     }
-// Save to history
+    let analysisHistoryId = null;
+
+    // Save to history
     try {
       if (req.user?.id) {
-        await AiHistory.create({
+        const historyEntry = await AiHistory.create({
           userId: req.user.id,
           type: "analysis",
-          inputData: { symptoms: sanitizedSymptoms, duration: sanitizedDuration, severity, age },
-          resultData: analysisResult,
+          inputData: {
+            symptoms: sanitizedSymptoms,
+            duration: sanitizedDuration,
+            severity,
+            age,
+          },
+          resultData: attachAiResponse(
+            {
+              ...analysisResult,
+              recommendedDoctors: [],
+              wellnessProtocol: null,
+            },
+            response,
+          ),
         });
+        analysisHistoryId = historyEntry?._id?.toString() || null;
       }
     } catch (historyError) {
       console.error("Failed to save AI history:", historyError);
       // Don't fail the request if history save fails
     }
 
-    
     return res.status(200).json({
       success: true,
       message: "Symptom analysis completed",
       data: analysisResult,
+      analysisHistoryId,
     });
   } catch (error) {
     console.error("Error in analyzeSymptoms:", error);
 
-    // Check for Gemini API Service Unavailable (503)
-    if (error.message && error.message.includes("503 Service Unavailable")) {
-      return res.status(503).json({
-        success: false,
-        message: "AI service temporarily unavailable",
-        error: "The Gemini API is experiencing high demand. Please try again in a few moments.",
+    const shouldUseFallback =
+      isGeminiServiceUnavailable(error) ||
+      error.code === "TIMEOUT" ||
+      error.code === "RATE_LIMIT";
+
+    if (shouldUseFallback) {
+      const { symptoms, duration, severity, age } = req.body;
+      const fallbackData = buildFallbackSymptomAnalysis(
+        sanitizeInput(symptoms || []),
+        severity,
+      );
+
+      let analysisHistoryId = null;
+
+      try {
+        if (req.user?.id) {
+          const historyEntry = await AiHistory.create({
+            userId: req.user.id,
+            type: "analysis",
+            inputData: {
+              symptoms: sanitizeInput(symptoms || []),
+              duration: sanitizeInput(duration || ""),
+              severity,
+              age,
+            },
+            resultData: attachAiResponse(
+              {
+                ...fallbackData,
+                recommendedDoctors: [],
+                wellnessProtocol: null,
+              },
+              "Fallback analysis response used due to temporary AI service unavailability.",
+            ),
+          });
+          analysisHistoryId = historyEntry?._id?.toString() || null;
+        }
+      } catch (historyError) {
+        console.error("Failed to save fallback AI history:", historyError);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Symptom analysis generated using fallback guidance due to temporary AI service unavailability.",
+        data: fallbackData,
+        analysisHistoryId,
       });
     }
 
@@ -394,7 +640,7 @@ const recommendSpecialist = async (req, res) => {
       });
     }
 
-    const { symptoms, conditions } = req.body;
+    const { symptoms, conditions, analysisHistoryId } = req.body;
 
     // Sanitize inputs
     const sanitizedSymptoms = sanitizeInput(symptoms);
@@ -418,7 +664,9 @@ const recommendSpecialist = async (req, res) => {
     let recommendationResult;
     try {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
-      recommendationResult = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: response };
+      recommendationResult = jsonMatch
+        ? JSON.parse(jsonMatch[0])
+        : { raw: response };
     } catch (parseError) {
       recommendationResult = { raw: response };
     }
@@ -437,15 +685,36 @@ const recommendSpecialist = async (req, res) => {
       doctorCoverage: doctorMatches.doctorCoverage,
     };
 
-    // Save to history
+    // Save recommendation history and also enrich original analysis history if provided
     try {
       if (req.user?.id) {
         await AiHistory.create({
           userId: req.user.id,
           type: "recommendation",
-          inputData: { symptoms: sanitizedSymptoms, conditions: sanitizedConditions },
-          resultData: responsePayload,
+          inputData: {
+            symptoms: sanitizedSymptoms,
+            conditions: sanitizedConditions,
+          },
+          resultData: attachAiResponse(responsePayload, response),
         });
+
+        if (analysisHistoryId) {
+          await AiHistory.findOneAndUpdate(
+            {
+              _id: analysisHistoryId,
+              userId: req.user.id,
+              type: "analysis",
+              isDeleted: false,
+            },
+            {
+              $set: {
+                "resultData.recommendedDoctors": doctorMatches.suggestedDoctors,
+                "resultData.specialistRecommendations":
+                  specialtyRecommendations,
+              },
+            },
+          );
+        }
       }
     } catch (historyError) {
       console.error("Failed to save AI history:", historyError);
@@ -459,12 +728,72 @@ const recommendSpecialist = async (req, res) => {
   } catch (error) {
     console.error("Error in recommendSpecialist:", error);
 
-    // Check for Gemini API Service Unavailable (503)
-    if (error.message && error.message.includes("503 Service Unavailable")) {
-      return res.status(503).json({
-        success: false,
-        message: "AI service temporarily unavailable",
-        error: "The Gemini API is experiencing high demand. Please try again in a few moments.",
+    const shouldUseFallback =
+      isGeminiServiceUnavailable(error) ||
+      error.code === "TIMEOUT" ||
+      error.code === "RATE_LIMIT";
+
+    if (shouldUseFallback) {
+      const { symptoms, conditions, analysisHistoryId } = req.body;
+      const sanitizedSymptoms = sanitizeInput(symptoms || []);
+      const sanitizedConditions = sanitizeInput(conditions || []);
+      const specialtyRecommendations =
+        buildFallbackSpecialistRecommendations(sanitizedSymptoms);
+      const doctorMatches = await enrichWithRegisteredDoctors(
+        specialtyRecommendations,
+      );
+
+      const fallbackPayload = {
+        fallback: true,
+        specialtyRecommendations,
+        specialties: doctorMatches.specialties,
+        suggestedDoctors: doctorMatches.suggestedDoctors,
+        doctorCoverage: doctorMatches.doctorCoverage,
+      };
+
+      try {
+        if (req.user?.id) {
+          await AiHistory.create({
+            userId: req.user.id,
+            type: "recommendation",
+            inputData: {
+              symptoms: sanitizedSymptoms,
+              conditions: sanitizedConditions,
+            },
+            resultData: attachAiResponse(
+              fallbackPayload,
+              "Fallback specialist recommendation used due to temporary AI service unavailability.",
+            ),
+          });
+
+          if (analysisHistoryId) {
+            await AiHistory.findOneAndUpdate(
+              {
+                _id: analysisHistoryId,
+                userId: req.user.id,
+                type: "analysis",
+                isDeleted: false,
+              },
+              {
+                $set: {
+                  "resultData.recommendedDoctors":
+                    doctorMatches.suggestedDoctors,
+                  "resultData.specialistRecommendations":
+                    specialtyRecommendations,
+                },
+              },
+            );
+          }
+        }
+      } catch (historyError) {
+        console.error("Failed to save fallback AI history:", historyError);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Specialist recommendations generated using fallback guidance due to temporary AI service unavailability.",
+        data: fallbackPayload,
       });
     }
 
@@ -515,7 +844,7 @@ const getHealthInsights = async (req, res) => {
       });
     }
 
-    const { symptoms, medicalHistory, age } = req.body;
+    const { symptoms, medicalHistory, age, analysisHistoryId } = req.body;
 
     // Sanitize inputs
     const sanitizedSymptoms = sanitizeInput(symptoms);
@@ -545,15 +874,31 @@ const getHealthInsights = async (req, res) => {
       insightsResult = { raw: response };
     }
 
-    // Save to history
+    // Save insight history and also attach wellness protocol to original analysis history if provided
     try {
       if (req.user?.id) {
         await AiHistory.create({
           userId: req.user.id,
           type: "insight",
           inputData: { symptoms: sanitizedSymptoms, age },
-          resultData: insightsResult,
+          resultData: attachAiResponse(insightsResult, response),
         });
+
+        if (analysisHistoryId) {
+          await AiHistory.findOneAndUpdate(
+            {
+              _id: analysisHistoryId,
+              userId: req.user.id,
+              type: "analysis",
+              isDeleted: false,
+            },
+            {
+              $set: {
+                "resultData.wellnessProtocol": insightsResult,
+              },
+            },
+          );
+        }
       }
     } catch (historyError) {
       console.error("Failed to save AI history:", historyError);
@@ -567,12 +912,57 @@ const getHealthInsights = async (req, res) => {
   } catch (error) {
     console.error("Error in getHealthInsights:", error);
 
-    // Check for Gemini API Service Unavailable (503)
-    if (error.message && error.message.includes("503 Service Unavailable")) {
-      return res.status(503).json({
-        success: false,
-        message: "AI service temporarily unavailable",
-        error: "The Gemini API is experiencing high demand. Please try again in a few moments.",
+    const shouldUseFallback =
+      isGeminiServiceUnavailable(error) ||
+      error.code === "TIMEOUT" ||
+      error.code === "RATE_LIMIT";
+
+    if (shouldUseFallback) {
+      const { symptoms, medicalHistory, age, analysisHistoryId } = req.body;
+      const fallbackData = buildFallbackHealthInsights(
+        sanitizeInput(symptoms || []),
+        sanitizeInput(medicalHistory || ""),
+        age,
+      );
+
+      // Save fallback result to history as well
+      try {
+        if (req.user?.id) {
+          await AiHistory.create({
+            userId: req.user.id,
+            type: "insight",
+            inputData: { symptoms: sanitizeInput(symptoms || []), age },
+            resultData: attachAiResponse(
+              fallbackData,
+              "Fallback health insights used due to temporary AI service unavailability.",
+            ),
+          });
+
+          if (analysisHistoryId) {
+            await AiHistory.findOneAndUpdate(
+              {
+                _id: analysisHistoryId,
+                userId: req.user.id,
+                type: "analysis",
+                isDeleted: false,
+              },
+              {
+                $set: {
+                  "resultData.wellnessProtocol": fallbackData,
+                },
+              },
+            );
+          }
+        }
+      } catch (historyError) {
+        console.error("Failed to save fallback AI history:", historyError);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Health insights generated using fallback guidance due to temporary AI service unavailability.",
+        data: fallbackData,
       });
     }
 

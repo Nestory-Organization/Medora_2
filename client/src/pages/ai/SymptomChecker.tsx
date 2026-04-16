@@ -19,6 +19,7 @@ const SymptomChecker: React.FC = () => {
   const [loadingExtras, setLoadingExtras] = useState(false);
   const [doctorCoverage, setDoctorCoverage] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [analysisHistoryId, setAnalysisHistoryId] = useState<string | null>(null);
 
   const handleSymptomSubmit = async (formData: any) => {
     setLoading(true);
@@ -28,10 +29,12 @@ const SymptomChecker: React.FC = () => {
     setSuggestedDoctors([]);
     setDoctorCoverage(null);
     setShowInsights(false);
+    setAnalysisHistoryId(null);
     
     try {
       const response = await analyzeSymptoms(formData);
       setResults(response.data);
+      setAnalysisHistoryId(response.analysisHistoryId || null);
       setStep('analysis');
     } catch (err: any) {
       // Better error messages for different scenarios
@@ -60,6 +63,7 @@ const SymptomChecker: React.FC = () => {
         conditions: Array.isArray(results?.conditions)
           ? results.conditions.map((item: any) => item?.name).filter(Boolean)
           : undefined,
+        analysisHistoryId: analysisHistoryId || undefined,
       });
       setSpecialists(response.data.specialists);
       setSuggestedDoctors(response.data.suggestedDoctors || []);
@@ -90,6 +94,7 @@ const SymptomChecker: React.FC = () => {
         symptoms: Array.isArray(results?.symptoms) ? results.symptoms : [],
         medicalHistory: results?.medicalHistory || '',
         age: Number(results?.age || 0),
+        analysisHistoryId: analysisHistoryId || undefined,
       });
       setInsights(response.data.insights);
     } catch (err: any) {
