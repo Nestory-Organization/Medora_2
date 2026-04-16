@@ -1,40 +1,5 @@
 const env = require('../config/env');
 
-const MOCK_DOCTORS = [
-  {
-    doctorId: 'doc-1001',
-    name: 'Dr. Maya Fernando',
-    specialty: 'Cardiology',
-    hospitalOrClinic: 'City Heart Clinic',
-    consultationFee: 85,
-    availableSlots: ['2026-04-17T09:00:00.000Z', '2026-04-17T10:30:00.000Z']
-  },
-  {
-    doctorId: 'doc-1002',
-    name: 'Dr. Sameera Perera',
-    specialty: 'Cardiology',
-    hospitalOrClinic: 'Central Medical Center',
-    consultationFee: 95,
-    availableSlots: ['2026-04-17T13:00:00.000Z', '2026-04-18T08:30:00.000Z']
-  },
-  {
-    doctorId: 'doc-1003',
-    name: 'Dr. Anika Senanayake',
-    specialty: 'Dermatology',
-    hospitalOrClinic: 'Lakeside Dermatology',
-    consultationFee: 70,
-    availableSlots: ['2026-04-19T11:00:00.000Z']
-  },
-  {
-    doctorId: 'doc-1004',
-    name: 'Dr. Nuwan Rajapaksa',
-    specialty: 'Neurology',
-    hospitalOrClinic: 'Metro Neuro Care',
-    consultationFee: 110,
-    availableSlots: ['2026-04-20T09:15:00.000Z', '2026-04-20T12:00:00.000Z']
-  }
-];
-
 class ServiceIntegrationError extends Error {
   constructor(message) {
     super(message);
@@ -56,72 +21,95 @@ const normalizeSpecialty = (specialty) => specialty.trim().toLowerCase();
 const mapDoctorToSearchResult = (doctor) => ({
   doctorId: doctor.doctorId,
   name: doctor.name,
-  specialty: doctor.specialty,
-  hospitalOrClinic: doctor.hospitalOrClinic,
+  specialization: doctor.specialization,
+  qualification: doctor.qualification,
+  yearsOfExperience: doctor.yearsOfExperience,
   consultationFee: doctor.consultationFee,
+  bio: doctor.bio,
+  clinicAddress: doctor.clinicAddress,
+  isVerified: doctor.isVerified || true,
   availableSlots: Array.isArray(doctor.availableSlots) ? doctor.availableSlots : []
 });
 
-const searchMockDoctorsBySpecialty = (specialty) => {
-  const normalizedSpecialty = normalizeSpecialty(specialty);
-
-  return MOCK_DOCTORS.filter(
-    (doctor) => normalizeSpecialty(doctor.specialty) === normalizedSpecialty
-  ).map(mapDoctorToSearchResult);
-};
-
-const fetchDoctorsFromDoctorService = async (specialty) => {
+/**
+ * Fetch doctors from Doctor Service with availability
+ * Always uses real data from MongoDB, never falls back to mock
+ */
+const fetchDoctorsFromDoctorService = async (specialty, date = null) => {
   const baseUrl = env.doctorServiceUrl.replace(/\/+$/, '');
 
-  // Future inter-service communication: replace this route with the finalized doctor-service API contract.
-  const url =
-    baseUrl + '/doctor/search?specialty=' + encodeURIComponent(specialty);
+  // Build query params: specialty is required, date is optional for filtering availability
+  let url = baseUrl + '/doctor/search?specialty=' + encodeURIComponent(specialty);
+  
+  if (date) {
+    url += '&date=' + encodeURIComponent(date);
+  }
+
+  console.log(`[Doctor Search] Fetching from: ${url}`);
 
   let response;
   try {
     response = await fetch(url, {
       method: 'GET',
       headers: {
-        Accept: 'application/json'
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
       },
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(8000)
     });
   } catch (error) {
-    throw new ServiceIntegrationError('doctor-service is unreachable');
+    console.error('[Doctor Search Error]', error.message);
+    throw new ServiceIntegrationError(
+      `doctor-service is unreachable: ${error.message}`
+    );
   }
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[Doctor Search Error] Status: ${response.status}, Body:`, errorText);
     throw new ServiceIntegrationError(
-      'doctor-service returned status ' + response.status
+      `doctor-service returned status ${response.status}: ${response.statusText}`
     );
   }
 
   const payload = await response.json();
+  console.log(`[Doctor Search] Response:`, payload);
 
-  // Future inter-service communication: adjust payload parsing once doctor-service response schema is finalized.
+  // Extract doctors from response - doctor-service returns { success, data: [], count }
   const doctors = Array.isArray(payload?.data)
     ? payload.data
     : Array.isArray(payload?.doctors)
       ? payload.doctors
       : [];
 
-  return doctors.map(mapDoctorToSearchResult).filter((doctor) => doctor.specialty);
+  if (doctors.length === 0) {
+    console.log(`[Doctor Search] No doctors found for specialty: ${specialty}`);
+    return [];
+  }
+
+  const mappedDoctors = doctors.map(mapDoctorToSearchResult);
+  console.log(`[Doctor Search] Mapped ${mappedDoctors.length} doctors`);
+  
+  return mappedDoctors;
 };
 
-const searchDoctorsBySpecialty = async (specialty) => {
+/**
+ * Search doctors by specialty and optional date
+ * Always fetches real data from doctor-service (no mock fallback)
+ */
+const searchDoctorsBySpecialty = async (specialty, date = null) => {
+  if (!specialty || specialty.trim().length === 0) {
+    throw new ServiceConfigurationError('Specialty parameter is required');
+  }
+
   const source = env.doctorSearchSource.toLowerCase();
 
-  if (source === 'mock') {
-    return searchMockDoctorsBySpecialty(specialty);
+  if (source !== 'http') {
+    console.warn(`[Doctor Search] DOCTOR_SEARCH_SOURCE is set to '${source}' but only 'http' is supported. Using doctor-service anyway.`);
   }
 
-  if (source === 'http') {
-    return fetchDoctorsFromDoctorService(specialty);
-  }
-
-  throw new ServiceConfigurationError(
-    'Invalid DOCTOR_SEARCH_SOURCE value: ' + env.doctorSearchSource
-  );
+  // Always use real doctor-service data
+  return fetchDoctorsFromDoctorService(specialty, date);
 };
 
 module.exports = {

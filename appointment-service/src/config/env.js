@@ -20,10 +20,8 @@ module.exports = {
   port: Number(process.env.PORT),
   mongoUri: process.env.MONGO_URI,
   serviceName: process.env.SERVICE_NAME || 'appointment-service',
-  doctorSearchSource: process.env.DOCTOR_SEARCH_SOURCE || 'mock',
+  doctorSearchSource: process.env.DOCTOR_SEARCH_SOURCE || 'http',
   doctorServiceUrl: process.env.DOCTOR_SERVICE_URL || 'http://doctor-service:4003',
-  notificationServiceUrl:
-    process.env.NOTIFICATION_SERVICE_URL || defaultNotificationServiceUrl,
-  serviceRequestTimeoutMs: Number(process.env.SERVICE_REQUEST_TIMEOUT_MS || 5000)
+  jwtSecret: process.env.JWT_SECRET || 'change_this_auth_jwt_secret_in_production'
 };
 

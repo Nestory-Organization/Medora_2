@@ -7,6 +7,7 @@ const {
   AppointmentConflictError,
   AppointmentNotFoundError
 } = require('../services/appointment.service');
+const { bookAppointmentWithValidation } = require('./appointmentManagement.controller');
 
 const bookAppointment = async (req, res) => {
   try {
