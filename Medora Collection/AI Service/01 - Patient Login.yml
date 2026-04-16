@@ -1,0 +1,35 @@
+info:
+  name: Patient Login for AI Testing
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:4000/api/auth/login
+  body:
+    type: json
+    data: |-
+      {
+        "email": "patient_test_123@test.com",
+        "password": "Test@123"
+      }
+
+script:
+  post-response: |
+    bru.expect(res.getStatus()).to.equal(200);
+
+    const body = res.getBody();
+    bru.expect(body).to.have.property('success').to.equal(true);
+    bru.expect(body).to.have.property('data');
+    bru.expect(body.data).to.have.property('token');
+
+    bru.setVar('AI_JWT_TOKEN', body.data.token);
+
+    console.log('✅ PASSED: Patient login successful');
+    console.log('🔐 JWT Token saved');
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

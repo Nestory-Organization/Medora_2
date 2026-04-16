@@ -5,6 +5,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 const systemRoutes = require('./routes/system.routes');
 const internalRoutes = require('./routes/internal.routes');
+const paymentRoutes = require('./routes/payment.routes');
 
 const app = express();
 
@@ -17,17 +18,22 @@ app.use(morgan('combined'));
 
 app.use('/', systemRoutes);
 app.use('/internal', internalRoutes);
+app.use('/payment', paymentRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
-    message: 'Route not found'
+    success: false,
+    message: 'Route not found',
+    data: null
   });
 });
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({
-    message: 'Internal server error'
+    success: false,
+    message: 'Internal server error',
+    data: null
   });
 });
 

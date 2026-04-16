@@ -1,0 +1,28 @@
+info:
+  name: 07 - Book Appointment - Different Slot
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: http://localhost:4004/appointments
+  body:
+    type: json
+    data: |-
+      {
+        "patientId": "pat-1002",
+        "doctorId": "doc-1001",
+        "specialty": "Cardiology",
+        "appointmentDate": "2026-04-17",
+        "startTime": "10:00",
+        "endTime": "10:30",
+        "consultationFee": 85,
+        "reason": "Routine checkup"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

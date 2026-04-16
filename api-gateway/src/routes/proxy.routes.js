@@ -1,6 +1,6 @@
-﻿const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const env = require('../config/env');
+﻿const express = require("express");
+const { createProxyMiddleware } = require("http-proxy-middleware");
+const env = require("../config/env");
 
 const router = express.Router();
 
@@ -25,45 +25,76 @@ router.get('/', (req, res) => {
 const proxyOptions = (target, serviceName) => ({
   target,
   changeOrigin: true,
-  logLevel: 'debug',
-  proxyTimeout: 10000,
-  timeout: 10000,
+  logLevel: "debug",
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`[${serviceName}] Proxying ${req.method} ${req.originalUrl} -> ${target}${req.url}`);
-    console.log(`[${serviceName}] Headers:`, req.headers);
-  },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log(`[${serviceName}] Received response status:`, proxyRes.statusCode);
+    console.log(
+      `[Proxy] ${req.method} ${req.originalUrl} -> ${target}${req.url}`,
+    );
   },
   onError: (err, req, res) => {
-    console.error('Proxy error for ' + serviceName + ':', err.message);
+    console.error(`[Proxy Error] ${serviceName}:`, err.message);
     res.status(502).json({
-      message: serviceName + ' service unavailable'
+      message: `Error connecting to ${serviceName}`,
+      error: err.message,
     });
-  }
+  },
 });
 
 router.use(
-  '/auth',
+  "/auth",
   createProxyMiddleware({
-    ...proxyOptions(env.authServiceUrl, 'auth'),
-    pathRewrite: (path) => '/auth' + path
-  })
+    ...proxyOptions(env.authServiceUrl, "auth"),
+    pathRewrite: (path) => `/auth${path}`,
+  }),
 );
 
 router.use(
-  '/admin',
+  "/patients",
   createProxyMiddleware({
-    ...proxyOptions(env.authServiceUrl, 'auth-admin'),
-    pathRewrite: (path) => '/admin' + path
-  })
+    ...proxyOptions(env.patientServiceUrl, "patients"),
+    pathRewrite: (path) => `/api/patients${path}`,
+  }),
 );
-router.use('/patients', createProxyMiddleware(proxyOptions(env.patientServiceUrl, 'patients')));
-router.use('/doctors', createProxyMiddleware(proxyOptions(env.doctorServiceUrl, 'doctors')));
-router.use('/appointments', createProxyMiddleware(proxyOptions(env.appointmentServiceUrl, 'appointments')));
-router.use('/payments', createProxyMiddleware(proxyOptions(env.paymentServiceUrl, 'payments')));
-router.use('/notifications', createProxyMiddleware(proxyOptions(env.notificationServiceUrl, 'notifications')));
-router.use('/ai', createProxyMiddleware(proxyOptions(env.aiServiceUrl, 'ai')));
+
+router.use(
+  "/doctors",
+  createProxyMiddleware({
+    ...proxyOptions(env.doctorServiceUrl, "doctors"),
+    pathRewrite: (path) => `/doctor${path}`,
+  }),
+);
+
+router.use(
+  "/appointments",
+  createProxyMiddleware({
+    ...proxyOptions(env.appointmentServiceUrl, "appointments"),
+    pathRewrite: (path) => `/appointments${path}`,
+  }),
+);
+router.use(
+  "/payments",
+  createProxyMiddleware(proxyOptions(env.paymentServiceUrl, "payments")),
+);
+router.use(
+  "/notifications",
+  createProxyMiddleware(
+    proxyOptions(env.notificationServiceUrl, "notifications"),
+  ),
+);
+router.use(
+  "/ai",
+  createProxyMiddleware({
+    ...proxyOptions(env.aiServiceUrl, "ai"),
+    pathRewrite: (path) => `/api/ai${path}`,
+  }),
+);
+
+router.use(
+  "/admin",
+  createProxyMiddleware({
+    ...proxyOptions(env.adminServiceUrl, "admin"),
+    pathRewrite: (path) => `/admin${path}`,
+  }),
+);
 
 module.exports = router;
-

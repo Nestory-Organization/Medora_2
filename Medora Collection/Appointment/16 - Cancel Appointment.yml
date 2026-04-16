@@ -1,13 +1,11 @@
 info:
-  name: Verify doctor
+  name: 16 - Cancel Appointment
   type: http
-  seq: 3
+  seq: 15
 
 http:
-  method: PUT
-  url: |-
-    	
-    http://localhost:4000/api/admin/verify-doctor
+  method: DELETE
+  url: http://127.0.0.1:4004/appointments/69dfd83eee9e053bbaccbe43
   auth: inherit
 
 settings:

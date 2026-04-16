@@ -1,0 +1,15 @@
+info:
+  name: 11 - Get Appointment Status - Not Found
+  type: http
+  seq: 11
+
+http:
+  method: GET
+  url: http://127.0.0.1:4004/appointments/680000000000000000000000/status
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
