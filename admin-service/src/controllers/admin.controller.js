@@ -1,56 +1,7 @@
 const DoctorProfile = require('../models/doctorProfile.model');
-const User = require('../models/user.model');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
+const axios = require('axios');
 const env = require('../config/env');
-
-// Admin Login
-const adminLogin = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // In a real microservice, we would call the auth-service to verify credentials
-    // For now, we search the local sync/shared user model or cross-check
-    // Note: This assumes admin-service has access to admin users in its own DB
-    const admin = await User.findOne({ email, role: 'admin' });
-
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid admin credentials'
-      });
-    }
-
-    // Since we don't have password hashing here yet in this service (it was handled by auth),
-    // we should ideally delegate login to auth-service. 
-    // BUT since the user asked for an admin login API for the admin part:
-    
-    const token = jwt.sign(
-      { id: admin._id, email: admin.email, role: 'admin' },
-      env.jwtSecret,
-      { expiresIn: '1d' }
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        token,
-        admin: {
-          id: admin._id,
-          firstName: admin.firstName,
-          lastName: admin.lastName,
-          email: admin.email
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Admin login error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Admin login failed'
-    });
-  }
-};
 
 // Get all doctors profiles
 const getAllDoctorsProfiles = async (req, res) => {
@@ -120,13 +71,27 @@ const verifyDoctorProfile = async (req, res) => {
 // Get all users (Patients/Doctors)
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({});
+    const authResponse = await axios.get(`${env.authServiceUrl}/auth/users`, {
+      headers: {
+        Authorization: req.headers.authorization || ''
+      },
+      timeout: 8000
+    });
+
+    const users = authResponse?.data?.data || [];
+
     return res.status(200).json({
       success: true,
       data: users
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Failed to retrieve users' });
+    const statusCode = error.response?.status || 500;
+    const message = error.response?.data?.message || 'Failed to retrieve users from auth service';
+
+    return res.status(statusCode).json({
+      success: false,
+      message
+    });
   }
 };
 

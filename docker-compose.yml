@@ -244,6 +244,7 @@ services:
       PORT: 4008
       MONGO_URI: mongodb://admin-mongodb:27017/admin_db
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
+      AUTH_SERVICE_URL: http://auth-service:4001
       SERVICE_NAME: admin-service
     ports:
       - "4008:4008"
