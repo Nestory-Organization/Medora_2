@@ -25,7 +25,7 @@ patientApi.interceptors.request.use(
 patientApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Check for authorization errors
+    // Check for authorization errors - ONLY logout on 401 Unauthorized
     if (error.response?.status === 401) {
       console.warn('Unauthorized access, redirecting to login...');
       localStorage.removeItem('authToken');
@@ -39,6 +39,14 @@ patientApi.interceptors.response.use(
       error.message = 'The server is currently unreachable. Please check your connection.';
     } else if ([502, 503, 504].includes(error.response.status)) {
       error.message = 'The service is temporarily unavailable. Please try again later.';
+    } else if (error.response?.status === 400) {
+      // 400 Bad Request - likely missing patient ID
+      console.warn('Bad request:', error.response.data?.message);
+      error.message = error.response.data?.message || 'Invalid request parameters.';
+    } else if (error.response?.status === 404) {
+      // 404 Not Found - endpoint doesn't exist
+      console.error('Endpoint not found:', error.config?.url);
+      error.message = 'The requested resource was not found.';
     }
     
     return Promise.reject(error);
@@ -86,6 +94,18 @@ export const getPrescriptions = async () => {
 
 export const getMyAppointments = async () => {
     const response = await patientApi.get('/appointments/my-appointments');
+    return response.data;
+};
+
+export const bookAppointment = async (appointmentData: any) => {
+    const response = await patientApi.post('/appointments', appointmentData);
+    return response.data;
+};
+
+export const searchDoctors = async (specialty: string, date?: string) => {
+    const response = await patientApi.get('/appointments/doctors/search', {
+        params: { specialty, ...(date && { date }) }
+    });
     return response.data;
 };
 

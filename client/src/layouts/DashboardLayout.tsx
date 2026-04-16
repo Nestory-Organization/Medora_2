@@ -24,12 +24,12 @@ export default function DashboardLayout() {
 
   // Ensure routing matches role (basic check)
   const isDoctorRoute = location.pathname.startsWith('/doctor');
-  const isPatientRoute = location.pathname.startsWith('/patient');
+  const isPatientRoute = location.pathname.startsWith('/patient') || location.pathname.startsWith('/ai');
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   if (isAdminRoute && user.role !== 'admin') return <Navigate to="/login" replace />;
   if (isDoctorRoute && user.role !== 'doctor') return <Navigate to="/patient/dashboard" replace />;
-  if (isPatientRoute && user.role !== 'patient') return <Navigate to="/doctor/dashboard" replace />;
+  if (isPatientRoute && user.role !== 'patient' && user.role !== 'admin') return <Navigate to="/doctor/dashboard" replace />;
 
   return (
     <div className="flex bg-slate-950 min-h-screen font-sans selection:bg-teal-500/20 text-[13px]">

@@ -74,6 +74,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
     ? [
         { to: '/doctor/dashboard', icon: CirclesFour, label: 'Dashboard' },
         { to: '/doctor/schedule', icon: CalendarCheck, label: 'Schedule', badge: 5 },
+        { to: '/doctor/availability', icon: CalendarCheck, label: 'Availability' },
         { to: '/doctor/patients', icon: User, label: 'Patients' },
         { to: '/doctor/consultations', icon: ChatTeardropDots, label: 'Consultations' },
       ]

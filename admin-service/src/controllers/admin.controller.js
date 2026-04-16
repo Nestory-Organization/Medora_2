@@ -154,16 +154,26 @@ const summarizeReports = (users, transactions, doctors) => {
 // Get all doctors profiles
 const getAllDoctorsProfiles = async (req, res) => {
   try {
-    const profiles = await DoctorProfile.find({});
+    const doctorResponse = await axios.get(`${env.doctorServiceUrl}/system/doctors`, {
+      headers: {
+        Authorization: req.headers.authorization || ''
+      },
+      timeout: 8000
+    });
+
+    const profiles = doctorResponse?.data?.data || [];
     return res.status(200).json({
       success: true,
       data: profiles
     });
   } catch (error) {
     console.error('Get all doctors profiles error:', error);
-    return res.status(500).json({
+    const statusCode = error.response?.status || 500;
+    const message = error.response?.data?.message || 'Failed to retrieve doctors profiles from doctor service';
+
+    return res.status(statusCode).json({
       success: false,
-      message: 'Failed to retrieve doctors profiles'
+      message
     });
   }
 };
@@ -172,15 +182,7 @@ const getAllDoctorsProfiles = async (req, res) => {
 const verifyDoctorProfile = async (req, res) => {
   try {
     const { doctorId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid doctor identifier'
-      });
-    }
-
-    const { status } = req.body; 
+    const { status } = req.body;
 
     if (typeof status !== 'boolean') {
       return res.status(400).json({
@@ -189,53 +191,30 @@ const verifyDoctorProfile = async (req, res) => {
       });
     }
 
-    const profile = await DoctorProfile.findOneAndUpdate(
-      { doctorId },
-      { isVerified: status },
-      { new: true }
-    );
-
-    if (!profile) {
-      return res.status(404).json({
-        success: false,
-        message: 'Doctor profile not found'
-      });
-    }
-
-    try {
-      await authApi.put(
-        '/admin/verify-doctor',
-        {
-          userId: doctorId,
-          status: status ? 'approved' : 'rejected'
+    const doctorResponse = await axios.patch(
+      `${env.doctorServiceUrl}/system/doctors/${doctorId}/verify`,
+      { status },
+      {
+        headers: {
+          Authorization: req.headers.authorization || ''
         },
-        {
-          headers: {
-            Authorization: req.headers.authorization || ''
-          }
-        }
-      );
-    } catch (error) {
-      const mapped = mapAuthServiceError(
-        error,
-        'Failed to update doctor verification status in auth service'
-      );
-      return res.status(mapped.statusCode).json({
-        success: false,
-        message: mapped.message
-      });
-    }
+        timeout: 8000
+      }
+    );
 
     return res.status(200).json({
       success: true,
       message: `Doctor profile ${status ? 'verified' : 'unverified'} successfully`,
-      data: profile
+      data: doctorResponse.data.data
     });
   } catch (error) {
     console.error('Verify doctor profile error:', error);
-    return res.status(500).json({
+    const statusCode = error.response?.status || 500;
+    const message = error.response?.data?.message || 'Failed to update doctor verification status in doctor service';
+
+    return res.status(statusCode).json({
       success: false,
-      message: 'Failed to update doctor verification status'
+      message
     });
   }
 };
