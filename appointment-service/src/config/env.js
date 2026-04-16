@@ -2,6 +2,11 @@
 
 dotenv.config();
 
+const defaultNotificationServiceUrl =
+  process.env.NODE_ENV === 'production'
+    ? 'http://notification-service:4006'
+    : 'http://localhost:4006';
+
 const requiredVars = ['PORT', 'MONGO_URI'];
 
 requiredVars.forEach((key) => {

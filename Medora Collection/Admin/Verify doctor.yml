@@ -1,0 +1,23 @@
+info:
+  name: Verify doctor
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: http://localhost:4000/api/admin/doctor/69e0c1296774a634ffaa6fd4/verify
+  body:
+    type: json
+    data: |-
+      {
+        "status": true
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZGZmZmZmNDFjZmYzZjVlMWYxZjQ5ZCIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzc2MzM1Mzk2LCJleHAiOjE3NzY5NDAxOTZ9.CTdxV3cFs_6LpF1bHIdE9iscg896M2PCZ9FJHvlhBUA
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

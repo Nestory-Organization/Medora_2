@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Appointment = require('../models/appointment.model');
+const env = require('../config/env');
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -46,6 +47,47 @@ const APPOINTMENT_STATUSES = [
   'COMPLETED'
 ];
 const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'FAILED', 'REFUNDED'];
+
+const publishNotificationEvent = async (eventType, payload) => {
+  const baseUrl = String(env.notificationServiceUrl || '').replace(/\/$/, '');
+
+  if (!baseUrl) {
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, env.serviceRequestTimeoutMs);
+
+  try {
+    const response = await fetch(baseUrl + '/notify/event', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        eventType,
+        ...payload
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      console.error('notification-service event publish failed:', {
+        eventType,
+        statusCode: response.status
+      });
+    }
+  } catch (error) {
+    console.error('notification-service event publish error:', {
+      eventType,
+      error: error.name === 'AbortError' ? 'Request timed out' : error.message
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 
 const normalizeDateToDay = (value) => {
   const parsedDate = new Date(value);
@@ -182,8 +224,20 @@ const createAppointment = async (payload) => {
     throw error;
   }
 
-  // Future inter-service communication: create payment intent with payment-service.
-  // Future inter-service communication: publish appointment-created event to notification-service.
+  publishNotificationEvent('APPOINTMENT_BOOKED', {
+    appointmentId: String(created._id),
+    patientId: created.patientId,
+    doctorId: created.doctorId,
+    appointmentDate: created.appointmentDate,
+    startTime: created.startTime,
+    metadata: {
+      specialty: created.specialty,
+      consultationFee: created.consultationFee
+    },
+    email: payload.patientEmail || null,
+    phone: payload.patientPhone || null
+  });
+
   return mapAppointment(created);
 };
 
@@ -261,7 +315,18 @@ const updateAppointment = async (appointmentId, payload) => {
     throw error;
   }
 
-  // Future inter-service communication: publish appointment-rescheduled event to notification-service.
+  publishNotificationEvent('APPOINTMENT_RESCHEDULED', {
+    appointmentId: String(updated._id),
+    patientId: updated.patientId,
+    doctorId: updated.doctorId,
+    appointmentDate: updated.appointmentDate,
+    startTime: updated.startTime,
+    metadata: {
+      specialty: updated.specialty,
+      reason: updated.reason
+    }
+  });
+
   return mapAppointment(updated);
 };
 
@@ -291,7 +356,17 @@ const cancelAppointment = async (appointmentId) => {
   const updated = await existingAppointment.save();
 
   // Future inter-service communication: trigger refund workflow with payment-service.
-  // Future inter-service communication: publish appointment-cancelled event to notification-service.
+  publishNotificationEvent('APPOINTMENT_CANCELLED', {
+    appointmentId: String(updated._id),
+    patientId: updated.patientId,
+    doctorId: updated.doctorId,
+    appointmentDate: updated.appointmentDate,
+    startTime: updated.startTime,
+    metadata: {
+      specialty: updated.specialty
+    }
+  });
+
   return mapAppointment(updated);
 };
 
@@ -353,6 +428,19 @@ const updateAppointmentPaymentState = async (appointmentId, payload) => {
   }
 
   const updated = await existingAppointment.save();
+
+  if (nextStatus === 'COMPLETED') {
+    publishNotificationEvent('APPOINTMENT_COMPLETED', {
+      appointmentId: String(updated._id),
+      patientId: updated.patientId,
+      doctorId: updated.doctorId,
+      appointmentDate: updated.appointmentDate,
+      startTime: updated.startTime,
+      metadata: {
+        paymentStatus: updated.paymentStatus
+      }
+    });
+  }
 
   return mapAppointment(updated);
 };
