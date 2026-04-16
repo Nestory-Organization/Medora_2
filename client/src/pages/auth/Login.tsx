@@ -33,7 +33,9 @@ export default function Login() {
         localStorage.setItem('user', JSON.stringify(user));
         
         // Redirect based on role
-        if (user.role === 'doctor') {
+        if (user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else if (user.role === 'doctor') {
           navigate('/doctor/dashboard');
         } else {
           navigate('/patient/dashboard');

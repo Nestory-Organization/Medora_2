@@ -43,7 +43,7 @@ const SidebarItem = ({ to, icon: Icon, label, badge }: SidebarItemProps) => {
   );
 };
 
-export default function Sidebar({ role }: { role: 'patient' | 'doctor' }) {
+export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin' }) {
   const navigate = useNavigate();
   const userStr = localStorage.getItem('user');
 
@@ -62,8 +62,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' }) {
 
   const navItems = role === 'patient' 
     ? [
-        { to: '/patient/dashboard', icon: SquaresFour, label: 'Dashboard' },
-        { to: '/patient/book-appointment', icon: CalendarCheck, label: 'Book Appointment' },
+        { to: '/patient/dashboard', icon: CirclesFour, label: 'Dashboard' },
         { to: '/patient/appointments', icon: CalendarCheck, label: 'My Appointments' },
         { to: '/patient/history', icon: Files, label: 'Medical History' },
         { to: '/patient/prescriptions', icon: Pill, label: 'Prescriptions' },
@@ -71,11 +70,17 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' }) {
         { to: '/ai/symptom-checker', icon: ChatTeardropDots, label: 'AI Symptom Checker' },
         { to: '/patient/profile', icon: User, label: 'Profile' },
       ]
-    : [
+    : role === 'doctor' 
+    ? [
         { to: '/doctor/dashboard', icon: CirclesFour, label: 'Dashboard' },
         { to: '/doctor/schedule', icon: CalendarCheck, label: 'Schedule', badge: 5 },
         { to: '/doctor/patients', icon: User, label: 'Patients' },
         { to: '/doctor/consultations', icon: ChatTeardropDots, label: 'Consultations' },
+      ]
+    : [
+        { to: '/admin/dashboard', icon: CirclesFour, label: 'Dashboard' },
+        { to: '/admin/doctors', icon: User, label: 'Verify Doctors' },
+        { to: '/admin/users', icon: User, label: 'Manage Users' },
       ];
 
   return (

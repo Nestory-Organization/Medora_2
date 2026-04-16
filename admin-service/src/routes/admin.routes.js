@@ -2,17 +2,13 @@ const express = require('express');
 const { 
   getAllDoctorsProfiles, 
   verifyDoctorProfile,
-  getAllUsers,
-  adminLogin
+  getAllUsers
 } = require('../controllers/admin.controller');
 const { authenticate, authorizeAdmin } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
-// Public admin login
-router.post('/login', adminLogin);
-
-// Protected routes
+// All admin routes require authentication and authorization
 router.use(authenticate, authorizeAdmin);
 
 router.get('/doctors', getAllDoctorsProfiles);

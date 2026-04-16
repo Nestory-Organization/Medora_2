@@ -14,7 +14,7 @@ const AdminLogin: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:4000/api/admin/login', {
+      const response = await fetch('http://localhost:4000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -23,8 +23,16 @@ const AdminLogin: React.FC = () => {
       const data = await response.json();
 
       if (data.success) {
-        localStorage.setItem('adminToken', data.data.token);
-        localStorage.setItem('adminInfo', JSON.stringify(data.data.admin));
+        const { token, user } = data.data;
+        
+        // Check if user is admin
+        if (user.role !== 'admin') {
+          setError('Access denied. Admin privileges required.');
+          return;
+        }
+
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('user', JSON.stringify(user));
         navigate('/admin/dashboard');
       } else {
         setError(data.message || 'Login failed');
