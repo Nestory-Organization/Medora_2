@@ -157,6 +157,8 @@ services:
       PORT: 4005
       MONGO_URI: mongodb://payment-mongodb:27017/payment_db
       SERVICE_NAME: payment-service
+      APPOINTMENT_SERVICE_URL: http://appointment-service:4004
+      SERVICE_REQUEST_TIMEOUT_MS: 5000
     ports:
       - "4005:4005"
     depends_on:
