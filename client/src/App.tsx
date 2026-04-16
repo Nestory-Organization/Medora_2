@@ -15,10 +15,20 @@ import BookingPage from './pages/patient/BookingPage';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import AvailabilityManagement from './pages/doctor/AvailabilityManagement';
 import SymptomChecker from './pages/ai/SymptomChecker';
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+=======
+import AiHistory from './pages/ai/AiHistory';
+>>>>>>> Stashed changes
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
 import VerifyDoctors from './pages/admin/VerifyDoctors';
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 import './App.css';
 
 function App() {
@@ -51,6 +61,7 @@ function App() {
         
         {/* AI Services */}
         <Route path="/ai/symptom-checker" element={<SymptomChecker />} />
+        <Route path="/ai/history" element={<AiHistory />} />
       </Route>
 
       {/* Catch-all Redirect */}

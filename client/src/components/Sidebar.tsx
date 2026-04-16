@@ -8,8 +8,18 @@ import {
   Pill,
   Bell,
   Gear,
+<<<<<<< Updated upstream
   CirclesFour,
   type IconProps
+=======
+<<<<<<< Updated upstream
+  CirclesFour
+=======
+  CirclesFour,
+  Clock,
+  type IconProps
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 } from '@phosphor-icons/react';
 
 interface SidebarItemProps {
@@ -68,6 +78,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
         { to: '/patient/prescriptions', icon: Pill, label: 'Prescriptions' },
         { to: '/patient/upload-reports', icon: Files, label: 'Upload Reports' },
         { to: '/ai/symptom-checker', icon: ChatTeardropDots, label: 'AI Symptom Checker' },
+        { to: '/ai/history', icon: Clock, label: 'Analysis History' },
         { to: '/patient/profile', icon: User, label: 'Profile' },
       ]
     : role === 'doctor' 
