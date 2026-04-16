@@ -13,6 +13,8 @@ import Prescriptions from './pages/patient/Prescriptions';
 import MyAppointments from './pages/patient/MyAppointments';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import SymptomChecker from './pages/ai/SymptomChecker';
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import './App.css';
 
 function App() {
@@ -25,6 +27,7 @@ function App() {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
       </Route>
       
       {/* Protected Dashboard Pages */}
@@ -36,6 +39,7 @@ function App() {
         <Route path="/patient/prescriptions" element={<Prescriptions />} />
         <Route path="/patient/appointments" element={<MyAppointments />} />
         <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
         
         {/* AI Services */}
         <Route path="/ai/symptom-checker" element={<SymptomChecker />} />

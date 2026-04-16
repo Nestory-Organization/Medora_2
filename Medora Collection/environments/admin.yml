@@ -1,0 +1,4 @@
+variables:
+  adminToken: ""
+  api_gateway: "http://localhost:4000"
+  admin_service: "http://localhost:4008"

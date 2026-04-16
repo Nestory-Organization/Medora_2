@@ -14,6 +14,7 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:4005
       NOTIFICATION_SERVICE_URL: http://notification-service:4006
       AI_SERVICE_URL: http://ai-service:4007
+      ADMIN_SERVICE_URL: http://admin-service:4008
     ports:
       - "4000:4000"
     depends_on:
@@ -24,6 +25,7 @@ services:
       - payment-service
       - notification-service
       - ai-service
+      - admin-service
     networks:
       - medora-network
 
@@ -232,6 +234,35 @@ services:
     networks:
       - medora-network
 
+  admin-service:
+    build:
+      context: ./admin-service
+    container_name: medora-admin-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4008
+      MONGO_URI: mongodb://admin-mongodb:27017/admin_db
+      JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
+      SERVICE_NAME: admin-service
+    ports:
+      - "4008:4008"
+    depends_on:
+      - admin-mongodb
+    networks:
+      - medora-network
+
+  admin-mongodb:
+    image: mongo:7
+    container_name: medora-admin-mongodb
+    restart: unless-stopped
+    ports:
+      - "27025:27017"
+    volumes:
+      - admin-mongo-data:/data/db
+    networks:
+      - medora-network
+
 volumes:
   auth-mongo-data:
   patient-mongo-data:
@@ -240,6 +271,7 @@ volumes:
   payment-mongo-data:
   notification-mongo-data:
   ai-mongo-data:
+  admin-mongo-data:
 
 networks:
   medora-network:
