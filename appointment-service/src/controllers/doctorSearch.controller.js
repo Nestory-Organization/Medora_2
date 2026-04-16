@@ -6,6 +6,7 @@ const {
 
 const searchDoctors = async (req, res) => {
   const specialty = req.query.specialty;
+  const date = req.query.date; // Optional: filter doctors by availability on specific date
 
   if (!specialty || !specialty.trim()) {
     return res.status(400).json({
@@ -15,7 +16,10 @@ const searchDoctors = async (req, res) => {
   }
 
   try {
-    const doctors = await searchDoctorsBySpecialty(specialty);
+    console.log(`[Search] specialty=${specialty}, date=${date || 'not specified'}`);
+    
+    // Fetch doctors from doctor-service with optional date for availability
+    const doctors = await searchDoctorsBySpecialty(specialty, date);
 
     return res.status(200).json({
       success: true,
