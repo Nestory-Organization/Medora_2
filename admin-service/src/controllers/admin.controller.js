@@ -151,7 +151,6 @@ const summarizeReports = (users, transactions, doctors) => {
     transactionsByStatus
   };
 };
-
 // Get all doctors profiles
 const getAllDoctorsProfiles = async (req, res) => {
   try {

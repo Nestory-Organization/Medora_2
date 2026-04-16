@@ -13,6 +13,8 @@ http:
         "email": "admin@gmail.com",
         "password": "admin123"
       }
+  auth:
+    type: none
 
 settings:
   encodeUrl: true

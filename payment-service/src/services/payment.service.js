@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Payment = require('../models/payment.model');
 const payHereConfig = require('../config/payhere');
+const { updateAppointmentFromPayment } = require('./appointmentSync.service');
 
 class PaymentValidationError extends Error {
   constructor(message) {
@@ -178,14 +179,30 @@ const processWebhook = async (payload) => {
 
   const updated = await payment.save();
 
-  if (updated.status === 'SUCCESS') {
-    // Future inter-service communication: notify appointment-service to update appointment paymentStatus to PAID.
-    // Future inter-service communication: publish payment-success event to notification-service.
-  }
+  if (['SUCCESS', 'FAILED'].includes(updated.status)) {
+    const syncResult = await updateAppointmentFromPayment({
+      appointmentId: updated.appointmentId,
+      paymentStatus: updated.status
+    });
 
-  if (updated.status === 'FAILED') {
-    // Future inter-service communication: notify appointment-service about payment failure state.
-    // Future inter-service communication: publish payment-failure event to notification-service.
+    if (!syncResult.success && !syncResult.skipped) {
+      console.error('Appointment-service sync failed:', {
+        appointmentId: updated.appointmentId,
+        targetUrl: syncResult.targetUrl,
+        paymentStatus: updated.status,
+        statusCode: syncResult.statusCode,
+        responseBody: syncResult.responseBody,
+        error: syncResult.error
+      });
+    }
+
+    if (updated.status === 'SUCCESS') {
+      // Future inter-service communication: publish payment-success event to notification-service.
+    }
+
+    if (updated.status === 'FAILED') {
+      // Future inter-service communication: publish payment-failure event to notification-service.
+    }
   }
 
   if (updated.status === 'REFUNDED') {
