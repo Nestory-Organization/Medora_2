@@ -34,7 +34,18 @@ const SymptomChecker: React.FC = () => {
       setResults(response.data);
       setStep('analysis');
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred. Please try again.");
+      // Better error messages for different scenarios
+      let errorMessage = "An unexpected error occurred. Please try again.";
+      
+      if (err.response?.status === 503) {
+        errorMessage = "AI service is temporarily unavailable due to high demand. Please try again in a few moments.";
+      } else if (err.response?.status === 504) {
+        errorMessage = "Request timeout. Please try again with simpler symptoms.";
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -55,7 +66,17 @@ const SymptomChecker: React.FC = () => {
       setDoctorCoverage(response.data.doctorCoverage || null);
       setStep('recommendations');
     } catch (err: any) {
-      setError(err.message || "Failed to fetch specialist recommendations");
+      let errorMessage = "Failed to fetch specialist recommendations. Please try again.";
+      
+      if (err.response?.status === 503) {
+        errorMessage = "AI service is temporarily unavailable. Please try again in a few moments.";
+      } else if (err.response?.status === 504) {
+        errorMessage = "Request timeout. Please try again.";
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoadingExtras(false);
     }
@@ -72,7 +93,17 @@ const SymptomChecker: React.FC = () => {
       });
       setInsights(response.data.insights);
     } catch (err: any) {
-      setError(err.message || "Failed to fetch health insights");
+      let errorMessage = "Failed to fetch health insights. Please try again.";
+
+      if (err.response?.status === 503) {
+        errorMessage = "AI service is temporarily unavailable. Please try again in a few moments.";
+      } else if (err.response?.status === 504) {
+        errorMessage = "Request timeout. Please try again.";
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setLoadingExtras(false);
     }

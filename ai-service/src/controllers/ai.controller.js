@@ -338,6 +338,15 @@ const analyzeSymptoms = async (req, res) => {
   } catch (error) {
     console.error("Error in analyzeSymptoms:", error);
 
+    // Check for Gemini API Service Unavailable (503)
+    if (error.message && error.message.includes("503 Service Unavailable")) {
+      return res.status(503).json({
+        success: false,
+        message: "AI service temporarily unavailable",
+        error: "The Gemini API is experiencing high demand. Please try again in a few moments.",
+      });
+    }
+
     if (error.code === "TIMEOUT") {
       return res.status(504).json({
         success: false,
@@ -355,7 +364,7 @@ const analyzeSymptoms = async (req, res) => {
     }
 
     if (error.code === "RATE_LIMIT") {
-      return res.status(500).json({
+      return res.status(429).json({
         success: false,
         message: "Gemini API rate limit exceeded",
         error: "Please try again later",
@@ -407,6 +416,19 @@ const recommendSpecialist = async (req, res) => {
 
     // Parse response
     let recommendationResult;
+    try {
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      recommendationResult = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: response };
+    } catch (parseError) {
+      recommendationResult = { raw: response };
+    }
+
+    const specialtyRecommendations =
+      normalizeSpecialistRecommendations(recommendationResult);
+    const doctorMatches = await enrichWithRegisteredDoctors(
+      specialtyRecommendations,
+    );
+
     const responsePayload = {
       ...recommendationResult,
       specialtyRecommendations,
@@ -432,25 +454,19 @@ const recommendSpecialist = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Specialist recommendations generated",
-      data: responsePayloadst specialtyRecommendations =
-      normalizeSpecialistRecommendations(recommendationResult);
-    const doctorMatches = await enrichWithRegisteredDoctors(
-      specialtyRecommendations,
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Specialist recommendations generated",
-      data: {
-        ...recommendationResult,
-        specialtyRecommendations,
-        specialties: doctorMatches.specialties,
-        suggestedDoctors: doctorMatches.suggestedDoctors,
-        doctorCoverage: doctorMatches.doctorCoverage,
-      },
+      data: responsePayload,
     });
   } catch (error) {
     console.error("Error in recommendSpecialist:", error);
+
+    // Check for Gemini API Service Unavailable (503)
+    if (error.message && error.message.includes("503 Service Unavailable")) {
+      return res.status(503).json({
+        success: false,
+        message: "AI service temporarily unavailable",
+        error: "The Gemini API is experiencing high demand. Please try again in a few moments.",
+      });
+    }
 
     if (error.code === "TIMEOUT") {
       return res.status(504).json({
@@ -469,7 +485,7 @@ const recommendSpecialist = async (req, res) => {
     }
 
     if (error.code === "RATE_LIMIT") {
-      return res.status(500).json({
+      return res.status(429).json({
         success: false,
         message: "Gemini API rate limit exceeded",
         error: "Please try again later",
@@ -551,6 +567,15 @@ const getHealthInsights = async (req, res) => {
   } catch (error) {
     console.error("Error in getHealthInsights:", error);
 
+    // Check for Gemini API Service Unavailable (503)
+    if (error.message && error.message.includes("503 Service Unavailable")) {
+      return res.status(503).json({
+        success: false,
+        message: "AI service temporarily unavailable",
+        error: "The Gemini API is experiencing high demand. Please try again in a few moments.",
+      });
+    }
+
     if (error.code === "TIMEOUT") {
       return res.status(504).json({
         success: false,
@@ -568,7 +593,7 @@ const getHealthInsights = async (req, res) => {
     }
 
     if (error.code === "RATE_LIMIT") {
-      return res.status(500).json({
+      return res.status(429).json({
         success: false,
         message: "Gemini API rate limit exceeded",
         error: "Please try again later",

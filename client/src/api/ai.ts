@@ -266,24 +266,34 @@ const handleApiError = (error: AxiosError) => {
   if (error.response) {
     const status = error.response.status;
     const data = error.response.data as any;
+    let message = 'An unexpected error occurred.';
 
     if (status === 400) {
-      return new Error(data.message || 'Validation error. Please check your inputs.');
-    }
-    if (status === 401) {
+      message = data.message || 'Validation error. Please check your inputs.';
+    } else if (status === 401) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      return new Error('Your session has expired or is invalid. Please log in again.');
+      message = 'Your session has expired or is invalid. Please log in again.';
+    } else if (status === 503) {
+      message = data.message || 'AI service temporarily unavailable. Please try again later.';
+    } else if (status === 504) {
+      message = 'Request timeout. Please try again.';
+    } else if (status === 429) {
+      message = 'Too many requests. Please try again later.';
+    } else if (status >= 500) {
+      message = data.message || 'Server error. Please try again later.';
+    } else {
+      message = data.message || 'An unexpected error occurred.';
     }
-    if (status === 429) {
-      return new Error('Too many requests. Please try again later.');
-    }
-    if (status >= 500) {
-      return new Error('AI service unavailable. Please try again later.');
-    }
-    return new Error(data.message || 'An unexpected error occurred.');
+
+    // Create error with response attached for frontend error handling
+    const err = new Error(message) as any;
+    err.response = error.response;
+    return err;
   }
-  return new Error('Network error. Please check your connection.');
+  const err = new Error('Network error. Please check your connection.') as any;
+  err.response = error.response;
+  return err;
 };
 
 export default aiApi;

@@ -8,18 +8,9 @@ import {
   Pill,
   Bell,
   Gear,
-<<<<<<< Updated upstream
-  CirclesFour,
-  type IconProps
-=======
-<<<<<<< Updated upstream
-  CirclesFour
-=======
   CirclesFour,
   Clock,
   type IconProps
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 } from '@phosphor-icons/react';
 
 interface SidebarItemProps {
