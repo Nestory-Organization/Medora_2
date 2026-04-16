@@ -30,11 +30,11 @@ export default function DashboardLayout() {
   if (isPatientRoute && user.role !== 'patient') return <Navigate to="/doctor/dashboard" replace />;
 
   return (
-    <div className="flex bg-slate-950 min-h-screen font-sans selection:bg-teal-500/20 text-[14px]">
+    <div className="flex bg-slate-950 min-h-screen font-sans selection:bg-teal-500/20 text-[13px]">
       <Sidebar role={user.role as 'patient' | 'doctor'} />
-      <main className="flex-1 ml-64 p-8 overflow-y-auto text-white relative">
+      <main className="flex-1 ml-60 p-6 overflow-y-auto text-white relative">
         {/* Background blobs for aesthetic */}
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none -mr-32 -mt-16" />
+        <div className="absolute top-0 right-0 w-[350px] h-[350px] bg-teal-500/5 rounded-full blur-[90px] pointer-events-none -mr-28 -mt-12" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -ml-20 -mb-20" />
         
         <AnimatePresence mode="wait">
