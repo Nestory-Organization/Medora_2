@@ -4,6 +4,7 @@ import { MagnifyingGlass, Clock, UserCircle, Star, Sparkle, WarningCircle } from
 import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 import PageTransition from '../../components/PageTransition';
+import { getStoredUser, getUserId } from '../../api/patient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
@@ -86,10 +87,10 @@ const BookingPage: React.FC = () => {
     setMessage(null);
 
     try {
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
+      const user = getStoredUser();
+      const patientId = getUserId(user);
       
-      if (!user || !user.id) {
+      if (!patientId) {
         setMessage({ type: 'error', text: 'You must be logged in to book an appointment' });
         return;
       }
@@ -101,7 +102,7 @@ const BookingPage: React.FC = () => {
       }
 
       const appointmentData = {
-        patientId: user.id,
+        patientId,
         doctorId: selectedDoctor.doctorId,
         specialty: selectedDoctor.specialization,
         appointmentDate: selectedDate,

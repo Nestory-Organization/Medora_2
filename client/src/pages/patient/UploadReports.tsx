@@ -9,7 +9,17 @@ import {
   DownloadSimple
 } from '@phosphor-icons/react';
 import { usePatient } from '../../api/PatientContext';
-import { uploadMedicalReport } from '../../api/patient';
+import { uploadMedicalReport, deleteMedicalDocument } from '../../api/patient';
+
+const FILE_BASE_URL = import.meta.env.VITE_PATIENT_FILES_BASE_URL || 'http://localhost:4002';
+
+const resolveFileUrl = (value: string | undefined) => {
+  if (!value) return '';
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+  return `${FILE_BASE_URL}${value.startsWith('/') ? '' : '/'}${value}`;
+};
 
 const FileItem = ({ file, onRemove }: any) => (
   <motion.div 
@@ -20,18 +30,18 @@ const FileItem = ({ file, onRemove }: any) => (
     className="flex items-center justify-between p-4 bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl hover:border-teal-500/20 transition-all duration-300"
   >
     <div className="flex items-center gap-4">
-      <div className={`p-3 rounded-xl ${(file.name || file.fileName || '').endsWith('.pdf') ? 'bg-rose-500/10 text-rose-400' : 'bg-blue-500/10 text-blue-400'}`}>
-        {(file.name || file.fileName || '').endsWith('.pdf') ? <FilePdf size={24} weight="duotone" /> : <FileImage size={24} weight="duotone" />}
+      <div className={`p-3 rounded-xl ${(file.originalName || file.fileName || '').toLowerCase().endsWith('.pdf') ? 'bg-rose-500/10 text-rose-400' : 'bg-blue-500/10 text-blue-400'}`}>
+        {(file.originalName || file.fileName || '').toLowerCase().endsWith('.pdf') ? <FilePdf size={24} weight="duotone" /> : <FileImage size={24} weight="duotone" />}
       </div>
       <div>
-        <h4 className="font-semibold text-slate-100 text-sm truncate max-w-50">{file.name || file.fileName}</h4>
+        <h4 className="font-semibold text-slate-100 text-sm truncate max-w-50">{file.originalName || file.fileName}</h4>
         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{file.size ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : new Date(file.uploadedAt || file.date).toLocaleDateString()}</p>
       </div>
     </div>
     <div className="flex gap-2">
-      {file.url && (
+      {file.fileUrl && (
         <a 
-          href={file.url} 
+          href={resolveFileUrl(file.fileUrl)} 
           target="_blank" 
           rel="noopener noreferrer"
           title="Download report" 
@@ -42,7 +52,7 @@ const FileItem = ({ file, onRemove }: any) => (
       )}
       <button 
         title="Remove report"
-        onClick={() => onRemove(file.id || file._id)}
+        onClick={() => onRemove(file._id || file.id)}
         className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
       >
         <Trash size={18} />
@@ -52,13 +62,12 @@ const FileItem = ({ file, onRemove }: any) => (
 );
 
 export default function UploadReports() {
-  const { history, refreshHistory, setError } = usePatient();
+  const { documents, refreshDocuments, setError } = usePatient();
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter history for items that have file attachments/reports
-  const reportFiles = history.filter((item: any) => item.reportUrl || item.fileName || item.url);
+  const reportFiles = documents;
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -80,9 +89,10 @@ export default function UploadReports() {
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('report', newFiles[0]);
+      formData.append('file', newFiles[0]);
+      formData.append('documentType', 'other');
       await uploadMedicalReport(formData);
-      await refreshHistory();
+      await refreshDocuments();
     } catch (err: any) {
       setError(err.message || "Upload failed");
     } finally {
@@ -90,9 +100,13 @@ export default function UploadReports() {
     }
   };
 
-  const removeFile = (_id: string) => {
-    // Logic for deleting a report could go here
-    console.log("Delete report", _id);
+  const removeFile = async (_id: string) => {
+    try {
+      await deleteMedicalDocument(_id);
+      await refreshDocuments();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete report");
+    }
   };
 
   return (

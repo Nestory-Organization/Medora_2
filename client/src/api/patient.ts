@@ -9,6 +9,19 @@ const patientApi = axios.create({
   },
 });
 
+export const getUserId = (user: any) => user?.id || user?._id || user?.userId || null;
+
+export const getStoredUser = () => {
+  try {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const getStoredUserId = () => getUserId(getStoredUser());
+
 // Add a request interceptor to include the auth token
 patientApi.interceptors.request.use(
   (config) => {
@@ -60,40 +73,74 @@ patientApi.interceptors.response.use(
 // Profile & Personal Info
 export const getPatientProfile = async () => {
     const response = await patientApi.get('/patients/profile');
-    return response.data;
+  const payload = response.data?.data ?? response.data ?? {};
+  return payload.patient ?? payload;
 };
 
 export const updatePatientProfile = async (data: any) => {
     const response = await patientApi.put('/patients/profile', data);
-    return response.data;
+  const payload = response.data?.data ?? response.data ?? {};
+  return payload.patient ?? payload;
+};
+
+export const registerPatientProfile = async (data: {
+  userId: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+}) => {
+  const response = await patientApi.post('/patients/register', data);
+  return response.data?.data?.patient ?? response.data;
 };
 
 // Medical History & Uploads
 export const getMedicalHistory = async () => {
     const response = await patientApi.get('/patients/history');
-    return response.data;
+  const payload = response.data?.data ?? response.data ?? {};
+  return payload.history ?? [];
 };
 
 export const addMedicalHistory = async (data: any) => {
     const response = await patientApi.post('/patients/history', data);
-    return response.data;
+  return response.data?.data?.history ?? response.data;
 };
 
 export const uploadMedicalReport = async (formData: FormData) => {
     const response = await patientApi.post('/patients/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
-    return response.data;
+  return response.data?.data?.document ?? response.data;
+};
+
+export const getMedicalDocuments = async () => {
+  const response = await patientApi.get('/patients/documents');
+  const payload = response.data?.data ?? response.data ?? {};
+  return payload.documents ?? [];
+};
+
+export const deleteMedicalDocument = async (docId: string) => {
+  const response = await patientApi.delete(`/patients/documents/${docId}`);
+  return response.data;
 };
 
 // Prescriptions & Appointments
 export const getPrescriptions = async () => {
     const response = await patientApi.get('/patients/prescriptions');
-    return response.data;
+  const payload = response.data?.data ?? response.data ?? {};
+  return (payload.prescriptions ?? []).map((item: any) => ({
+    ...item,
+    medicines: item.medicines || item.medications || [],
+    date: item.date || item.prescriptionDate,
+    doctorName: item.doctorName || item?.doctor?.name || 'Unknown Doctor'
+  }));
 };
 
 export const getMyAppointments = async () => {
-    const response = await patientApi.get('/appointments/my-appointments');
+    const patientId = getStoredUserId();
+    const response = await patientApi.get('/appointments/my-appointments', {
+      params: patientId ? { patientId } : undefined,
+    });
     return response.data;
 };
 
