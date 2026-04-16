@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MagnifyingGlass, Funnel, Clock, Calendar, BookmarkSimple, CaretRight, UserCircle, Star, Sparkle, WarningCircle } from 'phosphor-react';
+import { MagnifyingGlass, Clock, UserCircle, Star, Sparkle, WarningCircle } from 'phosphor-react';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
 
@@ -44,11 +44,14 @@ const BookingPage: React.FC = () => {
       if (!response.data.success) {
         setMessage({ type: 'error', text: 'Failed to fetch doctors' });
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Search error:', err);
+      const errorMessage = axios.isAxiosError(err) 
+        ? err.response?.data?.message 
+        : 'Failed to search doctors. Make sure API Gateway is running on port 4000.';
       setMessage({ 
         type: 'error', 
-        text: err.response?.data?.message || 'Failed to search doctors. Make sure API Gateway is running on port 4000.' 
+        text: errorMessage
       });
     } finally {
       setLoading(false);
@@ -103,11 +106,14 @@ const BookingPage: React.FC = () => {
       } else {
         setMessage({ type: 'error', text: response.data.message || 'Failed to book appointment' });
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Booking error:', err);
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.message
+        : 'Failed to book appointment. Make sure API Gateway is running on port 4000.';
       setMessage({ 
         type: 'error', 
-        text: err.response?.data?.message || 'Failed to book appointment. Make sure API Gateway is running on port 4000.' 
+        text: errorMessage
       });
     } finally {
       setBookingLoading(false);
@@ -218,6 +224,7 @@ const BookingPage: React.FC = () => {
                         <input 
                           type="date" 
                           value={selectedDate}
+                          title="Select appointment date"
                           onChange={(e) => setSelectedDate(e.target.value)}
                           className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm"
                         />
