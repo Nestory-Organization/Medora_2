@@ -1,0 +1,24 @@
+info:
+  name: 03 - Payment Webhook - Success
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: http://127.0.0.1:4005/payment/webhook
+  body:
+    type: json
+    data: |-
+      {
+        "order_id": "69e0706ea1c93c08ae6095c6",
+        "status_code": 2,
+        "payment_id": "PH_TXN_789012",
+        "payment_method": "VISA"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
