@@ -4,6 +4,24 @@ const env = require('../config/env');
 
 const router = express.Router();
 
+// GET /api — base URL has no proxied handler; avoids "Gateway route not found" in clients.
+router.get('/', (req, res) => {
+  res.json({
+    message: 'Medora API gateway',
+    health: `${req.protocol}://${req.get('host')}/health`,
+    routes: [
+      '/api/auth',
+      '/api/admin',
+      '/api/patients',
+      '/api/doctors',
+      '/api/appointments',
+      '/api/payments',
+      '/api/notifications',
+      '/api/ai'
+    ]
+  });
+});
+
 const proxyOptions = (target, serviceName) => ({
   target,
   changeOrigin: true,
@@ -30,6 +48,14 @@ router.use(
   createProxyMiddleware({
     ...proxyOptions(env.authServiceUrl, 'auth'),
     pathRewrite: (path) => '/auth' + path
+  })
+);
+
+router.use(
+  '/admin',
+  createProxyMiddleware({
+    ...proxyOptions(env.authServiceUrl, 'auth-admin'),
+    pathRewrite: (path) => '/admin' + path
   })
 );
 router.use('/patients', createProxyMiddleware(proxyOptions(env.patientServiceUrl, 'patients')));

@@ -39,10 +39,13 @@ services:
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
       JWT_EXPIRE: ${AUTH_JWT_EXPIRE:-7d}
       SERVICE_NAME: auth-service
+      PAYMENT_SERVICE_URL: http://payment-service:4005
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-medora_dev_internal_key}
     ports:
       - "4001:4001"
     depends_on:
       - auth-mongodb
+      - payment-service
     networks:
       - medora-network
 
@@ -152,6 +155,7 @@ services:
       PORT: 4005
       MONGO_URI: mongodb://payment-mongodb:27017/payment_db
       SERVICE_NAME: payment-service
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-medora_dev_internal_key}
     ports:
       - "4005:4005"
     depends_on:

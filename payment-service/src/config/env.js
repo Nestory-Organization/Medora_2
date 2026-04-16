@@ -14,6 +14,7 @@ module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT),
   mongoUri: process.env.MONGO_URI,
-  serviceName: process.env.SERVICE_NAME || 'payment-service'
+  serviceName: process.env.SERVICE_NAME || 'payment-service',
+  internalApiKey: process.env.INTERNAL_API_KEY || ''
 };
 
