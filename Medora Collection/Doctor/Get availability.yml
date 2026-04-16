@@ -1,0 +1,33 @@
+info:
+  name: Get availability
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: http://localhost:4000/api/doctors/availability
+  body:
+    type: json
+    data: |-
+      {
+        "date": "2026-04-10",
+        "slots": [
+          {
+            "startTime": "09:00",
+            "endTime": "09:30"
+          },
+          {
+            "startTime": "10:00",
+            "endTime": "10:30"
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5Y2U0Mjc0Njg0ZDFmYjMwMWY0NjNmOCIsImVtYWlsIjoiZG9jdG9yMUB0ZXN0LmNvbSIsInJvbGUiOiJkb2N0b3IiLCJpYXQiOjE3NzYzMzQwNTMsImV4cCI6MTc3NjkzODg1M30.vlaVPst0IVqSVjXcCS6yr6RmJ2sjXdYO6hzzW5xV6O4
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

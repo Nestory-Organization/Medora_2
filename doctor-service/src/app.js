@@ -5,6 +5,12 @@ const compression = require('compression');
 const morgan = require('morgan');
 const systemRoutes = require('./routes/system.routes');
 const doctorRoutes = require('./routes/doctor.routes');
+const {
+  searchDoctorsBySpecialty,
+  getDoctorProfile,
+  getVerifiedDoctors
+} = require('./controllers/doctorSearch.controller');
+const { getAllDoctors, verifyDoctor } = require('./controllers/system.controller');
 
 const app = express();
 
@@ -15,8 +21,20 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/', systemRoutes);
-app.use('/', doctorRoutes);
+// System endpoints - DIRECT HANDLERS (no middleware interference)
+app.get('/system/doctors', getAllDoctors);
+app.patch('/system/doctors/:doctorId/verify', verifyDoctor);
+
+// Legacy system routes for health/status
+app.use('/system', systemRoutes);
+
+// PUBLIC SEARCH ENDPOINTS (no auth required - must be BEFORE protected routes)
+app.get('/doctor/search', searchDoctorsBySpecialty);
+app.get('/doctor/verified', getVerifiedDoctors);
+
+// Protected doctor routes (auth required)
+// This includes the /:doctorId GET route which requires authentication
+app.use('/doctor', doctorRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

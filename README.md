@@ -51,7 +51,24 @@ docker compose up --build
 - Gateway: `http://localhost:4000/health`
 - Auth service via gateway: `http://localhost:4000/api/auth/health`
 - Patient service via gateway: `http://localhost:4000/api/patients/health`
-- Appointment doctor search via service: `http://localhost:4004/appointments/doctors/search?specialty=Cardiology`
+- Doctor service via gateway: `http://localhost:4000/api/doctors/health`
+- Appointment service via gateway: `http://localhost:4000/api/appointments/health`
+
+## Appointment Service API
+
+Doctor search with real MongoDB data:
+
+- `GET /api/appointments/doctors/search?specialty=Cardiology&date=2026-04-20`
+
+Book appointment:
+
+- `POST /api/appointments` with appointment details
+- Requires authentication (JWT token)
+
+Get my appointments:
+
+- `GET /api/appointments/my-appointments`
+- Requires authentication (JWT token)
 
 ## Notes
 
