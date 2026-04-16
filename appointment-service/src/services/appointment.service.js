@@ -258,9 +258,40 @@ const updateAppointment = async (appointmentId, payload) => {
   return mapAppointment(updated);
 };
 
+const cancelAppointment = async (appointmentId) => {
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    throw new AppointmentValidationError('Invalid appointment id');
+  }
+
+  const existingAppointment = await Appointment.findById(appointmentId);
+
+  if (!existingAppointment) {
+    throw new AppointmentNotFoundError('Appointment not found');
+  }
+
+  if (existingAppointment.status === 'CANCELLED') {
+    throw new AppointmentValidationError('Appointment is already cancelled');
+  }
+
+  if (existingAppointment.status === 'COMPLETED') {
+    throw new AppointmentValidationError(
+      'Cannot cancel appointment when status is COMPLETED'
+    );
+  }
+
+  existingAppointment.status = 'CANCELLED';
+
+  const updated = await existingAppointment.save();
+
+  // Future inter-service communication: trigger refund workflow with payment-service.
+  // Future inter-service communication: publish appointment-cancelled event to notification-service.
+  return mapAppointment(updated);
+};
+
 module.exports = {
   createAppointment,
   updateAppointment,
+  cancelAppointment,
   AppointmentValidationError,
   AppointmentConflictError,
   AppointmentNotFoundError

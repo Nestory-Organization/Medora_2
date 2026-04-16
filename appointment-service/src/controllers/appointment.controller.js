@@ -1,6 +1,7 @@
 const {
   createAppointment,
   updateAppointment,
+  cancelAppointment,
   AppointmentValidationError,
   AppointmentConflictError,
   AppointmentNotFoundError
@@ -86,7 +87,44 @@ const modifyAppointment = async (req, res) => {
   }
 };
 
+const cancelAppointmentById = async (req, res) => {
+  try {
+    const appointment = await cancelAppointment(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Appointment cancelled successfully',
+      data: appointment
+    });
+  } catch (error) {
+    console.error('Cancel appointment error:', error);
+
+    if (error instanceof AppointmentValidationError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    if (error instanceof AppointmentNotFoundError) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to cancel appointment',
+      data: null
+    });
+  }
+};
+
 module.exports = {
   bookAppointment,
-  modifyAppointment
+  modifyAppointment,
+  cancelAppointmentById
 };
