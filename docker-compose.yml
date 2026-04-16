@@ -131,6 +131,7 @@ services:
       NODE_ENV: production
       PORT: 4004
       MONGO_URI: mongodb://appointment-mongodb:27017/appointment_db
+      JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
       SERVICE_NAME: appointment-service
       NOTIFICATION_SERVICE_URL: http://notification-service:4006
       SERVICE_REQUEST_TIMEOUT_MS: 5000

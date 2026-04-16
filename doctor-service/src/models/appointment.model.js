@@ -115,6 +115,22 @@ const appointmentSchema = new mongoose.Schema(
     prescriptions: {
       type: [prescriptionSchema],
       default: []
+    },
+    telemedicine: {
+      meetingLink: {
+        type: String,
+        trim: true,
+        default: null
+      },
+      sessionId: {
+        type: String,
+        trim: true,
+        default: null
+      },
+      requestedAt: {
+        type: Date,
+        default: null
+      }
     }
   },
   { timestamps: true }

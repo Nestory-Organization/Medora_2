@@ -225,6 +225,9 @@ const getAssignedAppointments = async (req, res) => {
       .sort({ appointmentDate: 1, startTime: 1 })
       .lean();
 
+    // Log for debugging visibility
+    console.log(`[DoctorService] Found ${appointments.length} appointments for doctor ${doctorId}`);
+
     return res.status(200).json({
       success: true,
       data: appointments
@@ -364,11 +367,202 @@ const addPrescription = async (req, res) => {
   }
 };
 
+const createTelemedicineSession = async (req, res) => {
+  try {
+    const doctorId = getDoctorObjectId(req);
+    const { appointmentId } = req.body;
+
+    if (!appointmentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Appointment ID is required'
+      });
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    // Security check: Only the assigned doctor can generate the session
+    if (appointment.doctorId.toString() !== doctorId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized: Only the assigned doctor can create a session'
+      });
+    }
+
+    // Generate a unique session ID if not already exists
+    const sessionId = appointment.telemedicine?.sessionId || `medora-${appointmentId}-${Math.random().toString(36).substring(2, 9)}`;
+    const meetingLink = `https://meet.jit.si/${sessionId}`;
+
+    appointment.telemedicine = {
+      meetingLink,
+      sessionId,
+      requestedAt: new Date()
+    };
+
+    await appointment.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Telemedicine session created successfully',
+      data: {
+        meetingLink,
+        sessionId,
+        appointmentId
+      }
+    });
+  } catch (error) {
+    console.error('Create telemedicine session error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create telemedicine session'
+    });
+  }
+};
+
+const getDoctorAvailability = async (req, res) => {
+  try {
+    const doctorId = getDoctorObjectId(req);
+
+    if (!doctorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid doctor identifier'
+      });
+    }
+
+    const { date } = req.query;
+    const query = { doctorId };
+
+    if (date) {
+      const normalizedDate = new Date(date);
+      if (!Number.isNaN(normalizedDate.getTime())) {
+        query.date = normalizedDate;
+      }
+    }
+
+    const availability = await Availability.find(query)
+      .sort({ date: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: availability
+    });
+  } catch (error) {
+    console.error('Get availability error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch availability'
+    });
+  }
+};
+
+const markSlotBooked = async (req, res) => {
+  try {
+    const { doctorId, date, startTime } = req.body;
+
+    if (!doctorId || !date || !startTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'doctorId, date, and startTime are required'
+      });
+    }
+
+    const normalizedDate = new Date(date);
+    const availability = await Availability.findOne({ doctorId, date: normalizedDate });
+
+    if (!availability) {
+      return res.status(404).json({
+        success: false,
+        message: 'Availability not found for this date'
+      });
+    }
+
+    const slotIndex = availability.slots.findIndex(s => s.startTime === startTime);
+    if (slotIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Slot not found'
+      });
+    }
+
+    availability.slots[slotIndex].isBooked = true;
+    await availability.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Slot marked as booked'
+    });
+  } catch (error) {
+    console.error('Mark slot booked error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to mark slot as booked'
+    });
+  }
+};
+
+const releaseSlot = async (req, res) => {
+  try {
+    const { doctorId, date, startTime } = req.body;
+
+    if (!doctorId || !date || !startTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'doctorId, date, and startTime are required'
+      });
+    }
+
+    const normalizedDate = new Date(date);
+    const availability = await Availability.findOne({ doctorId, date: normalizedDate });
+
+    if (!availability) {
+      return res.status(404).json({
+        success: false,
+        message: 'Availability not found for this date'
+      });
+    }
+
+    const slotIndex = availability.slots.findIndex(s => s.startTime === startTime);
+    if (slotIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Slot not found'
+      });
+    }
+
+    availability.slots[slotIndex].isBooked = false;
+    await availability.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Slot released'
+    });
+  } catch (error) {
+    console.error('Release slot error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to release slot'
+    });
+  }
+};
+
 module.exports = {
   createDoctorProfile,
   updateDoctorProfile,
   setAvailability,
+  getDoctorAvailability,
+  markSlotBooked,
+  releaseSlot,
   getAssignedAppointments,
   updateAppointmentStatus,
-  addPrescription
+  addPrescription,
+  createTelemedicineSession
 };

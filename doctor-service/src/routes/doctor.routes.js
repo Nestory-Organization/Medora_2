@@ -3,21 +3,60 @@ const {
   createDoctorProfile,
   updateDoctorProfile,
   setAvailability,
+  getDoctorAvailability,
+  markSlotBooked,
+  releaseSlot,
   getAssignedAppointments,
   updateAppointmentStatus,
-  addPrescription
+  addPrescription,
+  createTelemedicineSession
 } = require('../controllers/doctor.controller');
-const { authenticate, authorizeDoctor } = require('../middleware/auth.middleware');
+const {
+  addPrescriptionToAppointment,
+  getPrescriptionDetails,
+  initializeTelemedicineSession,
+  getTelemedicineSession,
+  completeAppointment,
+  addPatientReport
+} = require('../controllers/prescriptionAndSession.controller');
+const { 
+  authenticate, 
+  authorizeDoctor, 
+  checkDoctorVerified 
+} = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
 router.use(authenticate, authorizeDoctor);
 
-router.post('/doctor/profile', createDoctorProfile);
-router.put('/doctor/profile', updateDoctorProfile);
-router.post('/doctor/availability', setAvailability);
-router.get('/doctor/appointments', getAssignedAppointments);
-router.put('/doctor/appointment/:id/status', updateAppointmentStatus);
-router.post('/doctor/prescription', addPrescription);
+// Allow creating a profile even if not verified
+router.post('/profile', createDoctorProfile);
+
+// Secure other doctor routes with verification check
+// Move availability routes before checkDoctorVerified to allow newly registered doctors to set up
+router.post('/availability', setAvailability);
+router.get('/availability', getDoctorAvailability);
+router.patch('/availability/mark-booked', markSlotBooked);
+router.patch('/availability/release-slot', releaseSlot);
+
+router.use(checkDoctorVerified);
+
+router.put('/profile', updateDoctorProfile);
+router.get('/appointments', getAssignedAppointments);
+router.put('/appointment/:id/status', updateAppointmentStatus);
+
+// Prescription endpoints
+router.post('/appointment/:appointmentId/prescription', addPrescriptionToAppointment);
+router.get('/appointment/:appointmentId/prescription', getPrescriptionDetails);
+
+// Telemedicine session endpoints
+router.post('/appointment/:appointmentId/session', initializeTelemedicineSession);
+router.get('/appointment/:appointmentId/session', getTelemedicineSession);
+
+// Appointment completion
+router.patch('/appointment/:appointmentId/complete', completeAppointment);
+
+// Patient report/documentation
+router.post('/appointment/:appointmentId/report', addPatientReport);
 
 module.exports = router;
