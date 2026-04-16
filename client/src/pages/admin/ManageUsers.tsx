@@ -2,23 +2,13 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
-  UserCircle, 
-  EnvelopeSimple, 
-  ShieldCheck, 
   MagnifyingGlass,
-  Funnel,
   ArrowClockwise,
-  DotsThreeVertical,
-  CheckCircle,
-  XCircle,
-  Stethoscope,
   Trash,
   Prohibit,
   Check,
   CaretLeft,
-  CaretRight,
-  Info,
-  Warning
+  CaretRight
 } from '@phosphor-icons/react';
 import { toast } from 'react-toastify';
 
@@ -32,7 +22,18 @@ interface User {
   createdAt: string;
 }
 
-const Modal = ({ isOpen, onClose, title, children, actionLabel, actionColor, onAction, loading }: any) => {
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  actionLabel: string;
+  actionColor: string;
+  onAction: () => void;
+  loading?: boolean;
+}
+
+const Modal = ({ isOpen, onClose, title, children, actionLabel, actionColor, onAction, loading }: ModalProps) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -105,7 +106,7 @@ const ManageUsers: React.FC = () => {
       } else {
         toast.error(data.message || 'Failed to fetch users');
       }
-    } catch (err) {
+    } catch {
       toast.error('Network error: Could not reach server');
     } finally {
       setLoading(false);
@@ -130,7 +131,7 @@ const ManageUsers: React.FC = () => {
         fetchUsers();
         setModalType(null);
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to update account status');
     } finally {
       setActionLoading(false);
@@ -152,7 +153,7 @@ const ManageUsers: React.FC = () => {
         fetchUsers();
         setModalType(null);
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete user');
     } finally {
       setActionLoading(false);
@@ -170,12 +171,6 @@ const ManageUsers: React.FC = () => {
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const getRoleIcon = (role: string) => {
-    if (role === 'admin') return <ShieldCheck size={16} weight="duotone" className="text-purple-400" />;
-    if (role === 'doctor') return <Stethoscope size={16} weight="duotone" className="text-blue-400" />;
-    return <UserCircle size={16} weight="duotone" className="text-teal-400" />;
-  };
 
   const getRoleStyle = (role: string) => {
     if (role === 'admin') return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
@@ -225,6 +220,7 @@ const ManageUsers: React.FC = () => {
           <select 
             className="w-full bg-slate-900/40 border border-white/5 rounded-[24px] py-4 px-6 text-sm text-slate-200 focus:outline-none appearance-none"
             value={filterRole}
+            title="Filter users by role"
             onChange={(e) => { setFilterRole(e.target.value); setCurrentPage(1); }}
           >
             <option value="all">Every Role</option>
@@ -290,12 +286,14 @@ const ManageUsers: React.FC = () => {
                         <button 
                           onClick={() => { setSelectedUser(user); setModalType('status'); }}
                           className="p-2 rounded-xl border border-white/5 hover:bg-white/5 transition-all text-slate-400"
+                          title={user.isActive ? "Deactivate user" : "Activate user"}
                         >
                           {user.isActive ? <Prohibit size={18} /> : <Check size={18} />}
                         </button>
                         <button 
                           onClick={() => { setSelectedUser(user); setModalType('delete'); }}
                           className="p-2 rounded-xl border border-white/5 hover:bg-rose-500/10 hover:text-rose-400 text-slate-400 transition-all"
+                          title="Delete user"
                         >
                           <Trash size={18} />
                         </button>
@@ -310,8 +308,22 @@ const ManageUsers: React.FC = () => {
         <div className="px-10 py-6 border-t border-white/5 flex justify-between items-center bg-white/[0.01]">
           <span className="text-[10px] font-black text-slate-600">Page {currentPage} of {totalPages || 1}</span>
           <div className="flex gap-2">
-            <button disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)} className="p-2 rounded-xl bg-slate-800 disabled:opacity-20"><CaretLeft size={16} className="text-white" /></button>
-            <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(c => c + 1)} className="p-2 rounded-xl bg-slate-800 disabled:opacity-20"><CaretRight size={16} className="text-white" /></button>
+            <button 
+              disabled={currentPage === 1} 
+              onClick={() => setCurrentPage(c => c - 1)} 
+              className="p-2 rounded-xl bg-slate-800 disabled:opacity-20"
+              title="Previous page"
+            >
+              <CaretLeft size={16} className="text-white" />
+            </button>
+            <button 
+              disabled={currentPage >= totalPages} 
+              onClick={() => setCurrentPage(c => c + 1)} 
+              className="p-2 rounded-xl bg-slate-800 disabled:opacity-20"
+              title="Next page"
+            >
+              <CaretRight size={16} className="text-white" />
+            </button>
           </div>
         </div>
       </div>

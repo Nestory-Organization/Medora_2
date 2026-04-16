@@ -1,6 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
-  SquaresFour, 
   CalendarCheck, 
   User, 
   ChatTeardropDots, 
@@ -9,12 +8,13 @@ import {
   Pill,
   Bell,
   Gear,
-  CirclesFour
+  CirclesFour,
+  type IconProps
 } from '@phosphor-icons/react';
 
 interface SidebarItemProps {
   to: string;
-  icon: any;
+  icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   label: string;
   badge?: number;
 }
@@ -50,7 +50,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
   let user = null;
   try {
     user = userStr && userStr !== "undefined" ? JSON.parse(userStr) : null;
-  } catch (e) {
+  } catch {
     user = null;
   }
 
@@ -115,7 +115,10 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
             <p className="text-[11px] font-bold text-slate-200 truncate">{user?.firstName} {user?.lastName}</p>
             <p className="text-[9px] font-medium text-slate-500 capitalize">{user?.role || role}</p>
           </div>
-          <button className="text-slate-500 hover:text-white transition-colors">
+          <button 
+            className="text-slate-500 hover:text-white transition-colors"
+            title="View Notifications"
+          >
             <Bell size={14} weight="duotone" />
           </button>
         </div>

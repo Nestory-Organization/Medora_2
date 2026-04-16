@@ -1,20 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Users,
   UserCheck,
   DollarSign,
-  TrendingUp,
-  Activity,
   Search,
   ShieldCheck,
   RefreshCcw,
-  Clock,
   ArrowRight,
   Zap,
   Cpu,
-  Globe,
   MoreVertical,
   Bell,
   CheckCircle2,
@@ -130,11 +126,7 @@ const AdminDashboard: React.FC = () => {
   });
   const [activeTab, setActiveTab] = useState("revenue");
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     const token = localStorage.getItem("authToken");
     try {
       const statsRes = await axios.get("http://localhost:4000/api/admin/stats", {
@@ -144,7 +136,23 @@ const AdminDashboard: React.FC = () => {
     } catch {
       toast.error("Telemetry link failed - Retrying protocol");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    const initialize = async () => {
+      if (mounted) {
+        await fetchDashboardData();
+      }
+    };
+
+    initialize();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [fetchDashboardData]);
 
   return (
     <div className="">
@@ -184,11 +192,18 @@ const AdminDashboard: React.FC = () => {
                 className="bg-transparent border-none outline-none text-sm ml-3 w-full text-slate-200 placeholder:text-slate-600 font-medium"
               />
             </div>
-            <button className="relative p-3.5 bg-white/[0.03] border border-white/5 rounded-2xl hover:bg-white/[0.06] transition-all text-slate-400 hover:text-white">
+            <button 
+              className="relative p-3.5 bg-white/[0.03] border border-white/5 rounded-2xl hover:bg-white/[0.06] transition-all text-slate-400 hover:text-white"
+              title="System Notifications"
+            >
               <Bell className="w-5 h-5" />
               <span className="absolute top-3.5 right-3.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-[#05070a]" />
             </button>
-            <button className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-blue-600/20">
+            <button 
+              className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-blue-600/20"
+              title="Sync Telemetry"
+              onClick={fetchDashboardData}
+            >
               <RefreshCcw className="w-3.5 h-3.5" /> Initialize Sync
             </button>
           </div>
@@ -216,6 +231,7 @@ const AdminDashboard: React.FC = () => {
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+                    title={`View ${tab} analytics`}
                   >
                     {tab}
                   </button>
@@ -287,7 +303,7 @@ const AdminDashboard: React.FC = () => {
           {/* Signal Feed */}
           <DashboardCard title="Uplink Activity" subtitle="Real-time Event Log" className="xl:col-span-2">
             <div className="space-y-4">
-              {RECENT_ACTIVITY.map((activity, idx) => (
+              {RECENT_ACTIVITY.map((activity) => (
                 <div key={activity.id} className="flex items-center justify-between p-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 rounded-2xl transition-all group cursor-pointer">
                   <div className="flex items-center gap-4">
                     <div className={`p-3 rounded-xl ${activity.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' : activity.type === 'warning' ? 'bg-orange-500/10 text-orange-400' : 'bg-blue-500/10 text-blue-400'}`}>
@@ -298,7 +314,10 @@ const AdminDashboard: React.FC = () => {
                       <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">{activity.time}</p>
                     </div>
                   </div>
-                  <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-white/10 rounded-lg transition-all">
+                  <button 
+                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-white/10 rounded-lg transition-all"
+                    title="Activity Actions"
+                  >
                     <MoreVertical className="w-4 h-4 text-slate-500" />
                   </button>
                 </div>
