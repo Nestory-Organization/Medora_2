@@ -473,10 +473,12 @@ const analyzeSymptoms = async (req, res) => {
       });
     }
 
-    const { symptoms, duration, severity, age, medicalHistory } = req.body;
+    const { symptoms, description, duration, severity, age, medicalHistory } =
+      req.body;
 
     // Sanitize inputs
     const sanitizedSymptoms = sanitizeInput(symptoms);
+    const sanitizedDescription = sanitizeInput(description || "");
     const sanitizedDuration = sanitizeInput(duration);
     const sanitizedHistory = sanitizeInput(medicalHistory || "");
 
@@ -492,6 +494,7 @@ const analyzeSymptoms = async (req, res) => {
       severity,
       age,
       sanitizedHistory,
+      sanitizedDescription,
     );
 
     // Call Gemini API
@@ -515,6 +518,7 @@ const analyzeSymptoms = async (req, res) => {
           type: "analysis",
           inputData: {
             symptoms: sanitizedSymptoms,
+            description: sanitizedDescription,
             duration: sanitizedDuration,
             severity,
             age,

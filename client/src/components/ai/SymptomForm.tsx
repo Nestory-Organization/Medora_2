@@ -7,13 +7,28 @@ interface SymptomFormProps {
   loading: boolean;
 }
 
+const COMMON_SYMPTOMS = [
+  'Headache', 'Fever', 'Cough', 'Fatigue', 'Nausea', 
+  'Dizziness', 'Chest Pain', 'Shortness of Breath', 
+  'Abdominal Pain', 'Sore Throat', 'Body Ache', 'Runny Nose'
+];
+
 const SymptomForm: React.FC<SymptomFormProps> = ({ onSubmit, loading }) => {
   const [symptomInput, setSymptomInput] = useState('');
   const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
   const [duration, setDuration] = useState('1 day');
   const [severity, setSeverity] = useState(5);
   const [age, setAge] = useState<number | ''>('');
   const [medicalHistory, setMedicalHistory] = useState('');
+
+  const toggleSymptom = (symptom: string) => {
+    if (symptoms.includes(symptom)) {
+      setSymptoms(symptoms.filter((s) => s !== symptom));
+    } else {
+      setSymptoms([...symptoms, symptom]);
+    }
+  };
 
   const addSymptom = () => {
     if (symptomInput.trim() && !symptoms.includes(symptomInput.trim())) {
@@ -35,12 +50,13 @@ const SymptomForm: React.FC<SymptomFormProps> = ({ onSubmit, loading }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (symptoms.length === 0) {
-      alert('Please add at least one symptom');
+    if (symptoms.length === 0 && !description.trim()) {
+      alert('Please select at least one symptom or describe your symptoms');
       return;
     }
     onSubmit({
       symptoms,
+      description,
       duration,
       severity,
       age: Number(age),
@@ -61,13 +77,37 @@ const SymptomForm: React.FC<SymptomFormProps> = ({ onSubmit, loading }) => {
         <div className="p-2 bg-cyan-500/20 rounded-xl">
           <Plus size={24} weight="bold" className="text-cyan-400" />
         </div>
-        Clinical Data
+        Symptom Checker
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Common Symptoms Selection */}
+        <div className="space-y-4">
+          <label className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-200/50 block">Select Common Symptoms</label>
+          <div className="flex flex-wrap gap-2">
+            {COMMON_SYMPTOMS.map((symptom) => {
+              const isSelected = symptoms.includes(symptom);
+              return (
+                <button
+                  key={symptom}
+                  type="button"
+                  onClick={() => toggleSymptom(symptom)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                    isSelected 
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-200' 
+                      : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:border-white/20'
+                  }`}
+                >
+                  {symptom}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Symptoms Input */}
         <div className="space-y-4">
-          <label className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-200/50 block">Patient Symptoms</label>
+          <label className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-200/50 block">Other Symptoms</label>
           <div className="relative group/input">
             <input
               type="text"
@@ -87,7 +127,7 @@ const SymptomForm: React.FC<SymptomFormProps> = ({ onSubmit, loading }) => {
           </div>
           <div className="flex flex-wrap gap-2.5 min-h-[40px]">
             <AnimatePresence>
-              {symptoms.map((symptom) => (
+              {symptoms.filter(s => !COMMON_SYMPTOMS.includes(s)).map((symptom) => (
                 <motion.span
                   key={symptom}
                   initial={{ scale: 0.8, opacity: 0 }}
@@ -106,16 +146,25 @@ const SymptomForm: React.FC<SymptomFormProps> = ({ onSubmit, loading }) => {
                 </motion.span>
               ))}
             </AnimatePresence>
-            {symptoms.length === 0 && (
-              <span className="text-[10px] text-white/20 italic font-medium leading-10">Waiting for clinical indicators...</span>
-            )}
           </div>
+        </div>
+
+        {/* Optional Description */}
+        <div className="space-y-4">
+          <label className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-200/50 block">Describe your symptoms (Optional)</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Tell us more about how you feel..."
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-white/20 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 focus:border-cyan-500/50 min-h-[100px] transition-all text-sm font-medium"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-6">
           {/* Duration */}
           <div className="space-y-4">
             <label className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-200/50 block">Duration of Onset</label>
+
             <div className="relative">
               <select
                 value={duration}

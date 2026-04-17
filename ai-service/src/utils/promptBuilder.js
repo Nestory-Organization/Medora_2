@@ -13,6 +13,7 @@ const buildSymptomAnalysisPrompt = (
   severity,
   age,
   medicalHistory = "",
+  description = "",
 ) => {
   const symptomsList = Array.isArray(symptoms) ? symptoms.join(", ") : symptoms;
 
@@ -21,6 +22,7 @@ const buildSymptomAnalysisPrompt = (
 PATIENT INFORMATION:
 - Age: ${age} years old
 - Symptoms: ${symptomsList}
+${description ? `- Patient's Description: ${description}` : ""}
 - Duration: ${duration}
 - Severity: ${severity}/10
 ${medicalHistory ? `- Medical History: ${medicalHistory}` : ""}
