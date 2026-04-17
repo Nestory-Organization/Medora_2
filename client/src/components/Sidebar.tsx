@@ -15,6 +15,7 @@ import {
   FileText,
   VideoCamera,
   Stethoscope,
+  ChartLine,
   type IconProps
 } from '@phosphor-icons/react';
 
@@ -43,9 +44,9 @@ const SidebarItem = ({ to, icon: Icon, label, badge, submenu }: SidebarItemProps
               : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}
           `}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform shrink-0" />
-            <span className="font-semibold text-[13px] truncate">{label}</span>
+          <div className="flex items-center gap-2">
+            <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform" />
+            <span className="font-semibold text-[13px]">{label}</span>
           </div>
           <div className="flex items-center gap-2">
             {badge && (
@@ -81,9 +82,9 @@ const SidebarItem = ({ to, icon: Icon, label, badge, submenu }: SidebarItemProps
           : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}
       `}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform shrink-0" />
-        <span className="font-semibold text-[13px] whitespace-nowrap">{label}</span>
+      <div className="flex items-center gap-2">
+        <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform" />
+        <span className="font-semibold text-[13px]">{label}</span>
       </div>
       {badge && (
         <span className="bg-teal-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
@@ -114,7 +115,6 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
   const navItems = role === 'patient' 
     ? [
         { to: '/patient/dashboard', icon: CirclesFour, label: 'Dashboard' },
-        { to: '/patient/book', icon: Stethoscope, label: 'Find Your Specialist' },
         { to: '/patient/appointments', icon: CalendarCheck, label: 'My Appointments' },
         { to: '/patient/history', icon: Files, label: 'Medical History' },
         { to: '/patient/prescriptions', icon: Pill, label: 'Prescriptions' },
@@ -133,6 +133,11 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
           badge: 8
         },
         { 
+          to: '/doctor/earnings', 
+          icon: ChartLine, 
+          label: 'My Earnings'
+        },
+        { 
           to: '/doctor/profile', 
           icon: User, 
           label: 'My Profile',
@@ -141,10 +146,21 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
             { to: '/doctor/availability', icon: Clock, label: 'Set Availability' },
           ]
         },
-        
+        { 
+          to: '#consultation', 
+          icon: Stethoscope, 
+          label: 'Consultation Tools',
+          submenu: [
+            { to: '/doctor/appointments', icon: CalendarCheck, label: 'All Appointments' },
+            { to: '/doctor/appointments?tab=notes', icon: FileText, label: 'Add Notes' },
+            { to: '/doctor/appointments?tab=prescription', icon: Pill, label: 'Add Prescription' },
+            { to: '/doctor/appointments?tab=telemedicine', icon: VideoCamera, label: 'Start Telemedicine' },
+          ]
+        },
       ]
     : [
         { to: '/admin/dashboard', icon: CirclesFour, label: 'Dashboard' },
+        { to: '/admin/earnings', icon: ChartLine, label: 'Earnings Report' },
         { to: '/admin/doctors', icon: User, label: 'Verify Doctors' },
         { to: '/admin/users', icon: User, label: 'Manage Users' },
       ];
@@ -162,11 +178,9 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
       {/* Navigation */}
       <div className="flex-1 space-y-1 overflow-y-auto pr-1 -mr-1 custom-scrollbar">
         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-2">Main Menu</p>
-        <div className="space-y-1">
-          {navItems.map((item, index) => (
-            <SidebarItem key={`${item.to}-${item.label}-${index}`} {...item} />
-          ))}
-        </div>
+        {navItems.map((item, index) => (
+          <SidebarItem key={`${item.to}-${item.label}-${index}`} to={item.to} icon={item.icon} label={item.label} badge={item.badge} submenu={item.submenu} />
+        ))}
       </div>
 
       {/* User Card */}
