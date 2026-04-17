@@ -345,7 +345,9 @@ const updateAppointment = async (appointmentId, payload) => {
     metadata: {
       specialty: updated.specialty,
       reason: updated.reason
-    }
+    },
+    email: updated.patientEmail || null,
+    phone: updated.patientPhone || null
   });
 
   return await mapAppointment(updated);
@@ -385,7 +387,9 @@ const cancelAppointment = async (appointmentId) => {
     startTime: updated.startTime,
     metadata: {
       specialty: updated.specialty
-    }
+    },
+    email: updated.patientEmail || null,
+    phone: updated.patientPhone || null
   });
 
   return await mapAppointment(updated);
@@ -459,7 +463,9 @@ const updateAppointmentPaymentState = async (appointmentId, payload) => {
       startTime: updated.startTime,
       metadata: {
         paymentStatus: updated.paymentStatus
-      }
+      },
+      email: updated.patientEmail || null,
+      phone: updated.patientPhone || null
     });
   }
 
@@ -471,6 +477,7 @@ module.exports = {
   updateAppointment,
   cancelAppointment,
   updateAppointmentPaymentState,
+  publishNotificationEvent,
   AppointmentValidationError,
   AppointmentConflictError,
   AppointmentNotFoundError

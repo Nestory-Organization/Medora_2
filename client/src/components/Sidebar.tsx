@@ -141,17 +141,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
             { to: '/doctor/availability', icon: Clock, label: 'Set Availability' },
           ]
         },
-        { 
-          to: '#consultation', 
-          icon: Stethoscope, 
-          label: 'Consultation Tools',
-          submenu: [
-            { to: '/doctor/appointments', icon: CalendarCheck, label: 'All Appointments' },
-            { to: '/doctor/appointments?tab=notes', icon: FileText, label: 'Add Notes' },
-            { to: '/doctor/appointments?tab=prescription', icon: Pill, label: 'Add Prescription' },
-            { to: '/doctor/appointments?tab=telemedicine', icon: VideoCamera, label: 'Start Telemedicine' },
-          ]
-        },
+        
       ]
     : [
         { to: '/admin/dashboard', icon: CirclesFour, label: 'Dashboard' },

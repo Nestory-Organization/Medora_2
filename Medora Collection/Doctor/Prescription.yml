@@ -1,0 +1,15 @@
+info:
+  name: Prescription
+  type: http
+  seq: 11
+
+http:
+  method: GET
+  url: http://localhost:4000/api/doctors/appointment/69e129f501b1c513d81b8e06/prescription
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

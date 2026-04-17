@@ -120,7 +120,12 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
   const mapped = {
     id: appointment._id,
     doctorId: appointment.doctorId,
-    doctorName: appointment.doctorName || `Doctor ${appointment.doctorId?.substring(0, 8)}`,
+    doctorName:
+      appointment.doctorName ||
+      appointment?.doctor?.name ||
+      (appointment?.doctor?.firstName && appointment?.doctor?.lastName
+        ? `${appointment.doctor.firstName} ${appointment.doctor.lastName}`
+        : `Doctor ${appointment.doctorId?.substring(0, 8)}`),
     date: new Date(appointment.appointmentDate).toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric', 
@@ -278,8 +283,8 @@ export default function MyAppointments() {
   const fetchAppointments = async () => {
     setLoading(true);
     try {
-      const res = await getMyAppointments();
-      setAppointments(res.data || []);
+      const appointmentsData = await getMyAppointments();
+      setAppointments(appointmentsData || []);
     } catch (err) {
       console.error("Failed to load appointments", err);
       setAppointments([]);

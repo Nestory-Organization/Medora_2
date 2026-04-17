@@ -135,7 +135,10 @@ export const getPrescriptions = async () => {
     ...item,
     medicines: item.medicines || item.medications || [],
     date: item.date || item.prescriptionDate,
-    doctorName: item.doctorName || item?.doctor?.name || 'Unknown Doctor'
+    doctorName:
+      (item.doctorName || item?.doctor?.name || 'Unknown Doctor')
+        .replace(/^Dr\.\s*/, '')
+        .trim() || 'Unknown Doctor'
   }));
 };
 
@@ -152,7 +155,41 @@ export const getMyAppointments = async () => {
     const response = await patientApi.get('/appointments/my-appointments', {
         params: { patientId }
     });
-    return response.data;
+
+    const payload = response.data?.data ?? response.data ?? [];
+    const appointments = Array.isArray(payload) ? payload : [];
+
+    // Resolve doctor names client-side for any items missing doctorName
+    const missingDoctorIds = Array.from(new Set(
+      appointments
+        .map((a: any) => a.doctorId)
+        .filter(Boolean)
+        .filter((id: string) => !appointments.find((x: any) => x.doctorId === id && (x.doctorName || x.doctor?.name)))
+    ));
+
+    const doctorNameCache: Record<string, string> = {};
+
+    await Promise.all(missingDoctorIds.map(async (did) => {
+      try {
+        const res = await patientApi.get(`/doctors/public-profile/${encodeURIComponent(String(did))}`);
+        const body = res.data?.data ?? res.data ?? {};
+        const rawName = body.name || `${body.firstName || ''} ${body.lastName || ''}`.trim();
+        doctorNameCache[did] = rawName ? rawName.replace(/^Dr\.\s*/, '').trim() : undefined as any;
+      } catch (err) {
+        // ignore failures and leave fallback to ID
+      }
+    }));
+
+    return appointments.map((item: any) => ({
+      ...item,
+      doctorName: (
+        item.doctorName ||
+        item?.doctor?.name ||
+        (item?.doctor?.firstName && item?.doctor?.lastName
+          ? `${item.doctor.firstName} ${item.doctor.lastName}`
+          : doctorNameCache[item.doctorId])
+      )?.replace(/^Dr\.\s*/, '')?.trim() || undefined
+    }));
 };
 
 export const bookAppointment = async (appointmentData: any) => {

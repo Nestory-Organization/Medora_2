@@ -91,16 +91,32 @@ const getDoctorProfile = async (req, res) => {
   try {
     const { doctorId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+    if (!doctorId || doctorId.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid doctor identifier'
+        message: 'Doctor ID is required'
       });
     }
 
-    const doctor = await DoctorProfile.findOne({ doctorId: new mongoose.Types.ObjectId(doctorId) }).lean();
+    let doctor = null;
+    const trimmedId = doctorId.trim();
+
+    // Try to find by ObjectId first (if it's a valid ObjectId format)
+    if (mongoose.Types.ObjectId.isValid(trimmedId)) {
+      doctor = await DoctorProfile.findOne({ 
+        doctorId: new mongoose.Types.ObjectId(trimmedId) 
+      }).lean();
+    }
+
+    // If not found and it looks like an ObjectId string, try direct comparison
+    if (!doctor) {
+      doctor = await DoctorProfile.findOne({ 
+        doctorId: trimmedId 
+      }).lean();
+    }
 
     if (!doctor) {
+      console.warn(`[getDoctorProfile] Doctor not found for ID: ${trimmedId}`);
       return res.status(404).json({
         success: false,
         message: 'Doctor profile not found'
@@ -130,7 +146,8 @@ const getDoctorProfile = async (req, res) => {
     console.error('Get doctor profile error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch doctor profile'
+      message: 'Failed to fetch doctor profile',
+      error: error.message
     });
   }
 };

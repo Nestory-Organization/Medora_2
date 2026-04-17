@@ -5,26 +5,47 @@ const Appointment = require('../models/appointment.model');
 // Fetch doctor details from doctor-service
 const fetchDoctorDetails = async (doctorId) => {
   try {
+    if (!doctorId) {
+      return null;
+    }
+
     const baseUrl = env.doctorServiceUrl?.replace(/\/+$/, '') || 'http://doctor-service:4003';
-    // Use the public search endpoint to get doctor profile
-    const response = await fetch(`${baseUrl}/doctor/${doctorId}`, {
+    const url = `${baseUrl}/doctor/public-profile/${String(doctorId).trim()}`;
+    
+    console.log(`[fetchDoctorDetails] Fetching from: ${url}`);
+    
+    const response = await fetch(url, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 5000
     });
+
+    console.log(`[fetchDoctorDetails] Response status: ${response.status}`);
 
     if (response.ok) {
       const data = await response.json();
+      console.log(`[fetchDoctorDetails] Response data:`, data);
+      
       if (data.success && data.data) {
-        // Check different name fields depending on response structure
-        if (data.data.name) return data.data.name;
+        // Extract the name from the response
+        if (data.data.name) {
+          console.log(`[fetchDoctorDetails] Found name: ${data.data.name}`);
+          return data.data.name;
+        }
         if (data.data.firstName && data.data.lastName) {
-          return `${data.data.firstName} ${data.data.lastName}`;
+          const fullName = `Dr. ${data.data.firstName} ${data.data.lastName}`;
+          console.log(`[fetchDoctorDetails] Constructed name: ${fullName}`);
+          return fullName;
         }
       }
+    } else {
+      const errorText = await response.text();
+      console.warn(`[fetchDoctorDetails] API error: ${response.status} - ${errorText}`);
     }
+    
     return null;
   } catch (error) {
-    console.warn(`Failed to fetch doctor details for ${doctorId}:`, error.message);
+    console.error(`[fetchDoctorDetails] Error fetching doctor ${doctorId}:`, error.message);
     return null;
   }
 };

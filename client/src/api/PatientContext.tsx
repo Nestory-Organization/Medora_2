@@ -131,7 +131,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('[PatientContext] Fetching appointments...');
       const data = await getMyAppointments();
-      setState(prev => ({ ...prev, appointments: data.data || data || [], error: null }));
+      setState(prev => ({ ...prev, appointments: data || [], error: null }));
     } catch (err: any) {
       console.error('[PatientContext] Failed to fetch appointments:', err.message);
       
