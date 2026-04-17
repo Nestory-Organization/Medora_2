@@ -201,65 +201,6 @@ const getPatientAppointments = async (req, res) => {
 };
 
 /**
- * Get doctor's appointments
- */
-const getDoctorAppointments = async (req, res) => {
-  try {
-    const { doctorId } = req.params;
-    
-    if (!doctorId || (typeof doctorId === 'string' && !doctorId.trim())) {
-      return res.status(400).json({
-        success: false,
-        message: 'Doctor ID is required',
-        data: null
-      });
-    }
-
-    console.log(`[Get Doctor Appointments] Querying appointments for doctorId: ${doctorId}`);
-    
-    const { status, limit = 10, page = 1 } = req.query;
-    const skip = (Math.max(1, parseInt(page)) - 1) * Math.min(100, parseInt(limit));
-
-    const query = { doctorId: doctorId.trim() };
-    if (status) {
-      query.status = status.toUpperCase();
-    }
-
-    const [appointments, total] = await Promise.all([
-      Appointment.find(query)
-        .sort({ appointmentDate: 1, startTime: 1 })
-        .skip(skip)
-        .limit(Math.min(100, parseInt(limit)))
-        .lean(),
-      Appointment.countDocuments(query)
-    ]);
-    
-    console.log(`[Get Doctor Appointments] Found ${appointments.length} appointments`);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Doctor appointments fetched successfully',
-      count: appointments.length,
-      data: appointments,
-      pagination: {
-        page: Math.max(1, parseInt(page)),
-        limit: Math.min(100, parseInt(limit)),
-        total,
-        totalPages: Math.ceil(total / Math.min(100, parseInt(limit)))
-      }
-    });
-  } catch (error) {
-    console.error('[Get Doctor Appointments] Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch doctor appointments',
-      data: null,
-      error: error.message
-    });
-  }
-};
-
-/**
  * Reschedule an appointment
  */
 const rescheduleAppointment = async (req, res) => {
@@ -438,7 +379,6 @@ const cancelAppointmentSafe = async (req, res) => {
 module.exports = {
   bookAppointmentWithValidation,
   getPatientAppointments,
-  getDoctorAppointments,
   rescheduleAppointment,
   cancelAppointmentSafe,
   ValidationError,

@@ -136,9 +136,6 @@ const BookingPage: React.FC = () => {
       const appointmentData = {
         patientId: user._id,
         doctorId: selectedDoctor.doctorId,
-        patientName: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName || 'Patient',
-        patientEmail: user.email || null,
-        patientPhone: user.phone || null,
         specialty: selectedDoctor.specialization,
         appointmentDate: selectedDate,
         startTime: selectedSlot,

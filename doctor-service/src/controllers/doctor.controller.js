@@ -238,43 +238,18 @@ const getAssignedAppointments = async (req, res) => {
       });
     }
 
-    // Fetch appointments from appointment service database
-    const appointmentServiceUrl = process.env.APPOINTMENT_SERVICE_URL || 'http://appointment-service:3004';
-    
-    let queryParams = new URLSearchParams();
-    queryParams.append('doctorId', doctorId.toString());
-    
+    const query = { doctorId };
+
     if (req.query.status) {
-      queryParams.append('status', req.query.status);
+      query.status = req.query.status;
     }
 
-    const appointmentResponse = await fetch(
-      `${appointmentServiceUrl}/api/appointments/doctor/${doctorId}?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': req.headers.authorization || ''
-        },
-        timeout: 5000
-      }
-    );
-
-    if (!appointmentResponse.ok) {
-      console.warn(`Appointment service returned status ${appointmentResponse.status}`);
-      // Fallback to empty array if appointment service is unavailable
-      return res.status(200).json({
-        success: true,
-        data: [],
-        message: 'Appointment service temporarily unavailable'
-      });
-    }
-
-    const appointmentData = await appointmentResponse.json();
-    const appointments = appointmentData.data || appointmentData.appointments || [];
+    const appointments = await Appointment.find(query)
+      .sort({ appointmentDate: 1, startTime: 1 })
+      .lean();
 
     // Log for debugging visibility
-    console.log(`[DoctorService] Fetched ${appointments.length} appointments for doctor ${doctorId} from appointment service`);
+    console.log(`[DoctorService] Found ${appointments.length} appointments for doctor ${doctorId}`);
 
     return res.status(200).json({
       success: true,
@@ -282,11 +257,9 @@ const getAssignedAppointments = async (req, res) => {
     });
   } catch (error) {
     console.error('Get appointments error:', error);
-    // Return empty array instead of error to allow graceful degradation
-    return res.status(200).json({
-      success: true,
-      data: [],
-      message: 'Could not fetch appointments from appointment service'
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch appointments'
     });
   }
 };
