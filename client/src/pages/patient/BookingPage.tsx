@@ -135,6 +135,9 @@ const BookingPage: React.FC = () => {
 
       const appointmentData = {
         patientId: user._id,
+        patientName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.name || 'Patient',
+        patientEmail: user.email || null,
+        patientPhone: user.phone || null,
         doctorId: selectedDoctor.doctorId,
         specialty: selectedDoctor.specialization,
         appointmentDate: selectedDate,

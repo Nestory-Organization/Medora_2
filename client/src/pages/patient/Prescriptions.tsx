@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Pill, 
@@ -104,7 +104,34 @@ const PrescriptionCard = ({ prescription }: any) => {
 };
 
 export default function Prescriptions() {
-  const { prescriptions, loading } = usePatient();
+  const { prescriptions, loading, refreshPrescriptions } = usePatient();
+
+  useEffect(() => {
+    refreshPrescriptions();
+    // Intentionally run once when page mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const refreshOnFocus = () => {
+      refreshPrescriptions();
+    };
+
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshPrescriptions();
+      }
+    }, 20000);
+
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshOnFocus);
+
+    return () => {
+      window.clearInterval(pollId);
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshOnFocus);
+    };
+  }, [refreshPrescriptions]);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">

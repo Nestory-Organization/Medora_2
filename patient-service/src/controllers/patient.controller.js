@@ -47,7 +47,13 @@ const resolvePatientForRequest = async (req, source = "query") => {
     return null;
   }
 
-  return Patient.findById(patientId);
+  // Support both patient document id and auth user id.
+  const byPatientId = await Patient.findById(patientId);
+  if (byPatientId) {
+    return byPatientId;
+  }
+
+  return Patient.findOne({ userId: patientId });
 };
 
 const registerPatient = async (req, res) => {
@@ -763,6 +769,8 @@ const getPrescriptions = async (req, res) => {
 
     const mappedPrescriptions = prescriptions.map((item) => ({
       ...item,
+      medicines: Array.isArray(item.medications) ? item.medications : [],
+      date: item.prescriptionDate,
       doctor: {
         id: item.doctorId || null,
         name: item.doctorName || "Unknown Doctor",
@@ -861,7 +869,15 @@ const getPrescription = async (req, res) => {
 
 const createPrescription = async (req, res) => {
   try {
-    const { patientId, doctorId, doctorName, doctorSpecialty, medicines, notes, prescriptionDate } = req.body;
+    const {
+      patientId,
+      doctorId,
+      doctorName,
+      doctorSpecialty,
+      medicines,
+      notes,
+      prescriptionDate,
+    } = req.body;
 
     if (!patientId || !isValidObjectId(patientId)) {
       return res.status(400).json({
@@ -878,14 +894,15 @@ const createPrescription = async (req, res) => {
     }
 
     // Validate medicine format
-    const invalidMedicine = medicines.find(med => {
+    const invalidMedicine = medicines.find((med) => {
       return !med.name || !med.dosage || !med.frequency || !med.duration;
     });
 
     if (invalidMedicine) {
       return res.status(400).json({
         success: false,
-        message: "Each medicine must have: name, dosage, frequency, and duration",
+        message:
+          "Each medicine must have: name, dosage, frequency, and duration",
       });
     }
 
@@ -902,7 +919,7 @@ const createPrescription = async (req, res) => {
       doctorId: doctorId || null,
       doctorName: doctorName || "Unknown Doctor",
       doctorSpecialty: doctorSpecialty || null,
-      medications: medicines.map(med => ({
+      medications: medicines.map((med) => ({
         name: med.name,
         dosage: med.dosage,
         frequency: med.frequency,
@@ -910,7 +927,9 @@ const createPrescription = async (req, res) => {
         instructions: med.instructions || null,
       })),
       notes: notes || null,
-      prescriptionDate: prescriptionDate ? new Date(prescriptionDate) : new Date(),
+      prescriptionDate: prescriptionDate
+        ? new Date(prescriptionDate)
+        : new Date(),
       status: "active",
     });
 

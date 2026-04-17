@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
-const env = require('../config/env');
-const Appointment = require('../models/appointment.model');
+const mongoose = require("mongoose");
+const env = require("../config/env");
+const Appointment = require("../models/appointment.model");
 
 // Fetch doctor details from doctor-service
 const fetchDoctorDetails = async (doctorId) => {
@@ -9,15 +9,16 @@ const fetchDoctorDetails = async (doctorId) => {
       return null;
     }
 
-    const baseUrl = env.doctorServiceUrl?.replace(/\/+$/, '') || 'http://doctor-service:4003';
+    const baseUrl =
+      env.doctorServiceUrl?.replace(/\/+$/, "") || "http://doctor-service:4003";
     const url = `${baseUrl}/doctor/public-profile/${String(doctorId).trim()}`;
-    
+
     console.log(`[fetchDoctorDetails] Fetching from: ${url}`);
-    
+
     const response = await fetch(url, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 5000
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      timeout: 5000,
     });
 
     console.log(`[fetchDoctorDetails] Response status: ${response.status}`);
@@ -25,7 +26,7 @@ const fetchDoctorDetails = async (doctorId) => {
     if (response.ok) {
       const data = await response.json();
       console.log(`[fetchDoctorDetails] Response data:`, data);
-      
+
       if (data.success && data.data) {
         // Extract the name from the response
         if (data.data.name) {
@@ -40,12 +41,67 @@ const fetchDoctorDetails = async (doctorId) => {
       }
     } else {
       const errorText = await response.text();
-      console.warn(`[fetchDoctorDetails] API error: ${response.status} - ${errorText}`);
+      console.warn(
+        `[fetchDoctorDetails] API error: ${response.status} - ${errorText}`,
+      );
     }
-    
+
     return null;
   } catch (error) {
-    console.error(`[fetchDoctorDetails] Error fetching doctor ${doctorId}:`, error.message);
+    console.error(
+      `[fetchDoctorDetails] Error fetching doctor ${doctorId}:`,
+      error.message,
+    );
+    return null;
+  }
+};
+
+const fetchPatientDetails = async (patientId, authorization) => {
+  try {
+    if (!patientId || !authorization) {
+      return null;
+    }
+
+    const baseUrl =
+      env.patientServiceUrl?.replace(/\/+$/, "") ||
+      "http://patient-service:4002";
+    const encodedPatientId = encodeURIComponent(String(patientId).trim());
+    const url = `${baseUrl}/api/patients/${encodedPatientId}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: authorization,
+        "Content-Type": "application/json",
+      },
+      timeout: 5000,
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const patient = data?.data || data?.data?.patient;
+
+    if (!patient) {
+      return null;
+    }
+
+    const firstName = String(patient.firstName || "").trim();
+    const lastName = String(patient.lastName || "").trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return {
+      name: fullName || null,
+      email: patient.email || null,
+      phone: patient.phone || null,
+    };
+  } catch (error) {
+    console.error(
+      `[fetchPatientDetails] Error fetching patient ${patientId}:`,
+      error.message,
+    );
     return null;
   }
 };
@@ -63,19 +119,19 @@ const mapAppointmentDetails = (appointment) => ({
   status: appointment.status,
   paymentStatus: appointment.paymentStatus,
   consultationFee: appointment.consultationFee,
-  reason: appointment.reason
+  reason: appointment.reason,
 });
 
 const getMyAppointments = async (patientId) => {
   const normalizedPatientId = patientId.trim();
 
   const appointments = await Appointment.find({
-    patientId: normalizedPatientId
+    patientId: normalizedPatientId,
   })
     .sort({
       appointmentDate: -1,
       startTime: -1,
-      createdAt: -1
+      createdAt: -1,
     })
     .lean();
 
@@ -85,9 +141,10 @@ const getMyAppointments = async (patientId) => {
       const doctorName = await fetchDoctorDetails(apt.doctorId);
       return {
         ...apt,
-        doctorName: doctorName || `Doctor ${apt.doctorId.substring(0, 8)}`
+        doctorName:
+          doctorName || `Doctor ${String(apt.doctorId || "").substring(0, 8)}`,
       };
-    })
+    }),
   );
 
   return enrichedAppointments.map(mapAppointmentDetails);
@@ -109,31 +166,64 @@ const getAppointmentStatus = async (appointmentId) => {
 
   return mapAppointmentDetails({
     ...appointment,
-    doctorName: doctorName || `Doctor ${appointment.doctorId.substring(0, 8)}`
+    doctorName:
+      doctorName ||
+      `Doctor ${String(appointment.doctorId || "").substring(0, 8)}`,
   });
 };
 
-const getDoctorAppointments = async (doctorId) => {
+const getDoctorAppointments = async (doctorId, authorization) => {
   const normalizedDoctorId = doctorId.toString().trim();
 
   const appointments = await Appointment.find({
-    doctorId: normalizedDoctorId
+    doctorId: normalizedDoctorId,
   })
     .sort({
       appointmentDate: 1,
       startTime: 1,
-      createdAt: -1
+      createdAt: -1,
     })
     .lean();
 
-  console.log(`[AppointmentTrackingService] Found ${appointments.length} appointments for doctor ${doctorId}`);
+  console.log(
+    `[AppointmentTrackingService] Found ${appointments.length} appointments for doctor ${doctorId}`,
+  );
 
-  // Return appointments with patient data already stored in the appointment record
-  return appointments.map(apt => ({
+  const enrichedAppointments = await Promise.all(
+    appointments.map(async (apt) => {
+      const hasRealName =
+        apt.patientName &&
+        apt.patientName.trim().length > 0 &&
+        apt.patientName.trim().toLowerCase() !== "patient";
+
+      if (hasRealName) {
+        return {
+          ...apt,
+          patientName: apt.patientName,
+          patientEmail: apt.patientEmail || null,
+          patientPhone: apt.patientPhone || null,
+        };
+      }
+
+      const patientDetails = await fetchPatientDetails(
+        apt.patientId,
+        authorization,
+      );
+
+      return {
+        ...apt,
+        patientName: patientDetails?.name || apt.patientName || "Patient",
+        patientEmail: patientDetails?.email || apt.patientEmail || null,
+        patientPhone: patientDetails?.phone || apt.patientPhone || null,
+      };
+    }),
+  );
+
+  return enrichedAppointments.map((apt) => ({
     _id: apt._id,
     appointmentId: apt._id,
     patientId: apt.patientId,
-    patientName: apt.patientName || 'Patient',
+    patientName: apt.patientName || "Patient",
     patientEmail: apt.patientEmail || null,
     patientPhone: apt.patientPhone || null,
     doctorId: apt.doctorId,
@@ -146,7 +236,7 @@ const getDoctorAppointments = async (doctorId) => {
     consultationFee: apt.consultationFee,
     reason: apt.reason,
     createdAt: apt.createdAt,
-    updatedAt: apt.updatedAt
+    updatedAt: apt.updatedAt,
   }));
 };
 
@@ -154,5 +244,5 @@ module.exports = {
   getMyAppointments,
   getAppointmentStatus,
   getDoctorAppointments,
-  fetchDoctorDetails
+  fetchDoctorDetails,
 };
