@@ -10,17 +10,18 @@ const aiApi = axios.create({
   },
 });
 
-type UiCondition = {
+export type UiCondition = {
   name: string;
   probability: number;
+  description?: string;
 };
 
-type UiInsight = {
+export type UiInsight = {
   tip: string;
   category: string;
 };
 
-type UiSuggestedDoctor = {
+export type UiSuggestedDoctor = {
   doctorId: string;
   name: string;
   specialization: string;
@@ -33,12 +34,44 @@ type UiSuggestedDoctor = {
   matchedSpecialties?: string[];
 };
 
-type UiSpecialist = {
+export type UiSpecialist = {
   name: string;
   reason: string;
   priority?: string;
   matchedDoctors?: UiSuggestedDoctor[];
-  externalSearchUrl?: string; // Added for web fallback
+  externalSearchUrl?: string; 
+};
+
+export type SymptomAnalysisResult = {
+  symptoms: string[];
+  description?: string;
+  age: number;
+  medicalHistory: string;
+  conditions: UiCondition[];
+  severityLevel: 'Low' | 'Medium' | 'High';
+  advice: string;
+  redFlags: string[];
+  recommendations: string[];
+  possibleConditions: UiCondition[];
+  [key: string]: unknown;
+};
+
+export type DoctorCoverage = {
+  totalSpecialties: number;
+  specialtiesWithDoctors: number;
+  totalSuggestedDoctors: number;
+};
+
+export type SpecialistRecommendationResult = {
+  specialists: UiSpecialist[];
+  suggestedDoctors: UiSuggestedDoctor[];
+  doctorCoverage: DoctorCoverage;
+  [key: string]: unknown;
+};
+
+export type HealthInsightsResult = {
+  insights: UiInsight[];
+  [key: string]: unknown;
 };
 
 export type AiHistoryItem = {

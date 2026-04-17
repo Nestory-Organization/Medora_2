@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, CaretRight, Trash, Brain, Layout, Calendar, Flask } from '@phosphor-icons/react';
-import { getAiHistory, deleteAiHistoryItem, type AiHistoryItem } from '../../api/ai';
+import { 
+  getAiHistory, 
+  deleteAiHistoryItem, 
+  type AiHistoryItem,
+  type UiCondition
+} from '../../api/ai';
 import PageTransition from '../../components/PageTransition';
 
 const asStringArray = (value: unknown): string[] => {
@@ -74,7 +79,6 @@ const HistoryCard = ({
 
   const symptoms = asStringArray((item.inputData || {}).symptoms);
   const description = typeof item.inputData?.description === 'string' ? item.inputData.description : null;
-  const conditions = asStringArray((item.inputData || {}).conditions);
   const duration = typeof item.inputData?.duration === 'string' ? item.inputData.duration : null;
   const severity = item.inputData?.severity;
   const age = item.inputData?.age;
@@ -170,7 +174,7 @@ const HistoryCard = ({
                 <div className="space-y-4 pt-2">
                   <p className="text-[10px] uppercase font-black text-cyan-400 mb-2 tracking-widest">Diagnostic Findings</p>
                   <div className="space-y-3">
-                    {resultConditions.map((c: any, i: number) => (
+                    {resultConditions.map((c: UiCondition, i: number) => (
                       <div key={i} className="bg-white/5 p-3 rounded-xl border border-white/5">
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-xs font-bold text-white">{c.condition || c.name}</span>
@@ -222,11 +226,17 @@ const HistoryCard = ({
                 <div>
                   <p className="text-[10px] uppercase font-black text-slate-500 mb-2 tracking-widest">Recommended Doctors Saved</p>
                   <div className="flex flex-wrap gap-2">
-                    {linkedDoctors.slice(0, 5).map((doctor: any, idx: number) => (
-                      <span key={`${doctor?.doctorId || doctor?.name || idx}`} className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-[10px] text-emerald-200 uppercase font-bold">
-                        {String(doctor?.name || doctor?.specialization || 'Doctor')}
-                      </span>
-                    ))}
+                    {linkedDoctors.slice(0, 5).map((doctor: unknown, idx: number) => {
+                      const d = doctor as Record<string, any>;
+                      const doctorName = typeof d === 'object' && d !== null 
+                        ? (d.name || d.specialization || 'Doctor')
+                        : 'Doctor';
+                      return (
+                        <span key={`${d?.doctorId || doctorName || idx}`} className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-[10px] text-emerald-200 uppercase font-bold">
+                          {String(doctorName)}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -268,8 +278,9 @@ export default function AiHistoryPage() {
       setError(null);
       const response = await getAiHistory();
       setHistory(response.data);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load AI history.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load AI history.';
+      setError(errorMessage);
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
@@ -282,8 +293,9 @@ export default function AiHistoryPage() {
       setError(null);
       await deleteAiHistoryItem(id);
       setHistory(history.filter(item => item._id !== id));
-    } catch (err: any) {
-      setError(err?.message || 'Failed to delete history entry.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete history entry.';
+      setError(errorMessage);
     } finally {
       setDeletingId(null);
     }
