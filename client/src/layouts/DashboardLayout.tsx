@@ -9,15 +9,24 @@ export default function DashboardLayout() {
   
   // Safe parsing to prevent "undefined" or null errors
   let user = null;
+  let normalizedRole = '';
   try {
     user = userStr && userStr !== "undefined" ? JSON.parse(userStr) : null;
+    normalizedRole = String(user?.role || '').toLowerCase();
+
+    if (user && user.role !== normalizedRole) {
+      user = { ...user, role: normalizedRole };
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+
     console.log("DashboardLayout - Token:", !!token, "User:", user);
   } catch (e) {
     console.error("Failed to parse user data", e);
     user = null;
+    normalizedRole = '';
   }
 
-  if (!token || !user) {
+  if (!token || !user || !normalizedRole) {
     console.warn("DashboardLayout - Redirecting to login: Access Denied", { token: !!token, user: !!user });
     return <Navigate to="/login" replace />;
   }
@@ -27,13 +36,13 @@ export default function DashboardLayout() {
   const isPatientRoute = location.pathname.startsWith('/patient') || location.pathname.startsWith('/ai');
   const isAdminRoute = location.pathname.startsWith('/admin');
 
-  if (isAdminRoute && user.role !== 'admin') return <Navigate to="/login" replace />;
-  if (isDoctorRoute && user.role !== 'doctor') return <Navigate to="/patient/dashboard" replace />;
-  if (isPatientRoute && user.role !== 'patient' && user.role !== 'admin') return <Navigate to="/doctor/dashboard" replace />;
+  if (isAdminRoute && normalizedRole !== 'admin') return <Navigate to="/login" replace />;
+  if (isDoctorRoute && normalizedRole !== 'doctor') return <Navigate to="/patient/dashboard" replace />;
+  if (isPatientRoute && normalizedRole !== 'patient' && normalizedRole !== 'admin') return <Navigate to="/doctor/dashboard" replace />;
 
   return (
     <div className="flex bg-slate-950 min-h-screen font-sans selection:bg-teal-500/20 text-[13px]">
-      <Sidebar role={user.role as 'patient' | 'doctor' | 'admin'} />
+      <Sidebar role={(normalizedRole || 'patient') as 'patient' | 'doctor' | 'admin'} />
       <main className="flex-1 ml-60 p-6 overflow-y-auto text-white relative">
         {/* Background blobs for aesthetic */}
         <div className="absolute top-0 right-0 w-[350px] h-[350px] bg-teal-500/5 rounded-full blur-[90px] pointer-events-none -mr-28 -mt-12" />
@@ -41,7 +50,7 @@ export default function DashboardLayout() {
         
         <AnimatePresence mode="wait">
           <motion.div
-            key={location.pathname}
+            key={`${location.pathname}${location.search}`}
             initial={{ opacity: 0, scale: 0.99, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.99, y: 10 }}
