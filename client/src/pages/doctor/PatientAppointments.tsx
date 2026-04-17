@@ -10,7 +10,8 @@ import {
   Hourglass,
   MagnifyingGlass,
   FunnelSimple,
-  Check
+  Check,
+  FileText
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -39,7 +40,7 @@ const statusConfig = {
   'COMPLETED': { icon: CheckCircle, color: 'bg-blue-500/20 text-blue-300', label: 'Completed', border: 'border-blue-500/30' }
 };
 
-const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void }) => {
+const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete, onViewReports }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void; onViewReports?: (patientId: string) => void }) => {
   const statusInfo = statusConfig[appointment.status];
   const StatusIcon = statusInfo.icon;
   
@@ -172,6 +173,16 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
               Call
             </button>
           </div>
+        )}
+
+        {appointment.status === 'CONFIRMED' && onViewReports && (
+          <button
+            onClick={() => onViewReports(appointment.patientId)}
+            className="w-full px-3 py-2.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-lg font-semibold text-sm transition-all border border-cyan-500/30 flex items-center justify-center gap-2 uppercase"
+          >
+            <FileText size={16} weight="bold" />
+            Patient Reports
+          </button>
         )}
 
         {appointment.status === 'CONFIRMED' && onComplete && (
@@ -456,6 +467,7 @@ export default function PatientAppointments() {
                 appointment={appointment}
                 onStatusUpdate={handleStatusUpdate}
                 onViewDetail={(patientId) => navigate(`/doctor/patient/${patientId}`)}
+                onViewReports={(patientId) => navigate(`/doctor/patient/${patientId}?tab=reports`)}
                 onComplete={handleCompleteAppointment}
               />
             ))
