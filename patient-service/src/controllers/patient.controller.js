@@ -116,7 +116,9 @@ const registerPatient = async (req, res) => {
 
 const getPatientProfile = async (req, res) => {
   try {
-    const patient = await resolvePatientForRequest(req);
+    // Determine source based on whether patientId is in params
+    const source = req.params.patientId ? "params" : "query";
+    const patient = await resolvePatientForRequest(req, source);
 
     if (!patient) {
       return res.status(404).json({
@@ -149,7 +151,7 @@ const getPatientProfile = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: { patient: profile },
+      data: profile,
     });
   } catch (error) {
     console.error("getPatientProfile error:", error);
@@ -857,6 +859,75 @@ const getPrescription = async (req, res) => {
   }
 };
 
+const createPrescription = async (req, res) => {
+  try {
+    const { patientId, doctorId, doctorName, doctorSpecialty, medicines, notes, prescriptionDate } = req.body;
+
+    if (!patientId || !isValidObjectId(patientId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid patientId is required",
+      });
+    }
+
+    if (!Array.isArray(medicines) || medicines.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one medicine is required",
+      });
+    }
+
+    // Validate medicine format
+    const invalidMedicine = medicines.find(med => {
+      return !med.name || !med.dosage || !med.frequency || !med.duration;
+    });
+
+    if (invalidMedicine) {
+      return res.status(400).json({
+        success: false,
+        message: "Each medicine must have: name, dosage, frequency, and duration",
+      });
+    }
+
+    const patient = await Patient.findById(patientId);
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient not found",
+      });
+    }
+
+    const prescription = await Prescription.create({
+      patientId,
+      doctorId: doctorId || null,
+      doctorName: doctorName || "Unknown Doctor",
+      doctorSpecialty: doctorSpecialty || null,
+      medications: medicines.map(med => ({
+        name: med.name,
+        dosage: med.dosage,
+        frequency: med.frequency,
+        duration: med.duration,
+        instructions: med.instructions || null,
+      })),
+      notes: notes || null,
+      prescriptionDate: prescriptionDate ? new Date(prescriptionDate) : new Date(),
+      status: "active",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Prescription created successfully",
+      data: { prescription },
+    });
+  } catch (error) {
+    console.error("createPrescription error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create prescription",
+    });
+  }
+};
+
 module.exports = {
   registerPatient,
   getPatientProfile,
@@ -870,4 +941,5 @@ module.exports = {
   getHistoryEntry,
   getPrescriptions,
   getPrescription,
+  createPrescription,
 };
