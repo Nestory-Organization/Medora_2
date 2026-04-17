@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MagnifyingGlass, Clock, UserCircle, Star, Sparkle, WarningCircle } from 'phosphor-react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 import PageTransition from '../../components/PageTransition';
-import { getStoredUser, getUserId } from '../../api/patient';
+import { getStoredUser } from '../../api/patient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
@@ -22,11 +23,13 @@ interface Doctor {
 
 const BookingPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [slotLoading, setSlotLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -51,6 +54,36 @@ const BookingPage: React.FC = () => {
     handleSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, selectedDate, searchParams]);
+  // Fetch availability slots when date changes
+  const fetchSlotsForDate = async (doctor: Doctor, date: string) => {
+    try {
+      setSlotLoading(true);
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get(`${API_BASE_URL}/appointments/doctors/search`, {
+        params: { specialty: doctor.specialization, date },
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+      });
+      
+      const updatedDoctor = response.data.data?.find((d: Doctor) => d.doctorId === doctor.doctorId);
+      if (updatedDoctor) {
+        setSelectedDoctor(updatedDoctor);
+        setSelectedSlot(null); // Reset selected slot when date changes
+      }
+    } catch (err: any) {
+      console.error('Fetch slots error:', err);
+      setMessage({ type: 'error', text: 'Failed to load available slots for this date' });
+    } finally {
+      setSlotLoading(false);
+    }
+  };
+
+  // Handle date change in modal
+  const handleDateChange = (newDate: string) => {
+    setSelectedDate(newDate);
+    if (selectedDoctor) {
+      fetchSlotsForDate(selectedDoctor, newDate);
+    }
+  };
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -88,9 +121,8 @@ const BookingPage: React.FC = () => {
 
     try {
       const user = getStoredUser();
-      const patientId = getUserId(user);
       
-      if (!patientId) {
+      if (!user || !user._id) {
         setMessage({ type: 'error', text: 'You must be logged in to book an appointment' });
         return;
       }
@@ -102,7 +134,7 @@ const BookingPage: React.FC = () => {
       }
 
       const appointmentData = {
-        patientId,
+        patientId: user._id,
         doctorId: selectedDoctor.doctorId,
         specialty: selectedDoctor.specialization,
         appointmentDate: selectedDate,
@@ -119,12 +151,16 @@ const BookingPage: React.FC = () => {
       });
 
       if (response.data.success) {
-        setMessage({ type: 'success', text: 'Appointment booked successfully!' });
+        setMessage({ type: 'success', text: 'Appointment booked successfully! Redirecting to payment...' });
         setTimeout(() => {
-          setSelectedDoctor(null);
-          setSelectedSlot(null);
-          handleSearch();
-        }, 2000);
+          // Redirect to payment page with appointment details
+          const appointmentId = response.data.data?.appointmentId;
+          if (appointmentId) {
+            navigate(`/patient/payment?appointmentId=${appointmentId}`);
+          } else {
+            navigate('/patient/appointments');
+          }
+        }, 1500);
       } else {
         setMessage({ type: 'error', text: response.data.message || 'Failed to book appointment' });
       }
@@ -246,8 +282,7 @@ const BookingPage: React.FC = () => {
                         <input 
                           type="date" 
                           value={selectedDate}
-                          title="Select appointment date"
-                          onChange={(e) => setSelectedDate(e.target.value)}
+                          onChange={(e) => handleDateChange(e.target.value)}
                           className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm"
                         />
                       </div>
@@ -260,21 +295,29 @@ const BookingPage: React.FC = () => {
 
                   <div className="mb-10">
                     <h4 className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-4">Select Slot</h4>
-                    <div className="flex flex-wrap gap-3">
-                      {selectedDoctor.availableSlots?.filter(s => !s.isBooked).map((slot) => (
-                        <button
-                          key={slot.startTime}
-                          onClick={() => setSelectedSlot(slot.startTime)}
-                          className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all ${
-                            selectedSlot === slot.startTime 
-                              ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' 
-                              : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'
-                          }`}
-                        >
-                          {slot.startTime}
-                        </button>
-                      ))}
-                    </div>
+                    {slotLoading ? (
+                      <div className="flex justify-center py-6">
+                        <div className="w-6 h-6 border-2 border-teal-500/20 border-t-teal-500 rounded-full animate-spin" />
+                      </div>
+                    ) : selectedDoctor.availableSlots && selectedDoctor.availableSlots.length > 0 ? (
+                      <div className="flex flex-wrap gap-3">
+                        {selectedDoctor.availableSlots.filter(s => !s.isBooked).map((slot) => (
+                          <button
+                            key={slot.startTime}
+                            onClick={() => setSelectedSlot(slot.startTime)}
+                            className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all ${
+                              selectedSlot === slot.startTime 
+                                ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' 
+                                : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'
+                            }`}
+                          >
+                            {slot.startTime}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400">No available slots for this date</p>
+                    )}
                   </div>
 
                   {message && (

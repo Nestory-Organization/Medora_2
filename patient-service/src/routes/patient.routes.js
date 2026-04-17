@@ -12,6 +12,7 @@ const {
   getHistoryEntry,
   getPrescriptions,
   getPrescription,
+  createPrescription,
 } = require("../controllers/patient.controller");
 const { authenticate, authorize } = require("../middleware/auth.middleware");
 const { handleFileUpload } = require("../middleware/fileUpload.middleware");
@@ -19,6 +20,9 @@ const { handleFileUpload } = require("../middleware/fileUpload.middleware");
 const router = express.Router();
 
 router.post("/register", registerPatient);
+
+// IMPORTANT: Specific routes MUST come before generic :patientId route
+// Otherwise /prescriptions, /documents, /history will be caught by /:patientId
 
 router.get(
   "/profile",
@@ -33,6 +37,7 @@ router.put(
   updatePatientProfile,
 );
 
+// Documents endpoints
 router.post(
   "/documents/upload",
   authenticate,
@@ -59,6 +64,7 @@ router.delete(
   deleteDocument,
 );
 
+// Medical history endpoints
 router.get(
   "/history",
   authenticate,
@@ -78,17 +84,30 @@ router.get(
   getHistoryEntry,
 );
 
+// Prescriptions endpoints
 router.get(
   "/prescriptions",
   authenticate,
   authorize("patient", "doctor", "admin"),
   getPrescriptions,
 );
+router.post(
+  "/prescriptions",
+  createPrescription,
+);
 router.get(
   "/prescriptions/:prescriptionId",
   authenticate,
   authorize("patient", "doctor", "admin"),
   getPrescription,
+);
+
+// Generic patient ID route (MUST be last)
+router.get(
+  "/:patientId",
+  authenticate,
+  authorize("doctor", "admin"),
+  getPatientProfile,
 );
 
 module.exports = router;

@@ -11,6 +11,11 @@ const {
   getVerifiedDoctors
 } = require('./controllers/doctorSearch.controller');
 const { getAllDoctors, verifyDoctor } = require('./controllers/system.controller');
+const {
+  getDoctorAvailability,
+  markSlotBooked,
+  releaseSlot
+} = require('./controllers/doctor.controller');
 
 const app = express();
 
@@ -23,7 +28,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // System endpoints - DIRECT HANDLERS (no middleware interference)
 app.get('/system/doctors', getAllDoctors);
-app.patch('/system/doctors/:doctorId/verify', verifyDoctor);
+app.patch('/system/doctors/:id/verify', verifyDoctor);
 
 // Legacy system routes for health/status
 app.use('/system', systemRoutes);
@@ -31,6 +36,11 @@ app.use('/system', systemRoutes);
 // PUBLIC SEARCH ENDPOINTS (no auth required - must be BEFORE protected routes)
 app.get('/doctor/search', searchDoctorsBySpecialty);
 app.get('/doctor/verified', getVerifiedDoctors);
+
+// PUBLIC AVAILABILITY ENDPOINTS (appointment service uses these for inter-service communication)
+app.get('/doctor/availability', getDoctorAvailability);
+app.patch('/doctor/availability/mark-booked', markSlotBooked);
+app.patch('/doctor/availability/release-slot', releaseSlot);
 
 // Protected doctor routes (auth required)
 // This includes the /:doctorId GET route which requires authentication

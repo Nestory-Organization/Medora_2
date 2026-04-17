@@ -120,14 +120,14 @@ const DoctorModal = ({ doctor, onClose, onApprove, onReject, loading }: any) => 
           {/* Action Footer */}
           <div className="mt-10 flex gap-4">
             <button 
-              onClick={() => onReject(doctor._id)}
+              onClick={onReject}
               disabled={loading}
               className="flex-1 py-4 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white font-black rounded-2xl transition-all uppercase text-[11px] tracking-widest border border-rose-500/20 flex items-center justify-center gap-2"
             >
               <X size={18} weight="bold" /> Reject Application
             </button>
             <button 
-              onClick={() => onApprove(doctor._id)}
+              onClick={onApprove}
               disabled={loading}
               className="flex-2 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl transition-all uppercase text-[11px] tracking-widest shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2 px-8"
             >
@@ -168,17 +168,21 @@ const VerifyDoctors: React.FC = () => {
     }
   };
 
-  const handleAction = async (id: string, status: boolean) => {
+  const handleAction = async (doctor: any, status: boolean) => {
     setActionLoading(true);
     const token = localStorage.getItem('authToken');
+    
+    // We must use the doctorId field for verification, not the profile's _id
+    const targetId = doctor.doctorId || doctor._id;
+    
     try {
-      const response = await fetch(`http://localhost:4000/api/admin/verify-doctor/${id}`, {
+      const response = await fetch(`http://localhost:4000/api/admin/doctor/${targetId}/verify`, {
         method: 'PATCH',
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ isVerified: status })
+        body: JSON.stringify({ status })
       });
       const data = await response.json();
       if (data.success) {
@@ -281,8 +285,8 @@ const VerifyDoctors: React.FC = () => {
           <DoctorModal 
             doctor={selectedDoctor} 
             onClose={() => setSelectedDoctor(null)}
-            onApprove={(id: string) => handleAction(id, true)}
-            onReject={(id: string) => handleAction(id, false)}
+            onApprove={() => handleAction(selectedDoctor, true)}
+            onReject={() => handleAction(selectedDoctor, false)}
             loading={actionLoading}
           />
         )}

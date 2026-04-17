@@ -1,4 +1,5 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { 
   CalendarCheck, 
   User, 
@@ -10,6 +11,10 @@ import {
   Gear,
   CirclesFour,
   Clock,
+  CaretDown,
+  FileText,
+  VideoCamera,
+  Stethoscope,
   type IconProps
 } from '@phosphor-icons/react';
 
@@ -18,9 +23,54 @@ interface SidebarItemProps {
   icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   label: string;
   badge?: number;
+  submenu?: SidebarItemProps[];
 }
 
-const SidebarItem = ({ to, icon: Icon, label, badge }: SidebarItemProps) => {
+const SidebarItem = ({ to, icon: Icon, label, badge, submenu }: SidebarItemProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+  const isActive = location.pathname.startsWith(to);
+
+  if (submenu && submenu.length > 0) {
+    return (
+      <div>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`
+            group w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-300
+            ${isActive 
+              ? 'bg-gradient-to-r from-teal-500/20 to-blue-500/10 text-teal-400 shadow-sm border border-teal-500/20' 
+              : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}
+          `}
+        >
+          <div className="flex items-center gap-2">
+            <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform" />
+            <span className="font-semibold text-[13px]">{label}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {badge && (
+              <span className="bg-teal-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                {badge}
+              </span>
+            )}
+            <CaretDown 
+              size={14} 
+              weight="bold" 
+              className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+            />
+          </div>
+        </button>
+        {isOpen && (
+          <div className="ml-3 mt-1 pl-3 border-l border-slate-700/50 space-y-1">
+            {submenu.map((item) => (
+              <SidebarItem key={item.to} {...item} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <NavLink
       to={to}
@@ -75,10 +125,32 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
     : role === 'doctor' 
     ? [
         { to: '/doctor/dashboard', icon: CirclesFour, label: 'Dashboard' },
-        { to: '/doctor/schedule', icon: CalendarCheck, label: 'Schedule', badge: 5 },
-        { to: '/doctor/availability', icon: CalendarCheck, label: 'Availability' },
-        { to: '/doctor/patients', icon: User, label: 'Patients' },
-        { to: '/doctor/consultations', icon: ChatTeardropDots, label: 'Consultations' },
+        { 
+          to: '/doctor/appointments', 
+          icon: CalendarCheck, 
+          label: 'Patient Bookings',
+          badge: 8
+        },
+        { 
+          to: '/doctor/profile', 
+          icon: User, 
+          label: 'My Profile',
+          submenu: [
+            { to: '/doctor/profile', icon: User, label: 'Edit Profile' },
+            { to: '/doctor/availability', icon: Clock, label: 'Set Availability' },
+          ]
+        },
+        { 
+          to: '#consultation', 
+          icon: Stethoscope, 
+          label: 'Consultation Tools',
+          submenu: [
+            { to: '/doctor/appointments', icon: CalendarCheck, label: 'All Appointments' },
+            { to: '/doctor/appointments?tab=notes', icon: FileText, label: 'Add Notes' },
+            { to: '/doctor/appointments?tab=prescription', icon: Pill, label: 'Add Prescription' },
+            { to: '/doctor/appointments?tab=telemedicine', icon: VideoCamera, label: 'Start Telemedicine' },
+          ]
+        },
       ]
     : [
         { to: '/admin/dashboard', icon: CirclesFour, label: 'Dashboard' },
@@ -99,8 +171,8 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
       {/* Navigation */}
       <div className="flex-1 space-y-1 overflow-y-auto pr-1 -mr-1 custom-scrollbar">
         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-2">Main Menu</p>
-        {navItems.map((item) => (
-          <SidebarItem key={item.to} to={item.to} icon={item.icon} label={item.label} badge={item.badge} />
+        {navItems.map((item, index) => (
+          <SidebarItem key={`${item.to}-${item.label}-${index}`} to={item.to} icon={item.icon} label={item.label} badge={item.badge} submenu={item.submenu} />
         ))}
       </div>
 

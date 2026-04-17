@@ -70,7 +70,7 @@ const PrescriptionCard = ({ prescription }: any) => {
               <div className="space-y-4">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">Prescribed Medicines</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {prescription.medicines?.map((med: any, idx: number) => (
+                    {(prescription.medicines?.length > 0 ? prescription.medicines : prescription.medications || []).map((med: any, idx: number) => (
                       <div key={idx} className="p-4 bg-slate-900/40 rounded-2xl border border-white/5 hover:border-teal-500/20 transition-colors group/item">
                         <div className="flex items-center gap-3 mb-2">
                             <FirstAid size={20} weight="fill" className="text-teal-400 group-hover/item:rotate-12 transition-transform" />
@@ -79,6 +79,9 @@ const PrescriptionCard = ({ prescription }: any) => {
                         <p className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-2">
                             <Clock size={12} weight="duotone" /> {med.dosage} • {med.frequency}
                         </p>
+                        {med.instructions && (
+                          <p className="text-xs text-slate-400 mt-2 font-medium">Instructions: {med.instructions}</p>
+                        )}
                       </div>
                     ))}
                 </div>

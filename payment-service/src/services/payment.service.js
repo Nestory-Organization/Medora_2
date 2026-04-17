@@ -1,10 +1,7 @@
 const mongoose = require('mongoose');
 const Payment = require('../models/payment.model');
-const payHereConfig = require('../config/payhere');
-<<<<<<< Updated upstream
-=======
+const { stripe, gatewayName } = require('../config/stripe');
 const env = require('../config/env');
->>>>>>> Stashed changes
 const { updateAppointmentFromPayment } = require('./appointmentSync.service');
 
 class PaymentValidationError extends Error {
@@ -115,31 +112,12 @@ const validateWebhookPayload = (payload) => {
     throw new PaymentValidationError('Webhook payload is required');
   }
 
-  const statusCode = payload.status_code ?? payload.statusCode;
+  const type = payload.type;
 
-  if (statusCode === undefined || statusCode === null || statusCode === '') {
-    throw new PaymentValidationError('Webhook payload must include status_code');
+  if (!type) {
+    throw new PaymentValidationError('Webhook payload must include type field');
   }
 };
-
-const buildPayHereSession = (payment, payload) => ({
-  sandbox: payHereConfig.sandbox,
-  checkoutUrl: payHereConfig.checkoutUrl,
-  method: 'POST',
-  formFields: {
-    merchant_id: payHereConfig.merchantId || 'PAYHERE_SANDBOX_MERCHANT_ID',
-    return_url: payHereConfig.returnUrl || 'http://localhost:5173/payment/success',
-    cancel_url: payHereConfig.cancelUrl || 'http://localhost:5173/payment/cancel',
-    notify_url:
-      payHereConfig.notifyUrl || 'http://localhost:4005/payment/webhook',
-    order_id: String(payment._id),
-    items: payload.description || 'Appointment Payment - ' + payment.appointmentId,
-    currency: payment.currency,
-    amount: payment.amount.toFixed(2),
-    custom_1: payment.appointmentId,
-    custom_2: payment.patientId
-  }
-});
 
 const createPaymentSession = async (payload) => {
   validateCreateSessionPayload(payload);
@@ -149,18 +127,148 @@ const createPaymentSession = async (payload) => {
     patientId: payload.patientId.trim(),
     amount: payload.amount,
     currency: payload.currency.trim().toUpperCase(),
-    gateway: payHereConfig.gatewayName,
-    status: 'PENDING',
-    paymentMethod:
-      typeof payload.paymentMethod === 'string' && payload.paymentMethod.trim()
-        ? payload.paymentMethod.trim()
-        : null
+    gateway: gatewayName,
+    status: 'PENDING'
   });
 
-  return {
-    payment: mapPayment(created),
-    session: buildPayHereSession(created, payload)
-  };
+  console.log('Created', gatewayName, 'payment:', created._id);
+
+  try {
+    // Convert amount to cents for Stripe
+    const amountInCents = Math.round(payload.amount * 100);
+
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: payload.currency.toLowerCase(),
+            product_data: {
+              name: `Appointment Payment - ${payload.appointmentId}`,
+              description: `Medical consultation fee`
+            },
+            unit_amount: amountInCents
+          },
+          quantity: 1
+        }
+      ],
+      mode: 'payment',
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/patient/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/patient/payment-cancel`,
+      metadata: {
+        paymentId: created._id.toString(),
+        appointmentId: payload.appointmentId,
+        patientId: payload.patientId
+      },
+      client_reference_id: created._id.toString()
+    });
+
+    // Update payment with Stripe session ID
+    created.transactionId = session.id;
+    await created.save();
+
+    console.log('Stripe checkout session created:', session.id);
+
+    return {
+      paymentId: created._id,
+      sessionId: session.id,
+      checkoutUrl: session.url,
+      status: 'PENDING',
+      amount: created.amount,
+      currency: created.currency,
+      gateway: gatewayName
+    };
+  } catch (error) {
+    console.error('Error creating Stripe session:', error);
+    created.status = 'FAILED';
+    created.errorMessage = error.message;
+    await created.save();
+    throw new PaymentValidationError('Failed to create payment session: ' + error.message);
+  }
+};
+
+const processWebhook = async (payload) => {
+  validateWebhookPayload(payload);
+
+  const type = payload.type;
+  const data = payload.data?.object;
+
+  if (!data) {
+    throw new PaymentValidationError('Invalid webhook payload structure');
+  }
+
+  // Extract payment ID from metadata or client reference
+  const paymentId = data.metadata?.paymentId || data.client_reference_id;
+
+  if (!paymentId) {
+    console.warn('Webhook: Unable to map payment ID from event', { type });
+    return null;
+  }
+
+  let payment = await Payment.findById(paymentId);
+
+  if (!payment) {
+    throw new PaymentNotFoundError(`Payment ${paymentId} not found`);
+  }
+
+  // Map Stripe events to payment status
+  let newStatus = payment.status;
+
+  if (type === 'checkout.session.completed') {
+    newStatus = 'SUCCESS';
+    payment.paymentMethod = data.payment_method_types?.[0] || 'card';
+    if (data.payment_intent) {
+      payment.transactionId = data.payment_intent;
+    }
+  } else if (type === 'charge.refunded') {
+    newStatus = 'REFUNDED';
+  } else if (type === 'charge.dispute.created') {
+    newStatus = 'DISPUTED';
+  } else if (type === 'charge.failed') {
+    newStatus = 'FAILED';
+  }
+
+  payment.status = newStatus;
+  payment.webhookPayload = payload;
+  const updated = await payment.save();
+
+  console.log('Payment', paymentId, 'status updated to:', newStatus);
+
+  // Sync with appointment service on successful payment
+  if (newStatus === 'SUCCESS') {
+    try {
+      console.log('[Appointment Sync] Syncing payment status for appointment:', updated.appointmentId);
+      const syncResult = await updateAppointmentFromPayment({
+        appointmentId: updated.appointmentId,
+        paymentStatus: newStatus
+      });
+      console.log('[Appointment Sync] Result:', JSON.stringify(syncResult, null, 2));
+    } catch (error) {
+      console.error('[Appointment Sync] Error updating appointment from payment:', error.message);
+    }
+  }
+
+  // Publish notification events
+  try {
+    const eventType = newStatus === 'SUCCESS' ? 'PAYMENT_SUCCESS' : `PAYMENT_${newStatus}`;
+    await publishNotificationEvent(eventType, {
+      paymentId: String(updated._id),
+      appointmentId: updated.appointmentId,
+      patientId: updated.patientId,
+      amount: updated.amount,
+      currency: updated.currency,
+      transactionId: updated.transactionId,
+      metadata: {
+        gateway: updated.gateway,
+        paymentMethod: updated.paymentMethod
+      }
+    });
+  } catch (error) {
+    console.error('Error publishing notification event:', error.message);
+  }
+
+  return mapPayment(updated);
 };
 
 const findPaymentForWebhook = async (payload) => {
@@ -187,110 +295,6 @@ const findPaymentForWebhook = async (payload) => {
   }
 
   return null;
-};
-
-const processWebhook = async (payload) => {
-  validateWebhookPayload(payload);
-
-  const payment = await findPaymentForWebhook(payload);
-
-  if (!payment) {
-    throw new PaymentNotFoundError('Payment record not found for webhook payload');
-  }
-
-  const nextStatus = payHereConfig.mapWebhookStatusCode(
-    payload.status_code ?? payload.statusCode
-  );
-
-  if (!nextStatus) {
-    throw new PaymentValidationError('Unsupported status_code in webhook payload');
-  }
-
-  const transactionId = payload.payment_id || payload.transactionId;
-
-  payment.status = nextStatus;
-  payment.webhookPayload = payload;
-
-  if (transactionId) {
-    payment.transactionId = String(transactionId);
-  }
-
-  const webhookPaymentMethod =
-    payload.method || payload.payment_method || payload.card_holder_name;
-
-  if (webhookPaymentMethod && typeof webhookPaymentMethod === 'string') {
-    payment.paymentMethod = webhookPaymentMethod.trim();
-  }
-
-  const updated = await payment.save();
-
-  if (['SUCCESS', 'FAILED'].includes(updated.status)) {
-    const syncResult = await updateAppointmentFromPayment({
-      appointmentId: updated.appointmentId,
-      paymentStatus: updated.status
-    });
-
-    if (!syncResult.success && !syncResult.skipped) {
-      console.error('Appointment-service sync failed:', {
-        appointmentId: updated.appointmentId,
-        targetUrl: syncResult.targetUrl,
-        paymentStatus: updated.status,
-        statusCode: syncResult.statusCode,
-        responseBody: syncResult.responseBody,
-        error: syncResult.error
-      });
-    }
-
-    if (updated.status === 'SUCCESS') {
-      publishNotificationEvent('PAYMENT_SUCCESS', {
-        paymentId: String(updated._id),
-        appointmentId: updated.appointmentId,
-        patientId: updated.patientId,
-        amount: updated.amount,
-        currency: updated.currency,
-        transactionId: updated.transactionId,
-        metadata: {
-          gateway: updated.gateway,
-          paymentMethod: updated.paymentMethod
-        },
-        email: payload.customer_email || null,
-        phone: payload.customer_phone || null
-      });
-    }
-
-    if (updated.status === 'FAILED') {
-      publishNotificationEvent('PAYMENT_FAILED', {
-        paymentId: String(updated._id),
-        appointmentId: updated.appointmentId,
-        patientId: updated.patientId,
-        amount: updated.amount,
-        currency: updated.currency,
-        metadata: {
-          gateway: updated.gateway,
-          paymentMethod: updated.paymentMethod
-        },
-        email: payload.customer_email || null,
-        phone: payload.customer_phone || null
-      });
-    }
-  }
-
-  if (updated.status === 'REFUNDED') {
-    // Future inter-service communication: notify appointment-service to reflect refunded payment state.
-    publishNotificationEvent('PAYMENT_REFUNDED', {
-      paymentId: String(updated._id),
-      appointmentId: updated.appointmentId,
-      patientId: updated.patientId,
-      amount: updated.amount,
-      currency: updated.currency,
-      metadata: {
-        gateway: updated.gateway,
-        paymentMethod: updated.paymentMethod
-      }
-    });
-  }
-
-  return mapPayment(updated);
 };
 
 module.exports = {

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Appointment = require('../models/appointment.model');
 const env = require('../config/env');
+const { fetchDoctorById } = require('./doctorSearch.service');
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -100,21 +101,38 @@ const normalizeDateToDay = (value) => {
   return parsedDate;
 };
 
-const mapAppointment = (appointment) => ({
-  appointmentId: appointment._id,
-  patientId: appointment.patientId,
-  doctorId: appointment.doctorId,
-  specialty: appointment.specialty,
-  appointmentDate: appointment.appointmentDate,
-  startTime: appointment.startTime,
-  endTime: appointment.endTime,
-  consultationFee: appointment.consultationFee,
-  reason: appointment.reason,
-  status: appointment.status,
-  paymentStatus: appointment.paymentStatus,
-  createdAt: appointment.createdAt,
-  updatedAt: appointment.updatedAt
-});
+const mapAppointment = async (appointment) => {
+  // Fetch doctor details to include doctor name
+  let doctorName = 'Unknown Doctor';
+  try {
+    const doctorProfile = await fetchDoctorById(appointment.doctorId);
+    if (doctorProfile && doctorProfile.name) {
+      doctorName = doctorProfile.name;
+    } else if (doctorProfile && doctorProfile.firstName && doctorProfile.lastName) {
+      doctorName = `Dr. ${doctorProfile.firstName} ${doctorProfile.lastName}`;
+    }
+  } catch (error) {
+    console.error('Error fetching doctor name:', error);
+    // Continue without doctor name on error
+  }
+
+  return {
+    appointmentId: appointment._id,
+    patientId: appointment.patientId,
+    doctorId: appointment.doctorId,
+    doctorName: doctorName,
+    specialty: appointment.specialty,
+    appointmentDate: appointment.appointmentDate,
+    startTime: appointment.startTime,
+    endTime: appointment.endTime,
+    consultationFee: appointment.consultationFee,
+    reason: appointment.reason,
+    status: appointment.status,
+    paymentStatus: appointment.paymentStatus,
+    createdAt: appointment.createdAt,
+    updatedAt: appointment.updatedAt
+  };
+};
 
 const validatePayload = (payload) => {
   const missingFields = requiredFields.filter((field) => {
@@ -209,6 +227,9 @@ const createAppointment = async (payload) => {
     created = await Appointment.create({
       patientId: payload.patientId.trim(),
       doctorId: payload.doctorId.trim(),
+      patientName: payload.patientName ? payload.patientName.trim() : 'Patient',
+      patientPhone: payload.patientPhone ? payload.patientPhone.trim() : null,
+      patientEmail: payload.patientEmail ? payload.patientEmail.trim() : null,
       specialty: payload.specialty.trim(),
       appointmentDate: normalizedAppointmentDate,
       startTime: payload.startTime.trim(),
@@ -238,7 +259,7 @@ const createAppointment = async (payload) => {
     phone: payload.patientPhone || null
   });
 
-  return mapAppointment(created);
+  return await mapAppointment(created);
 };
 
 const updateAppointment = async (appointmentId, payload) => {
@@ -327,7 +348,7 @@ const updateAppointment = async (appointmentId, payload) => {
     }
   });
 
-  return mapAppointment(updated);
+  return await mapAppointment(updated);
 };
 
 const cancelAppointment = async (appointmentId) => {
@@ -367,7 +388,7 @@ const cancelAppointment = async (appointmentId) => {
     }
   });
 
-  return mapAppointment(updated);
+  return await mapAppointment(updated);
 };
 
 const updateAppointmentPaymentState = async (appointmentId, payload) => {
@@ -442,7 +463,7 @@ const updateAppointmentPaymentState = async (appointmentId, payload) => {
     });
   }
 
-  return mapAppointment(updated);
+  return await mapAppointment(updated);
 };
 
 module.exports = {

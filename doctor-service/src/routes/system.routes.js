@@ -8,7 +8,7 @@ router.get('/status', getStatus);
 
 // Internal routes for administration (No auth required - internal use only)
 router.get('/doctors', getAllDoctors);
-router.patch('/doctors/:doctorId/verify', verifyDoctor);
+router.patch('/doctors/:id/verify', verifyDoctor);
 
 module.exports = router;
 

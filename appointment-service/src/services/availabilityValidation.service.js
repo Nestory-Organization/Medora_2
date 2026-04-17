@@ -29,7 +29,7 @@ const fetchDoctorAvailability = async (doctorId, date) => {
   try {
     const baseUrl = env.doctorServiceUrl?.replace(/\/+$/, '') || 'http://localhost:3002';
     const formattedDate = new Date(date).toISOString().split('T')[0];
-    const url = `${baseUrl}/doctor/availability?date=${formattedDate}`;
+    const url = `${baseUrl}/doctor/availability?doctorId=${doctorId}&date=${formattedDate}`;
 
     const response = await fetch(url, {
       method: 'GET',

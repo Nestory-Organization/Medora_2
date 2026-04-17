@@ -73,7 +73,10 @@ router.use(
 );
 router.use(
   "/payments",
-  createProxyMiddleware(proxyOptions(env.paymentServiceUrl, "payments")),
+  createProxyMiddleware({
+    ...proxyOptions(env.paymentServiceUrl, "payments"),
+    pathRewrite: (path) => `/payment${path}`,
+  }),
 );
 router.use(
   "/notifications",

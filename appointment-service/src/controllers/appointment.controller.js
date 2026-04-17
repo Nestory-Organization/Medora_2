@@ -127,10 +127,21 @@ const cancelAppointmentById = async (req, res) => {
 
 const updateAppointmentPaymentStatusById = async (req, res) => {
   try {
+    console.log('[Payment Status Update] Request received:', {
+      appointmentId: req.params.id,
+      body: req.body
+    });
+
     const appointment = await updateAppointmentPaymentState(
       req.params.id,
       req.body || {}
     );
+
+    console.log('[Payment Status Update] Success:', {
+      appointmentId: req.params.id,
+      newStatus: appointment.status,
+      newPaymentStatus: appointment.paymentStatus
+    });
 
     return res.status(200).json({
       success: true,
@@ -138,7 +149,11 @@ const updateAppointmentPaymentStatusById = async (req, res) => {
       data: appointment
     });
   } catch (error) {
-    console.error('Update appointment payment state error:', error);
+    console.error('[Payment Status Update] Error:', {
+      appointmentId: req.params.id,
+      error: error.message,
+      stack: error.stack
+    });
 
     if (error instanceof AppointmentValidationError) {
       return res.status(400).json({

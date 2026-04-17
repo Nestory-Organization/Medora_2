@@ -82,6 +82,22 @@ const appointmentSchema = new mongoose.Schema(
       required: true,
       index: true
     },
+    patientName: {
+      type: String,
+      default: 'Patient'
+    },
+    patientPhone: {
+      type: String,
+      default: null
+    },
+    patientEmail: {
+      type: String,
+      default: null
+    },
+    specialty: {
+      type: String,
+      default: 'General'
+    },
     appointmentDate: {
       type: Date,
       required: true,

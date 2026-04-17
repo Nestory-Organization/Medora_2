@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, CaretRight, Trash, Brain, Layout, Calendar, Flask } from '@phosphor-icons/react';
 import { 
@@ -92,7 +92,7 @@ const HistoryCard = ({
   const linkedDoctors = Array.isArray(item.resultData?.recommendedDoctors)
     ? item.resultData.recommendedDoctors
     : [];
-  const wellnessProtocol = item.resultData?.wellnessProtocol;
+  const wellnessProtocol = !!item.resultData?.wellnessProtocol;
 
   return (
     <motion.div

@@ -17,8 +17,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
 app.use('/', systemRoutes);
-app.use('/appointments', doctorSearchRoutes);
 app.use('/appointments', appointmentRoutes);
+app.use('/appointments', doctorSearchRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

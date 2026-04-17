@@ -140,10 +140,12 @@ const bookAppointmentWithValidation = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Book appointment error:', error);
+    console.error('Book appointment error:', error.message, error.stack);
     return res.status(500).json({
       success: false,
-      message: 'Failed to book appointment'
+      message: 'Failed to book appointment',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

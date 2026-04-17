@@ -32,6 +32,8 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
       ? { paymentStatus: 'PAID', status: 'CONFIRMED' }
       : { paymentStatus: 'FAILED' };
 
+  console.log('[Appointment Sync] Calling:', targetUrl, 'with body:', JSON.stringify(body));
+
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
@@ -60,7 +62,10 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
       responseBody = null;
     }
 
+    console.log('[Appointment Sync] Response status:', response.status, 'Body:', JSON.stringify(responseBody));
+
     if (!response.ok) {
+      console.error('[Appointment Sync] Error response from appointment-service:', responseBody);
       return {
         skipped: false,
         success: false,
@@ -73,6 +78,7 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
       };
     }
 
+    console.log('[Appointment Sync] Successfully synced appointment status');
     return {
       skipped: false,
       success: true,
@@ -84,6 +90,7 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
           : null
     };
   } catch (error) {
+    console.error('[Appointment Sync] Fetch error:', error.message);
     return {
       skipped: false,
       success: false,

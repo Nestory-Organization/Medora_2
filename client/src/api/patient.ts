@@ -38,12 +38,15 @@ patientApi.interceptors.request.use(
 patientApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Check for authorization errors - ONLY logout on 401 Unauthorized
+    // DON'T auto-logout on 401 - let components handle auth errors gracefully
+    // Only logout if user explicitly logs out or tries sensitive operations
+    // This prevents premature logout due to token expiry or transient auth issues
+    
+    // Check for authorization errors
     if (error.response?.status === 401) {
-      console.warn('Unauthorized access, redirecting to login...');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login'; // Force login redirect
+      console.warn('Unauthorized access detected:', error.config?.url);
+      // Don't auto-logout here - let the component decide what to do
+      error.message = 'Unauthorized. Please log in again.';
     }
     
     // Check for network errors or service unavailability (502/503)
@@ -137,9 +140,17 @@ export const getPrescriptions = async () => {
 };
 
 export const getMyAppointments = async () => {
-    const patientId = getStoredUserId();
+    // Get patientId from stored user object
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const patientId = user?._id;
+    
+    if (!patientId) {
+        throw new Error('Patient ID not found. Please login again.');
+    }
+    
     const response = await patientApi.get('/appointments/my-appointments', {
-      params: patientId ? { patientId } : undefined,
+        params: { patientId }
     });
     return response.data;
 };
@@ -157,8 +168,23 @@ export const searchDoctors = async (specialty: string, date?: string) => {
 };
 
 export const cancelAppointment = async (id: string) => {
-    const response = await patientApi.put(`/appointments/cancel/${id}`);
+    const response = await patientApi.delete(`/appointments/${id}`);
     return response.data;
+};
+
+export const rescheduleAppointment = async (id: string, rescheduleData: any) => {
+    const response = await patientApi.put(`/appointments/${id}`, rescheduleData);
+    return response.data;
+};
+
+/**
+ * Logout function - explicitly clears auth data and redirects to login
+ * This should be called when user clicks logout button, not automatically
+ */
+export const logout = () => {
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('user');
+  window.location.href = '/login';
 };
 
 export default patientApi;

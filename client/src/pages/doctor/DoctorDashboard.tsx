@@ -5,7 +5,9 @@ import {
   ArrowRight,
   ClipboardText,
   Pulse,
-  Plus
+  Plus,
+  UserCircle,
+  Calendar
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 
@@ -76,6 +78,20 @@ export default function DoctorDashboard() {
         </div>
         <div className="flex gap-2">
           <button 
+            onClick={() => navigate('/doctor/profile')}
+            className="px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl font-black text-white shadow-2xl shadow-indigo-500/20 hover:scale-105 transition-all active:scale-95 flex items-center gap-2 uppercase tracking-widest text-[10px]"
+          >
+            <UserCircle weight="bold" size={14} />
+            My Profile
+          </button>
+          <button 
+            onClick={() => navigate('/doctor/appointments')}
+            className="px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl font-black text-white shadow-2xl shadow-teal-500/20 hover:scale-105 transition-all active:scale-95 flex items-center gap-2 uppercase tracking-widest text-[10px]"
+          >
+            <Calendar weight="bold" size={14} />
+            Appointments
+          </button>
+          <button 
             onClick={() => navigate('/doctor/availability')}
             className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl font-black text-white shadow-2xl shadow-blue-500/20 hover:scale-105 transition-all active:scale-95 flex items-center gap-2 uppercase tracking-widest text-[10px]"
           >
@@ -123,22 +139,38 @@ export default function DoctorDashboard() {
             </div>
 
             <div className="grid gap-2">
+              <button 
+                onClick={() => navigate('/doctor/profile')}
+                className="flex items-center justify-between p-3.5 bg-slate-800/40 border border-white/5 rounded-2xl hover:bg-slate-800 transition-all group/btn border-l-4 border-l-indigo-500 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover/btn:scale-110 transition-transform">
+                    <UserCircle size={18} weight="duotone" />
+                  </div>
+                  <span className="font-black text-slate-200 uppercase tracking-widest text-[9px] italic">My Profile</span>
+                </div>
+                <ArrowRight size={12} weight="bold" className="text-slate-500 group-hover/btn:translate-x-1 transition-transform" />
+              </button>
+
+              <button 
+                onClick={() => navigate('/doctor/appointments')}
+                className="flex items-center justify-between p-3.5 bg-slate-800/40 border border-white/5 rounded-2xl hover:bg-slate-800 transition-all group/btn border-l-4 border-l-teal-500 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-teal-500/10 text-teal-400 rounded-lg group-hover/btn:scale-110 transition-transform">
+                    <Calendar size={18} weight="duotone" />
+                  </div>
+                  <span className="font-black text-slate-200 uppercase tracking-widest text-[9px] italic">Patient Bookings</span>
+                </div>
+                <ArrowRight size={12} weight="bold" className="text-slate-500 group-hover/btn:translate-x-1 transition-transform" />
+              </button>
+              
               <button className="flex items-center justify-between p-3.5 bg-slate-800/40 border border-white/5 rounded-2xl hover:bg-slate-800 transition-all group/btn border-l-4 border-l-blue-500 hover:scale-[1.02] active:scale-[0.98]">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover/btn:scale-110 transition-transform">
                     <ClipboardText size={18} weight="duotone" />
                   </div>
                   <span className="font-black text-slate-200 uppercase tracking-widest text-[9px] italic">Upload Labs</span>
-                </div>
-                <ArrowRight size={12} weight="bold" className="text-slate-500 group-hover/btn:translate-x-1 transition-transform" />
-              </button>
-              
-              <button className="flex items-center justify-between p-3.5 bg-slate-800/40 border border-white/5 rounded-2xl hover:bg-slate-800 transition-all group/btn border-l-4 border-l-indigo-500 hover:scale-[1.02] active:scale-[0.98]">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover/btn:scale-110 transition-transform">
-                    <Users size={18} weight="duotone" />
-                  </div>
-                  <span className="font-black text-slate-200 uppercase tracking-widest text-[9px] italic">Patient Records</span>
                 </div>
                 <ArrowRight size={12} weight="bold" className="text-slate-500 group-hover/btn:translate-x-1 transition-transform" />
               </button>

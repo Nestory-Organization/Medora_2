@@ -4,7 +4,15 @@
  */
 
 const mongoose = require('mongoose');
+const axios = require('axios');
+const env = require('../config/env');
 const Appointment = require('../models/appointment.model');
+
+// Create a service client for patient-service
+const patientServiceClient = axios.create({
+  baseURL: env.patientServiceUrl?.replace(/\/$/, '') || 'http://localhost:4002',
+  timeout: 8000
+});
 
 /**
  * Add prescription to an appointment
@@ -44,15 +52,15 @@ const addPrescriptionToAppointment = async (req, res) => {
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: 'Appointment not found'
+        message: 'Appointment not found in doctor-service'
       });
     }
 
-    // Only allow adding prescription to completed appointments
-    if (appointment.status !== 'COMPLETED') {
+    // Allow adding prescription to confirmed or completed appointments
+    if (!['CONFIRMED', 'COMPLETED'].includes(appointment.status)) {
       return res.status(400).json({
         success: false,
-        message: 'Prescription can only be added to completed appointments'
+        message: `Prescription can only be added to confirmed or completed appointments (current status: ${appointment.status})`
       });
     }
 
@@ -77,11 +85,35 @@ const addPrescriptionToAppointment = async (req, res) => {
 
     await appointment.save();
 
+    // Sync prescription to patient-service
+    try {
+      const doctorInfo = appointment.doctorName ? appointment.doctorName.split(' ') : ['Unknown', 'Doctor'];
+      await patientServiceClient.post('/prescriptions', {
+        patientId: appointment.patientId.toString(),
+        doctorId: appointment.doctorId.toString(),
+        doctorName: `${doctorInfo[0]} ${doctorInfo[1] || ''}`.trim(),
+        medicines: prescription.medicines.map(med => ({
+          name: med.name,
+          dosage: med.dosage,
+          frequency: med.frequency,
+          duration: med.duration,
+          instructions: med.instructions
+        })),
+        notes: prescription.notes,
+        prescriptionDate: prescription.createdAt
+      });
+      console.log(`[Prescription Sync] Prescription synced to patient-service for appointment ${appointmentId}`);
+    } catch (syncError) {
+      console.warn(`[Prescription Sync] Failed to sync prescription to patient-service:`, syncError.message);
+      // Don't fail the request if sync fails - the prescription is still created in doctor-service
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Prescription added successfully',
       data: {
         appointmentId: appointment._id,
+        patientId: appointment.patientId,
         prescriptionId: appointment.prescriptions[appointment.prescriptions.length - 1]._id,
         medicines: prescription.medicines,
         notes: prescription.notes
@@ -106,7 +138,7 @@ const getPrescriptionDetails = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid appointment ID'
+        message: 'Invalid appointment ID format'
       });
     }
 
@@ -121,7 +153,7 @@ const getPrescriptionDetails = async (req, res) => {
     if (!appointment.prescriptions || appointment.prescriptions.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'No prescriptions found for this appointment'
+        message: 'No prescriptions found for this appointment. Please add a prescription first.'
       });
     }
 
