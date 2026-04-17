@@ -1,0 +1,15 @@
+info:
+  name: My Appointment
+  type: http
+  seq: 16
+
+http:
+  method: GET
+  url: " http://localhost:4000/api/appointments/my-appointments"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
