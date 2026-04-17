@@ -5,23 +5,39 @@ import SymptomForm from '../../components/ai/SymptomForm';
 import ResultsPanel from '../../components/ai/ResultsPanel';
 import SpecialistModal from '../../components/ai/SpecialistModal';
 import HealthInsights from '../../components/ai/HealthInsights';
-import { analyzeSymptoms, recommendSpecialist, getHealthInsights } from '../../api/ai';
+import { 
+  analyzeSymptoms, 
+  recommendSpecialist, 
+  getHealthInsights,
+  type SymptomAnalysisResult,
+  type UiSpecialist,
+  type UiSuggestedDoctor,
+  type UiInsight,
+  type DoctorCoverage
+} from '../../api/ai';
 
 const SymptomChecker: React.FC = () => {
   const [step, setStep] = useState<'input' | 'analysis' | 'recommendations'>('input');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any>(null);
-  const [specialists, setSpecialists] = useState<any[]>([]);
-  const [suggestedDoctors, setSuggestedDoctors] = useState<any[]>([]);
-  const [insights, setInsights] = useState<any[]>([]);
+  const [results, setResults] = useState<SymptomAnalysisResult | null>(null);
+  const [specialists, setSpecialists] = useState<UiSpecialist[]>([]);
+  const [suggestedDoctors, setSuggestedDoctors] = useState<UiSuggestedDoctor[]>([]);
+  const [insights, setInsights] = useState<UiInsight[]>([]);
   const [showSpecialistModal, setShowSpecialistModal] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [loadingExtras, setLoadingExtras] = useState(false);
-  const [doctorCoverage, setDoctorCoverage] = useState<any>(null);
+  const [doctorCoverage, setDoctorCoverage] = useState<DoctorCoverage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [analysisHistoryId, setAnalysisHistoryId] = useState<string | null>(null);
 
-  const handleSymptomSubmit = async (formData: any) => {
+  const handleSymptomSubmit = async (formData: { 
+    symptoms: string[]; 
+    duration: string; 
+    severity: number; 
+    age: number; 
+    medicalHistory: string; 
+    description?: string;
+  }) => {
     setLoading(true);
     setError(null);
     setResults(null);
@@ -33,7 +49,7 @@ const SymptomChecker: React.FC = () => {
     
     try {
       const response = await analyzeSymptoms(formData);
-      setResults(response.data);
+      setResults(response.data as SymptomAnalysisResult);
       setAnalysisHistoryId(response.analysisHistoryId || null);
       setStep('analysis');
     } catch (err: any) {
@@ -61,7 +77,7 @@ const SymptomChecker: React.FC = () => {
       const response = await recommendSpecialist({
         symptoms: Array.isArray(results?.symptoms) ? results.symptoms : [],
         conditions: Array.isArray(results?.conditions)
-          ? results.conditions.map((item: any) => item?.name).filter(Boolean)
+          ? results.conditions.map((item: { name: string }) => item?.name).filter(Boolean)
           : undefined,
         analysisHistoryId: analysisHistoryId || undefined,
       });
