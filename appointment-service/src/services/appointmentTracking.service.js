@@ -122,7 +122,9 @@ const ensureTelemedicineSessionForAppointment = async (appointment) => {
     return null;
   }
 
-  let session = await Telemedicine.findOne({ appointmentId: appointment._id }).lean();
+  let session = await Telemedicine.findOne({
+    appointmentId: appointment._id,
+  }).lean();
 
   if (!session) {
     const { sessionId, roomId } = generateTelemedicineIds();
@@ -178,7 +180,8 @@ const getMyAppointments = async (patientId) => {
   const enrichedAppointments = await Promise.all(
     appointments.map(async (apt) => {
       const doctorName = await fetchDoctorDetails(apt.doctorId);
-      const telemedicineSession = await ensureTelemedicineSessionForAppointment(apt);
+      const telemedicineSession =
+        await ensureTelemedicineSessionForAppointment(apt);
 
       return {
         ...apt,
