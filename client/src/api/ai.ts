@@ -154,6 +154,7 @@ export const analyzeSymptoms = async (data: {
         '',
       redFlags: Array.isArray(payload?.redFlags) ? payload.redFlags : [],
       recommendations: Array.isArray(payload?.recommendations) ? payload.recommendations : [],
+      possibleConditions: conditions, // Add this for consistency in history
     };
 
     return {

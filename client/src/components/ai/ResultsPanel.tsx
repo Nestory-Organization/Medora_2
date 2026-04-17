@@ -3,15 +3,21 @@ import { motion } from 'framer-motion';
 import { Warning, Info, Sparkle, ChatText } from 'phosphor-react';
 
 interface Condition {
-  name: string;
-  probability: number;
+  condition?: string; // Support both naming conventions
+  name?: string;
+  probability?: number;
+  confidence?: number;
+  description?: string;
 }
 
 interface ResultsPanelProps {
   results: {
     conditions: Condition[];
+    possibleConditions?: Condition[]; // Support both
     severityLevel: 'Low' | 'Medium' | 'High';
     advice: string;
+    redFlags?: string[];
+    recommendations?: string[];
   } | null;
   loading: boolean;
   onFindSpecialist: () => void;
@@ -19,6 +25,8 @@ interface ResultsPanelProps {
 }
 
 const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, loading, onFindSpecialist, onGetHealthTips }) => {
+  const [showDetailed, setShowDetailed] = React.useState(false);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -56,6 +64,8 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, loading, onFindSpe
 
   if (!results) return null;
 
+  const conditions = results.conditions || results.possibleConditions || [];
+
   const getSeverityBadgeColor = (severity: string) => {
     switch (severity) {
       case 'Low': return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
@@ -71,78 +81,126 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, loading, onFindSpe
       animate={{ opacity: 1, scale: 1 }}
       className="space-y-6"
     >
-      {/* Conditions Card */}
-      <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="backdrop-blur-3xl bg-white/10 p-10 rounded-[2rem] border border-white/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group"
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 blur-3xl -mr-16 -mt-16 group-hover:bg-cyan-500/20 transition-all duration-700" />
-        
-        <h3 className="text-2xl font-black text-white mb-8 flex items-center gap-3">
-          <div className="p-2 bg-cyan-500/20 rounded-xl">
-            <Sparkle size={24} weight="fill" className="text-cyan-400" />
-          </div>
-          Diagnostic Insight
-        </h3>
-        
-        <div className="space-y-8">
-          {results.conditions.map((item, index) => (
-            <div key={index} className="space-y-3">
-              <div className="flex justify-between items-end">
-                <span className="text-lg font-bold text-white tracking-tight">{item.name}</span>
-                <span className="text-sm font-black text-cyan-400 tabular-nums">{item.probability}%</span>
-              </div>
-              <div className="h-2.5 bg-white/5 rounded-full overflow-hidden p-[1px] border border-white/5">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${item.probability}%` }}
-                  transition={{ duration: 1.5, ease: "circOut", delay: 0.3 + index * 0.1 }}
-                  className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-blue-500 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"
-                />
-              </div>
-            </div>
-          ))}
+      {/* Header and Minimal Summary */}
+      <div className="flex justify-between items-center px-2">
+        <div>
+          <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+            Analysis Complete
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          </h3>
+          <p className="text-xs text-white/40 uppercase tracking-widest font-bold">Diagnostic Sequence Finished</p>
         </div>
-      </motion.div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <motion.div 
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="backdrop-blur-3xl bg-white/10 p-8 rounded-[2rem] border border-white/20 shadow-xl group"
+        <button 
+          onClick={() => setShowDetailed(!showDetailed)}
+          className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-cyan-400 border border-white/10 transition-all"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-1.5 bg-white/5 rounded-lg">
-              <Info size={18} className="text-cyan-400" />
-            </div>
-            <h4 className="text-xs uppercase tracking-[0.2em] font-black text-cyan-200/50">Severity Level</h4>
-          </div>
-          <span className={`px-6 py-2 rounded-2xl border-2 text-xl font-black tracking-tight inline-block ${getSeverityBadgeColor(results.severityLevel)}`}>
-            {results.severityLevel}
-          </span>
-        </motion.div>
-
-        <motion.div 
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="backdrop-blur-3xl bg-white/10 p-8 rounded-[2rem] border border-white/20 shadow-xl"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-1.5 bg-white/5 rounded-lg">
-              <ChatText size={18} className="text-cyan-400" />
-            </div>
-            <h4 className="text-xs uppercase tracking-[0.2em] font-black text-cyan-200/50">AI Summary</h4>
-          </div>
-          <p className="text-teal-50/80 text-sm leading-relaxed font-medium italic">
-            "{results.advice}"
-          </p>
-        </motion.div>
+          {showDetailed ? 'View Minimal' : 'View Full Details'}
+        </button>
       </div>
+
+      {/* Primary Result - Minimal */}
+      {!showDetailed ? (
+        <motion.div 
+          layoutId="result-card"
+          className="backdrop-blur-3xl bg-white/10 p-8 rounded-[2rem] border border-white/20 shadow-2xl relative overflow-hidden"
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-200/50">Most Likely Condition</label>
+              <h4 className="text-3xl font-black text-white tracking-tighter">
+                {conditions[0]?.name || conditions[0]?.condition || 'Analysis Pending'}
+              </h4>
+              <div className="flex items-center gap-3 mt-4">
+                <span className={`px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider ${getSeverityBadgeColor(results.severityLevel)}`}>
+                  {results.severityLevel} Severity
+                </span>
+                <span className="text-[10px] font-black text-cyan-400/80 uppercase tracking-wider">
+                  {conditions[0]?.probability || conditions[0]?.confidence || 0}% Confidence
+                </span>
+              </div>
+            </div>
+            
+            <div className="md:border-l border-white/10 md:pl-8 space-y-2 max-w-xs">
+              <label className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-200/50">Primary Guidance</label>
+              <p className="text-sm text-white/70 italic leading-relaxed line-clamp-3">
+                "{results.advice}"
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div 
+          layoutId="result-card"
+          className="space-y-6"
+        >
+          {/* Detailed Conditions List */}
+          <div className="backdrop-blur-3xl bg-white/10 p-10 rounded-[2rem] border border-white/20 shadow-2xl">
+            <h4 className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-200/50 mb-8">Clinical Indicators</h4>
+            <div className="space-y-8">
+              {conditions.map((item, index) => (
+                <div key={index} className="space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <span className="text-lg font-bold text-white tracking-tight">{item.name || item.condition}</span>
+                      {item.description && <p className="text-xs text-white/40 leading-relaxed max-w-md">{item.description}</p>}
+                    </div>
+                    <span className="text-lg font-black text-cyan-400 tabular-nums">{item.probability || item.confidence}%</span>
+                  </div>
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${item.probability || item.confidence}%` }}
+                      transition={{ duration: 1, ease: "circOut", delay: index * 0.1 }}
+                      className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 rounded-full"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Red Flags & Recommendations */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {results.redFlags && results.redFlags.length > 0 && (
+              <div className="backdrop-blur-3xl bg-rose-500/10 p-8 rounded-[2rem] border border-rose-500/20 shadow-xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-1.5 bg-rose-500/20 rounded-lg">
+                    <Warning size={18} className="text-rose-400" />
+                  </div>
+                  <h4 className="text-[10px] uppercase tracking-[0.2em] font-black text-rose-400">Critical Red Flags</h4>
+                </div>
+                <ul className="space-y-3">
+                  {results.redFlags.map((flag, i) => (
+                    <li key={i} className="text-xs text-rose-200/70 flex items-center gap-2">
+                      <div className="w-1 h-1 rounded-full bg-rose-500" />
+                      {flag}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {results.recommendations && results.recommendations.length > 0 && (
+              <div className="backdrop-blur-3xl bg-cyan-500/10 p-8 rounded-[2rem] border border-cyan-500/20 shadow-xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-1.5 bg-cyan-500/20 rounded-lg">
+                    <Sparkle size={18} className="text-cyan-400" />
+                  </div>
+                  <h4 className="text-[10px] uppercase tracking-[0.2em] font-black text-cyan-400">Clinical Advice</h4>
+                </div>
+                <ul className="space-y-3">
+                  {results.recommendations.map((rec, i) => (
+                    <li key={i} className="text-xs text-cyan-200/70 flex items-center gap-2">
+                      <div className="w-1 h-1 rounded-full bg-cyan-400" />
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       {/* Premium Actions */}
       <div className="grid grid-cols-2 gap-6 mt-4">

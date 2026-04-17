@@ -73,10 +73,18 @@ const HistoryCard = ({
   };
 
   const symptoms = asStringArray((item.inputData || {}).symptoms);
+  const description = typeof item.inputData?.description === 'string' ? item.inputData.description : null;
   const conditions = asStringArray((item.inputData || {}).conditions);
   const duration = typeof item.inputData?.duration === 'string' ? item.inputData.duration : null;
   const severity = item.inputData?.severity;
   const age = item.inputData?.age;
+
+  const resultConditions = Array.isArray(item.resultData?.possibleConditions) 
+    ? item.resultData.possibleConditions 
+    : [];
+  const redFlags = Array.isArray(item.resultData?.redFlags) ? item.resultData.redFlags : [];
+  const recommendations = Array.isArray(item.resultData?.recommendations) ? item.resultData.recommendations : [];
+
   const linkedDoctors = Array.isArray(item.resultData?.recommendedDoctors)
     ? item.resultData.recommendedDoctors
     : [];
@@ -132,10 +140,17 @@ const HistoryCard = ({
             exit={{ height: 0, opacity: 0 }}
             className="px-5 pb-5 border-t border-white/5"
           >
-            <div className="pt-4 space-y-4">
+            <div className="pt-4 space-y-6">
+              {description && (
+                <div>
+                  <p className="text-[10px] uppercase font-black text-slate-500 mb-2 tracking-widest">Case Description</p>
+                  <p className="text-xs text-slate-300 italic p-3 bg-white/5 rounded-xl border border-white/5">"{description}"</p>
+                </div>
+              )}
+
               {symptoms.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase font-black text-slate-500 mb-2 tracking-widest">Input Symptoms</p>
+                  <p className="text-[10px] uppercase font-black text-slate-500 mb-2 tracking-widest">Reported Symptoms</p>
                   <div className="flex flex-wrap gap-2">
                     {symptoms.map((s) => (
                       <span key={s} className="px-2 py-1 bg-white/5 border border-white/10 rounded-md text-[10px] text-slate-300 uppercase font-bold">{s}</span>
@@ -150,14 +165,49 @@ const HistoryCard = ({
                 {age !== undefined && age !== null && <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-200 border border-emerald-500/20">Age: {String(age)}</span>}
               </div>
 
-              {conditions.length > 0 && (
-                <div>
-                  <p className="text-[10px] uppercase font-black text-slate-500 mb-2 tracking-widest">Input Conditions</p>
-                  <div className="flex flex-wrap gap-2">
-                    {conditions.map((c) => (
-                      <span key={c} className="px-2 py-1 bg-white/5 border border-white/10 rounded-md text-[10px] text-slate-300 uppercase font-bold">{c}</span>
+              {/* Detailed Results Section */}
+              {item.type === 'analysis' && resultConditions.length > 0 && (
+                <div className="space-y-4 pt-2">
+                  <p className="text-[10px] uppercase font-black text-cyan-400 mb-2 tracking-widest">Diagnostic Findings</p>
+                  <div className="space-y-3">
+                    {resultConditions.map((c: any, i: number) => (
+                      <div key={i} className="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-xs font-bold text-white">{c.condition || c.name}</span>
+                          <span className="text-[10px] font-black text-cyan-400">{c.confidence || c.probability}%</span>
+                        </div>
+                        {c.description && <p className="text-[10px] text-slate-400 leading-relaxed">{c.description}</p>}
+                      </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {redFlags.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase font-black text-rose-400 mb-2 tracking-widest">Warning Signs</p>
+                  <ul className="space-y-1">
+                    {redFlags.map((f, i) => (
+                      <li key={i} className="text-[10px] text-rose-200/60 flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full bg-rose-500" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recommendations.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase font-black text-emerald-400 mb-2 tracking-widest">Medical Guidance</p>
+                  <ul className="space-y-1">
+                    {recommendations.map((r, i) => (
+                      <li key={i} className="text-[10px] text-emerald-200/60 flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               
