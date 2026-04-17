@@ -104,7 +104,9 @@ const BookingPage: React.FC = () => {
         headers: { ...(token && { Authorization: `Bearer ${token}` }) }
       });
       
-      const updatedDoctor = response.data.data?.find((d: Doctor) => d.doctorId === doctor.doctorId);
+      const updatedDoctor = response.data.data?.find(
+        (d: Doctor) => String(d.doctorId) === String(doctor.doctorId)
+      );
       if (updatedDoctor) {
         setSelectedDoctor(updatedDoctor);
         setSelectedSlot(null); // Reset selected slot when date changes

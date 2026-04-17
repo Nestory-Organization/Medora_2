@@ -271,6 +271,124 @@ const processWebhook = async (payload) => {
   return mapPayment(updated);
 };
 
+const confirmPaymentBySessionId = async (sessionId) => {
+  if (!sessionId || !String(sessionId).trim()) {
+    throw new PaymentValidationError('sessionId is required');
+  }
+
+  let session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(String(sessionId).trim());
+  } catch (error) {
+    throw new PaymentValidationError('Invalid Stripe session ID');
+  }
+
+  const paymentId = session?.metadata?.paymentId || session?.client_reference_id;
+
+  if (!paymentId) {
+    throw new PaymentNotFoundError('No payment reference found for this session');
+  }
+
+  const payment = await Payment.findById(String(paymentId));
+
+  if (!payment) {
+    throw new PaymentNotFoundError(`Payment ${paymentId} not found`);
+  }
+
+  if (String(session?.payment_status || '').toLowerCase() !== 'paid') {
+    return mapPayment(payment);
+  }
+
+  if (payment.status !== 'SUCCESS') {
+    payment.status = 'SUCCESS';
+    payment.paymentMethod = session?.payment_method_types?.[0] || payment.paymentMethod || 'card';
+
+    if (session?.payment_intent) {
+      payment.transactionId = String(session.payment_intent);
+    }
+
+    payment.webhookPayload = {
+      source: 'session-confirmation',
+      sessionId: session.id,
+      paymentStatus: session.payment_status
+    };
+
+    await payment.save();
+
+    try {
+      await updateAppointmentFromPayment({
+        appointmentId: payment.appointmentId,
+        paymentStatus: 'SUCCESS'
+      });
+    } catch (error) {
+      console.error('[Appointment Sync] Error in session confirmation flow:', error.message);
+    }
+  }
+
+  return mapPayment(payment);
+};
+
+const reconcilePaymentByAppointmentId = async (appointmentId) => {
+  const normalizedAppointmentId = String(appointmentId || '').trim();
+
+  if (!normalizedAppointmentId) {
+    throw new PaymentValidationError('appointmentId is required');
+  }
+
+  const payment = await Payment.findOne({ appointmentId: normalizedAppointmentId })
+    .sort({ createdAt: -1 });
+
+  if (!payment) {
+    throw new PaymentNotFoundError(`No payment found for appointment ${normalizedAppointmentId}`);
+  }
+
+  if (payment.status === 'SUCCESS') {
+    return mapPayment(payment);
+  }
+
+  if (!payment.transactionId || !String(payment.transactionId).startsWith('cs_')) {
+    return mapPayment(payment);
+  }
+
+  let session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(String(payment.transactionId));
+  } catch (error) {
+    console.error('[Payment Reconcile] Stripe session fetch failed:', error.message);
+    return mapPayment(payment);
+  }
+
+  if (String(session?.payment_status || '').toLowerCase() !== 'paid') {
+    return mapPayment(payment);
+  }
+
+  payment.status = 'SUCCESS';
+  payment.paymentMethod = session?.payment_method_types?.[0] || payment.paymentMethod || 'card';
+
+  if (session?.payment_intent) {
+    payment.transactionId = String(session.payment_intent);
+  }
+
+  payment.webhookPayload = {
+    source: 'appointment-reconcile',
+    sessionId: session.id,
+    paymentStatus: session.payment_status
+  };
+
+  await payment.save();
+
+  try {
+    await updateAppointmentFromPayment({
+      appointmentId: payment.appointmentId,
+      paymentStatus: 'SUCCESS'
+    });
+  } catch (error) {
+    console.error('[Appointment Sync] Error in reconcile flow:', error.message);
+  }
+
+  return mapPayment(payment);
+};
+
 const findPaymentForWebhook = async (payload) => {
   const orderId = payload.order_id || payload.orderId || payload.payment_reference;
   const appointmentId =
@@ -492,6 +610,8 @@ const getAllDoctorEarnings = async (options = {}) => {
 module.exports = {
   createPaymentSession,
   processWebhook,
+  confirmPaymentBySessionId,
+  reconcilePaymentByAppointmentId,
   PaymentValidationError,
   PaymentNotFoundError,
   getDoctorEarnings,

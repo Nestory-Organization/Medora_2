@@ -30,6 +30,7 @@ app.use('/internal', internalRoutes);
 app.use('/payment', paymentRoutes);
 // Webhook endpoint accessible at both /webhook and /payment/webhook
 app.use('/webhook', webhookRoutes);
+app.use('/payment/webhook', webhookRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

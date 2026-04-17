@@ -1,6 +1,8 @@
 const {
   createPaymentSession,
   processWebhook,
+  confirmPaymentBySessionId,
+  reconcilePaymentByAppointmentId,
   PaymentValidationError,
   PaymentNotFoundError,
   getDoctorEarnings,
@@ -82,6 +84,82 @@ const handleWebhook = async (req, res) => {
   }
 };
 
+const confirmSessionPayment = async (req, res) => {
+  try {
+    const sessionId = req.body?.sessionId;
+
+    const payment = await confirmPaymentBySessionId(sessionId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Payment session confirmed successfully',
+      data: payment
+    });
+  } catch (error) {
+    console.error('Confirm payment session error:', error);
+
+    if (error instanceof PaymentValidationError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    if (error instanceof PaymentNotFoundError) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to confirm payment session',
+      data: null
+    });
+  }
+};
+
+const reconcileAppointmentPayment = async (req, res) => {
+  try {
+    const appointmentId = req.params?.appointmentId;
+
+    const payment = await reconcilePaymentByAppointmentId(appointmentId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Payment reconciliation completed',
+      data: payment
+    });
+  } catch (error) {
+    console.error('Reconcile appointment payment error:', error);
+
+    if (error instanceof PaymentValidationError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    if (error instanceof PaymentNotFoundError) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+        data: null
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reconcile appointment payment',
+      data: null
+    });
+  }
+};
+
 const getDoctorEarningsHandler = async (req, res) => {
   try {
     const { doctorId } = req.params;
@@ -144,6 +222,8 @@ const getAllDoctorEarningsHandler = async (req, res) => {
 module.exports = {
   createSession,
   handleWebhook,
+  confirmSessionPayment,
+  reconcileAppointmentPayment,
   getDoctorEarningsHandler,
   getAllDoctorEarningsHandler
 };

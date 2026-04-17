@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, ArrowRight } from 'phosphor-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
 const PaymentSuccess: React.FC = () => {
   const navigate = useNavigate();
@@ -20,12 +23,16 @@ const PaymentSuccess: React.FC = () => {
       }
 
       try {
-        // Wait for webhook to process (give it 3 seconds max)
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        const token = localStorage.getItem('authToken');
+        await axios.post(
+          `${API_BASE_URL}/payments/confirm-session`,
+          { sessionId },
+          { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+        );
         setMessage('Payment confirmed! Your appointment is now active.');
       } catch (error) {
         console.error('Payment verification error:', error);
-        setMessage('Payment completed! Your appointment is being processed.');
+        setMessage('Payment completed! Your appointment is being processed. Please refresh your appointments in a few seconds.');
       } finally {
         setIsVerifying(false);
       }

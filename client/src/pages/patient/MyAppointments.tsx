@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { 
   CalendarCheck, 
   Users, 
@@ -18,6 +19,8 @@ import { getMyAppointments, cancelAppointment, rescheduleAppointment } from '../
 import PageTransition from '../../components/PageTransition';
 import EmptyState from '../../components/EmptyState';
 import { TableSkeleton } from '../../components/Skeleton';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
 const RescheduleModal = ({ appointment, onClose, onSubmit, isLoading }: any) => {
   const [newDate, setNewDate] = useState(new Date(appointment.currentDate).toISOString().split('T')[0]);
@@ -318,10 +321,46 @@ export default function MyAppointments() {
   const [rescheduleModal, setRescheduleModal] = useState<any>(null);
   const [rescheduling, setRescheduling] = useState(false);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (withReconcile = false) => {
     setLoading(true);
     try {
       const appointmentsData = await getMyAppointments();
+
+      if (withReconcile) {
+        const pendingUnpaid = (appointmentsData || []).filter((apt: any) =>
+          String(apt?.status || '').toUpperCase() === 'PENDING_PAYMENT' &&
+          String(apt?.paymentStatus || '').toUpperCase() === 'UNPAID'
+        );
+
+        if (pendingUnpaid.length > 0) {
+          const token = localStorage.getItem('authToken');
+
+          const results = await Promise.allSettled(
+            pendingUnpaid.map((apt: any) =>
+              axios.post(
+                `${API_BASE_URL}/payments/reconcile/${encodeURIComponent(String(apt._id))}`,
+                {},
+                { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+              )
+            )
+          );
+
+          const hasSyncedPayment = results.some((result) => {
+            if (result.status !== 'fulfilled') {
+              return false;
+            }
+
+            return String(result.value?.data?.data?.status || '').toUpperCase() === 'SUCCESS';
+          });
+
+          if (hasSyncedPayment) {
+            const refreshed = await getMyAppointments();
+            setAppointments(refreshed || []);
+            return;
+          }
+        }
+      }
+
       setAppointments(appointmentsData || []);
     } catch (err) {
       console.error("Failed to load appointments", err);
@@ -333,7 +372,7 @@ export default function MyAppointments() {
 
   // Fetch on component mount
   useEffect(() => {
-    fetchAppointments();
+    fetchAppointments(true);
   }, []);
 
   // Refetch when page becomes visible (user returns from payment)
@@ -341,7 +380,7 @@ export default function MyAppointments() {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         console.log('Page became visible, refetching appointments...');
-        fetchAppointments();
+        fetchAppointments(true);
       }
     };
 
@@ -352,7 +391,7 @@ export default function MyAppointments() {
   // Also refetch every 10 seconds to ensure latest payment status
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchAppointments();
+      fetchAppointments(false);
     }, 10000);
 
     return () => clearInterval(interval);

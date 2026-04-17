@@ -13,17 +13,26 @@ const searchDoctorsBySpecialty = async (req, res) => {
       });
     }
 
-    const query = {
+    const specialtyQuery = {
       specialization: {
         $regex: specialty.trim(),
         $options: 'i'
-      },
-      isVerified: true
+      }
     };
 
-    const doctors = await DoctorProfile.find(query)
-      .select('doctorId firstName lastName specialization consultationFee bio clinicAddress qualification yearsOfExperience')
+    // Keep verified doctors as first preference; if none exist, fall back to all doctors in DB.
+    let doctors = await DoctorProfile.find({
+      ...specialtyQuery,
+      isVerified: true
+    })
+      .select('doctorId firstName lastName specialization consultationFee bio clinicAddress qualification yearsOfExperience isVerified')
       .lean();
+
+    if (doctors.length === 0) {
+      doctors = await DoctorProfile.find(specialtyQuery)
+        .select('doctorId firstName lastName specialization consultationFee bio clinicAddress qualification yearsOfExperience isVerified')
+        .lean();
+    }
 
     if (doctors.length === 0) {
       return res.status(200).json({
@@ -35,7 +44,7 @@ const searchDoctorsBySpecialty = async (req, res) => {
     }
 
     let enrichedDoctors = doctors.map(doctor => ({
-      doctorId: doctor.doctorId,
+      doctorId: String(doctor.doctorId),
       name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
       firstName: doctor.firstName,
       lastName: doctor.lastName,
@@ -45,7 +54,7 @@ const searchDoctorsBySpecialty = async (req, res) => {
       consultationFee: doctor.consultationFee,
       bio: doctor.bio,
       clinicAddress: doctor.clinicAddress,
-      isVerified: true
+      isVerified: doctor.isVerified === true
     }));
 
     // If date is provided, fetch availability slots
@@ -62,12 +71,12 @@ const searchDoctorsBySpecialty = async (req, res) => {
 
         const availabilityMap = {};
         availabilities.forEach(avail => {
-          availabilityMap[avail.doctorId] = avail.slots || [];
+          availabilityMap[String(avail.doctorId)] = avail.slots || [];
         });
 
         enrichedDoctors = enrichedDoctors.map(doctor => ({
           ...doctor,
-          availableSlots: availabilityMap[doctor.doctorId] || []
+          availableSlots: availabilityMap[String(doctor.doctorId)] || []
         }));
       }
     }
