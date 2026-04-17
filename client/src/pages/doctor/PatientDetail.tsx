@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Phone, Envelope, MapPin, CalendarBlank } from '@phosphor-icons/react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Phone, Envelope, MapPin, CalendarBlank, FileText, DownloadSimple } from '@phosphor-icons/react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
 
