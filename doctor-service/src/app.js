@@ -26,9 +26,15 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Global logging middleware
+app.use((req, res, next) => {
+  console.log(`[ALL REQUESTS] ${req.method} ${req.path} - Full URL: ${req.originalUrl}`);
+  next();
+});
+
 // System endpoints - DIRECT HANDLERS (no middleware interference)
 app.get('/system/doctors', getAllDoctors);
-app.patch('/system/doctors/:id/verify', verifyDoctor);
+app.patch('/system/doctors/:doctorId/verify', verifyDoctor);
 
 // Legacy system routes for health/status
 app.use('/system', systemRoutes);
@@ -42,11 +48,14 @@ app.get('/doctor/availability', getDoctorAvailability);
 app.patch('/doctor/availability/mark-booked', markSlotBooked);
 app.patch('/doctor/availability/release-slot', releaseSlot);
 
-// PUBLIC DOCTOR PROFILE ENDPOINT FOR INTER-SERVICE COMMUNICATION (no auth required)
-app.get('/doctor/public-profile/:doctorId', getDoctorProfile);
-
 // Protected doctor routes (auth required)
 // This includes the /:doctorId GET route which requires authentication
+app.use((req, res, next) => {
+  if (req.path.startsWith('/doctor')) {
+    console.log(`[DOCTOR ROUTE] ${req.method} ${req.path} - Full URL: ${req.originalUrl}`);
+  }
+  next();
+});
 app.use('/doctor', doctorRoutes);
 
 app.use((req, res) => {

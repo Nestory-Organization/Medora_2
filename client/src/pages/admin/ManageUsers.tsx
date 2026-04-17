@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { 
   Users, 
   MagnifyingGlass,
@@ -89,10 +90,6 @@ const ManageUsers: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   const fetchUsers = async () => {
     setLoading(true);
     const token = localStorage.getItem('authToken');
@@ -112,6 +109,13 @@ const ManageUsers: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Refresh users list when navigating to this page
+  useRefreshOnNavigate(fetchUsers);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleToggleStatus = async () => {
     if (!selectedUser) return;

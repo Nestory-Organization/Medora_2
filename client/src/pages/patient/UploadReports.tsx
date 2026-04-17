@@ -13,6 +13,7 @@ import {
   Lightbulb
 } from '@phosphor-icons/react';
 import { usePatient } from '../../api/PatientContext';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { uploadMedicalReport, deleteMedicalDocument } from '../../api/patient';
 
 const FILE_BASE_URL = import.meta.env.VITE_PATIENT_FILES_BASE_URL || 'http://localhost:4002';
@@ -97,6 +98,9 @@ export default function UploadReports() {
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Refresh documents when navigating to this page
+  useRefreshOnNavigate(refreshDocuments);
 
   const reportFiles = documents;
 

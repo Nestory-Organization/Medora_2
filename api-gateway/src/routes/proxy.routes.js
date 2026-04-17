@@ -30,6 +30,13 @@ const proxyOptions = (target, serviceName) => ({
     console.log(
       `[Proxy] ${req.method} ${req.originalUrl} -> ${target}${req.url}`,
     );
+    console.log(`[Proxy] Authorization header:`, req.headers.authorization ? 'Present' : 'Missing');
+    
+    // Ensure Authorization header is forwarded
+    if (req.headers.authorization) {
+      proxyReq.setHeader('Authorization', req.headers.authorization);
+      console.log(`[Proxy] Set Authorization header on proxy request`);
+    }
   },
   onError: (err, req, res) => {
     console.error(`[Proxy Error] ${serviceName}:`, err.message);
@@ -60,7 +67,12 @@ router.use(
   "/doctors",
   createProxyMiddleware({
     ...proxyOptions(env.doctorServiceUrl, "doctors"),
-    pathRewrite: (path) => `/doctor${path}`,
+    pathRewrite: (path) => {
+      // Remove the "/doctors" prefix since it's already been matched by the router
+      const newPath = path.startsWith('/doctors') ? path.slice(8) : path;
+      console.log(`[DOCTORS PROXY] Original: ${path}, Rewritten: /doctor${newPath}`);
+      return `/doctor${newPath}`;
+    },
   }),
 );
 
@@ -75,7 +87,12 @@ router.use(
   "/payments",
   createProxyMiddleware({
     ...proxyOptions(env.paymentServiceUrl, "payments"),
-    pathRewrite: (path) => `/payment${path}`,
+    pathRewrite: (path) => {
+      if (path.includes('/webhook')) {
+        return '/webhook';
+      }
+      return `/payment${path}`;
+    },
   }),
 );
 router.use(

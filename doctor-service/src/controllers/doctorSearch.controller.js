@@ -91,32 +91,19 @@ const getDoctorProfile = async (req, res) => {
   try {
     const { doctorId } = req.params;
 
-    if (!doctorId || doctorId.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Doctor ID is required'
-      });
-    }
-
+    // Try lookup by ObjectId when possible, otherwise fall back to raw string match.
     let doctor = null;
-    const trimmedId = doctorId.trim();
 
-    // Try to find by ObjectId first (if it's a valid ObjectId format)
-    if (mongoose.Types.ObjectId.isValid(trimmedId)) {
-      doctor = await DoctorProfile.findOne({ 
-        doctorId: new mongoose.Types.ObjectId(trimmedId) 
-      }).lean();
-    }
-
-    // If not found and it looks like an ObjectId string, try direct comparison
-    if (!doctor) {
-      doctor = await DoctorProfile.findOne({ 
-        doctorId: trimmedId 
-      }).lean();
+    if (doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
+      doctor = await DoctorProfile.findOne({ doctorId: new mongoose.Types.ObjectId(doctorId) }).lean();
     }
 
     if (!doctor) {
-      console.warn(`[getDoctorProfile] Doctor not found for ID: ${trimmedId}`);
+      // Some records or legacy data may store doctorId as a plain string.
+      doctor = await DoctorProfile.findOne({ doctorId: doctorId }).lean();
+    }
+
+    if (!doctor) {
       return res.status(404).json({
         success: false,
         message: 'Doctor profile not found'
@@ -146,8 +133,7 @@ const getDoctorProfile = async (req, res) => {
     console.error('Get doctor profile error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch doctor profile',
-      error: error.message
+      message: 'Failed to fetch doctor profile'
     });
   }
 };

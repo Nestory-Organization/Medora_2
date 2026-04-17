@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { CaretLeft, CaretRight, ChartLine, Calendar, CurrencyDollar, Users, FileText } from '@phosphor-icons/react';
 import './DoctorEarningsAdmin.css';
 
@@ -44,10 +45,6 @@ export default function DoctorEarningsAdmin() {
 
   const token = localStorage.getItem('authToken');
 
-  useEffect(() => {
-    fetchEarnings();
-  }, [dateRange]);
-
   const fetchEarnings = async () => {
     if (!token) {
       setError('Admin not authenticated');
@@ -64,7 +61,7 @@ export default function DoctorEarningsAdmin() {
       });
 
       const response = await fetch(
-        `http://localhost:4003/api/payments/earnings/all-doctors?${params.toString()}`,
+        `http://localhost:4000/api/payments/earnings/all-doctors?${params.toString()}`,
         {
           method: 'GET',
           headers: {
@@ -88,6 +85,13 @@ export default function DoctorEarningsAdmin() {
       setLoading(false);
     }
   };
+
+  // Refresh earnings data when navigating to this page
+  useRefreshOnNavigate(fetchEarnings);
+
+  useEffect(() => {
+    fetchEarnings();
+  }, [dateRange]);
 
   const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
     setDateRange(prev => ({

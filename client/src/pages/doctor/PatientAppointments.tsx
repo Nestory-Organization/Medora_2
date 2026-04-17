@@ -14,6 +14,7 @@ import {
   FileText
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
 
@@ -208,14 +209,6 @@ export default function PatientAppointments() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
-
-  useEffect(() => {
-    filterAppointments();
-  }, [appointments, searchTerm, statusFilter]);
-
   const fetchAppointments = async () => {
     setLoading(true);
     try {
@@ -282,6 +275,17 @@ export default function PatientAppointments() {
     }
   };
 
+  // Refresh appointments when navigating to this page
+  useRefreshOnNavigate(fetchAppointments);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  useEffect(() => {
+    filterAppointments();
+  }, [appointments, searchTerm, statusFilter]);
+
   const filterAppointments = () => {
     let filtered = [...appointments];
 
@@ -307,7 +311,7 @@ export default function PatientAppointments() {
     try {
       const token = localStorage.getItem('authToken');
       const response = await axios.put(
-        `http://localhost:4000/api/appointments/${appointmentId}`,
+        `http://localhost:4000/api/doctors/appointment/${appointmentId}/status`,
         { status: newStatus },
         {
           headers: { Authorization: `Bearer ${token}` }

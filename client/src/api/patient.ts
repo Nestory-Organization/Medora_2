@@ -38,15 +38,12 @@ patientApi.interceptors.request.use(
 patientApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    // DON'T auto-logout on 401 - let components handle auth errors gracefully
-    // Only logout if user explicitly logs out or tries sensitive operations
-    // This prevents premature logout due to token expiry or transient auth issues
-    
-    // Check for authorization errors
+    // Check for authorization errors - ONLY logout on 401 Unauthorized
     if (error.response?.status === 401) {
-      console.warn('Unauthorized access detected:', error.config?.url);
-      // Don't auto-logout here - let the component decide what to do
-      error.message = 'Unauthorized. Please log in again.';
+      console.warn('Unauthorized access, redirecting to login...');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      window.location.href = '/login'; // Force login redirect
     }
     
     // Check for network errors or service unavailability (502/503)
@@ -135,10 +132,7 @@ export const getPrescriptions = async () => {
     ...item,
     medicines: item.medicines || item.medications || [],
     date: item.date || item.prescriptionDate,
-    doctorName:
-      (item.doctorName || item?.doctor?.name || 'Unknown Doctor')
-        .replace(/^Dr\.\s*/, '')
-        .trim() || 'Unknown Doctor'
+    doctorName: item.doctorName || item?.doctor?.name || 'Unknown Doctor'
   }));
 };
 
@@ -155,41 +149,7 @@ export const getMyAppointments = async () => {
     const response = await patientApi.get('/appointments/my-appointments', {
         params: { patientId }
     });
-
-    const payload = response.data?.data ?? response.data ?? [];
-    const appointments = Array.isArray(payload) ? payload : [];
-
-    // Resolve doctor names client-side for any items missing doctorName
-    const missingDoctorIds = Array.from(new Set(
-      appointments
-        .map((a: any) => a.doctorId)
-        .filter(Boolean)
-        .filter((id: string) => !appointments.find((x: any) => x.doctorId === id && (x.doctorName || x.doctor?.name)))
-    ));
-
-    const doctorNameCache: Record<string, string> = {};
-
-    await Promise.all(missingDoctorIds.map(async (did) => {
-      try {
-        const res = await patientApi.get(`/doctors/public-profile/${encodeURIComponent(String(did))}`);
-        const body = res.data?.data ?? res.data ?? {};
-        const rawName = body.name || `${body.firstName || ''} ${body.lastName || ''}`.trim();
-        doctorNameCache[did] = rawName ? rawName.replace(/^Dr\.\s*/, '').trim() : undefined as any;
-      } catch (err) {
-        // ignore failures and leave fallback to ID
-      }
-    }));
-
-    return appointments.map((item: any) => ({
-      ...item,
-      doctorName: (
-        item.doctorName ||
-        item?.doctor?.name ||
-        (item?.doctor?.firstName && item?.doctor?.lastName
-          ? `${item.doctor.firstName} ${item.doctor.lastName}`
-          : doctorNameCache[item.doctorId])
-      )?.replace(/^Dr\.\s*/, '')?.trim() || undefined
-    }));
+    return response.data;
 };
 
 export const bookAppointment = async (appointmentData: any) => {
@@ -207,21 +167,6 @@ export const searchDoctors = async (specialty: string, date?: string) => {
 export const cancelAppointment = async (id: string) => {
     const response = await patientApi.delete(`/appointments/${id}`);
     return response.data;
-};
-
-export const rescheduleAppointment = async (id: string, rescheduleData: any) => {
-    const response = await patientApi.put(`/appointments/${id}`, rescheduleData);
-    return response.data;
-};
-
-/**
- * Logout function - explicitly clears auth data and redirects to login
- * This should be called when user clicks logout button, not automatically
- */
-export const logout = () => {
-  localStorage.removeItem('authToken');
-  localStorage.removeItem('user');
-  window.location.href = '/login';
 };
 
 export default patientApi;
