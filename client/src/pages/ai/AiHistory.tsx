@@ -177,8 +177,8 @@ const HistoryCard = ({
                     {resultConditions.map((c: UiCondition, i: number) => (
                       <div key={i} className="bg-white/5 p-3 rounded-xl border border-white/5">
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs font-bold text-white">{c.condition || c.name}</span>
-                          <span className="text-[10px] font-black text-cyan-400">{c.confidence || c.probability}%</span>
+                          <span className="text-xs font-bold text-white">{c.name}</span>
+                          <span className="text-[10px] font-black text-cyan-400">{c.probability}%</span>
                         </div>
                         {c.description && <p className="text-[10px] text-slate-400 leading-relaxed">{c.description}</p>}
                       </div>

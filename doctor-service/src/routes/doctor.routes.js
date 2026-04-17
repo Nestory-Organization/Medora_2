@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   createDoctorProfile,
+  getDoctorProfile,
   updateDoctorProfile,
   setAvailability,
   getDoctorAvailability,
@@ -19,12 +20,6 @@ const {
   completeAppointment,
   addPatientReport
 } = require('../controllers/prescriptionAndSession.controller');
-const {
-  getAppointmentNotes,
-  createAppointmentNotes,
-  updateAppointmentNotes,
-  deleteAppointmentNotes
-} = require('../controllers/appointmentNotes.controller');
 const { 
   authenticate, 
   authorizeDoctor, 
@@ -35,8 +30,9 @@ const router = express.Router();
 
 router.use(authenticate, authorizeDoctor);
 
-// Allow creating a profile even if not verified
+// Allow creating and getting profile even if not verified
 router.post('/profile', createDoctorProfile);
+router.get('/profile', getDoctorProfile);
 
 // NOTE: /availability endpoints (GET, mark-booked, release-slot) are now PUBLIC
 // They are mounted directly in app.js for inter-service communication
@@ -64,11 +60,5 @@ router.patch('/appointment/:appointmentId/complete', completeAppointment);
 
 // Patient report/documentation
 router.post('/appointment/:appointmentId/report', addPatientReport);
-
-// Appointment notes
-router.get('/appointment/:appointmentId/notes', getAppointmentNotes);
-router.post('/appointment/:appointmentId/notes', createAppointmentNotes);
-router.put('/appointment/:appointmentId/notes', updateAppointmentNotes);
-router.delete('/appointment/:appointmentId/notes', deleteAppointmentNotes);
 
 module.exports = router;

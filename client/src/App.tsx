@@ -24,12 +24,14 @@ import PatientDetail from './pages/doctor/PatientDetail';
 import PrescriptionManagement from './pages/doctor/PrescriptionManagement';
 import AppointmentNotes from './pages/doctor/AppointmentNotes';
 import TelemedicineSession from './pages/doctor/Telemedicine';
+import DoctorEarnings from './pages/doctor/DoctorEarnings';
 import SymptomChecker from './pages/ai/SymptomChecker';
 import AiHistory from './pages/ai/AiHistory';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
 import VerifyDoctors from './pages/admin/VerifyDoctors';
+import DoctorEarningsAdmin from './pages/admin/DoctorEarningsAdmin';
 import './App.css';
 
 function App() {
@@ -70,9 +72,11 @@ function App() {
         <Route path="/doctor/appointment/:appointmentId/prescription" element={<PrescriptionManagement />} />
         <Route path="/doctor/appointment/:appointmentId/notes" element={<AppointmentNotes />} />
         <Route path="/doctor/appointment/:appointmentId/telemedicine" element={<TelemedicineSession />} />
+        <Route path="/doctor/earnings" element={<DoctorEarnings />} />
         
         {/* Admin Routes */}
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/earnings" element={<DoctorEarningsAdmin />} />
         <Route path="/admin/doctors" element={<VerifyDoctors />} />
         <Route path="/admin/users" element={<ManageUsers />} />
         

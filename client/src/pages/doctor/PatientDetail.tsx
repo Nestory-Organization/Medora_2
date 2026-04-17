@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Phone, Envelope, MapPin, UserCircle } from '@phosphor-icons/react';
+import { ArrowLeft, Phone, Envelope, MapPin, CalendarBlank } from '@phosphor-icons/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
@@ -162,7 +162,7 @@ export default function PatientDetail() {
               {patient.dateOfBirth && (
                 <div className="bg-slate-900/40 border border-white/5 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <Cake size={16} className="text-indigo-400" weight="bold" />
+                    <CalendarBlank size={16} className="text-indigo-400" weight="bold" />
                     <p className="text-xs text-slate-400 font-semibold uppercase">Age</p>
                   </div>
                   <p className="text-2xl font-black text-white">{calculateAge(patient.dateOfBirth)} years</p>

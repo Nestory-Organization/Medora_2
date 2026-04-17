@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Warning, Info, Sparkle, ChatText } from 'phosphor-react';
+import { Warning, Sparkle, ChatText } from 'phosphor-react';
 
 interface Condition {
   condition?: string; // Support both naming conventions
