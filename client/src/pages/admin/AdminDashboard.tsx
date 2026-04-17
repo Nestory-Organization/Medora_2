@@ -241,7 +241,7 @@ const AdminDashboard: React.FC = () => {
           >
             <div className="h-[400px] w-full mt-auto">
               <ResponsiveContainer width="99%" height="100%">
-                <AreaChart data={GROWTH_DATA} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                <AreaChart key={activeTab} data={GROWTH_DATA} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorWave" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>

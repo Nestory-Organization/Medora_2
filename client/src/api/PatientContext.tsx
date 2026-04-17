@@ -52,6 +52,15 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
     } catch (err: any) {
       const status = err?.response?.status;
 
+      // If 401 Unauthorized, redirect to login
+      if (status === 401) {
+        console.warn('[PatientContext] Session expired, redirecting to login...');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return null;
+      }
+
       // Bootstrap profile for patient accounts that do not yet have a patient-service record
       if (status === 404) {
         try {
@@ -125,6 +134,16 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
       setState(prev => ({ ...prev, appointments: data.data || data || [], error: null }));
     } catch (err: any) {
       console.error('[PatientContext] Failed to fetch appointments:', err.message);
+      
+      // If 401 Unauthorized, redirect to login page
+      if (err?.response?.status === 401) {
+        console.warn('[PatientContext] Session expired, redirecting to login...');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      
       // Don't treat all errors as fatal - set empty appointments and show warning
       setState(prev => ({ 
         ...prev, 

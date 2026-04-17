@@ -12,8 +12,18 @@ import MedicalHistory from './pages/patient/MedicalHistory';
 import Prescriptions from './pages/patient/Prescriptions';
 import MyAppointments from './pages/patient/MyAppointments';
 import BookingPage from './pages/patient/BookingPage';
+import PaymentPage from './pages/patient/PaymentPage';
+import PaymentSuccess from './pages/patient/PaymentSuccess';
+import PaymentCancel from './pages/patient/PaymentCancel';
+import PatientTelemedicine from './pages/patient/PatientTelemedicine';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import AvailabilityManagement from './pages/doctor/AvailabilityManagement';
+import DoctorProfile from './pages/doctor/DoctorProfile';
+import PatientAppointments from './pages/doctor/PatientAppointments';
+import PatientDetail from './pages/doctor/PatientDetail';
+import PrescriptionManagement from './pages/doctor/PrescriptionManagement';
+import AppointmentNotes from './pages/doctor/AppointmentNotes';
+import TelemedicineSession from './pages/doctor/Telemedicine';
 import SymptomChecker from './pages/ai/SymptomChecker';
 import AiHistory from './pages/ai/AiHistory';
 import AdminLogin from './pages/admin/AdminLogin';
@@ -35,6 +45,9 @@ function App() {
         <Route path="/admin/login" element={<AdminLogin />} />
       </Route>
       
+      {/* Public Telemedicine Route - Outside Dashboard for roomId access */}
+      <Route path="/patient-telemedicine/:roomId" element={<PatientTelemedicine />} />
+      
       {/* Protected Dashboard Pages */}
       <Route element={<DashboardLayout />}>
         <Route path="/patient/dashboard" element={<PatientDashboard />} />
@@ -44,8 +57,21 @@ function App() {
         <Route path="/patient/prescriptions" element={<Prescriptions />} />
         <Route path="/patient/appointments" element={<MyAppointments />} />
         <Route path="/patient/book" element={<BookingPage />} />
+        <Route path="/patient/payment" element={<PaymentPage />} />
+        <Route path="/patient/payment-success" element={<PaymentSuccess />} />
+        <Route path="/patient/payment-cancel" element={<PaymentCancel />} />
+        
+        {/* Doctor Routes */}
         <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
         <Route path="/doctor/availability" element={<AvailabilityManagement />} />
+        <Route path="/doctor/profile" element={<DoctorProfile />} />
+        <Route path="/doctor/appointments" element={<PatientAppointments />} />
+        <Route path="/doctor/patient/:patientId" element={<PatientDetail />} />
+        <Route path="/doctor/appointment/:appointmentId/prescription" element={<PrescriptionManagement />} />
+        <Route path="/doctor/appointment/:appointmentId/notes" element={<AppointmentNotes />} />
+        <Route path="/doctor/appointment/:appointmentId/telemedicine" element={<TelemedicineSession />} />
+        
+        {/* Admin Routes */}
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/doctors" element={<VerifyDoctors />} />
         <Route path="/admin/users" element={<ManageUsers />} />
