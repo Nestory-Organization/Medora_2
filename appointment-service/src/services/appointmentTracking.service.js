@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const env = require("../config/env");
 const Appointment = require("../models/appointment.model");
+const Telemedicine = require("../models/telemedicine.model");
+const { v4: uuidv4 } = require("uuid");
 
 // Fetch doctor details from doctor-service
 const fetchDoctorDetails = async (doctorId) => {
@@ -106,6 +108,39 @@ const fetchPatientDetails = async (patientId, authorization) => {
   }
 };
 
+const generateTelemedicineIds = () => ({
+  sessionId: `session_${uuidv4().substring(0, 8)}`,
+  roomId: `room_${uuidv4().substring(0, 8)}`,
+});
+
+const ensureTelemedicineSessionForAppointment = async (appointment) => {
+  const isEligible =
+    String(appointment?.status || "").toUpperCase() === "CONFIRMED" &&
+    String(appointment?.paymentStatus || "").toUpperCase() === "PAID";
+
+  if (!isEligible) {
+    return null;
+  }
+
+  let session = await Telemedicine.findOne({ appointmentId: appointment._id }).lean();
+
+  if (!session) {
+    const { sessionId, roomId } = generateTelemedicineIds();
+    const created = await Telemedicine.create({
+      appointmentId: appointment._id,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      sessionId,
+      roomId,
+      status: "SCHEDULED",
+      paymentVerified: true,
+    });
+    session = created.toObject();
+  }
+
+  return session;
+};
+
 const mapAppointmentDetails = (appointment) => ({
   _id: appointment._id,
   appointmentId: appointment._id,
@@ -118,6 +153,10 @@ const mapAppointmentDetails = (appointment) => ({
   endTime: appointment.endTime,
   status: appointment.status,
   paymentStatus: appointment.paymentStatus,
+  telemedicineSessionId: appointment.telemedicineSessionId || null,
+  telemedicineRoomId: appointment.telemedicineRoomId || null,
+  telemedicineStatus: appointment.telemedicineStatus || null,
+  telemedicineJoinPath: appointment.telemedicineJoinPath || null,
   consultationFee: appointment.consultationFee,
   reason: appointment.reason,
 });
@@ -139,10 +178,18 @@ const getMyAppointments = async (patientId) => {
   const enrichedAppointments = await Promise.all(
     appointments.map(async (apt) => {
       const doctorName = await fetchDoctorDetails(apt.doctorId);
+      const telemedicineSession = await ensureTelemedicineSessionForAppointment(apt);
+
       return {
         ...apt,
         doctorName:
           doctorName || `Doctor ${String(apt.doctorId || "").substring(0, 8)}`,
+        telemedicineSessionId: telemedicineSession?.sessionId || null,
+        telemedicineRoomId: telemedicineSession?.roomId || null,
+        telemedicineStatus: telemedicineSession?.status || null,
+        telemedicineJoinPath: telemedicineSession?.roomId
+          ? `/patient-telemedicine/${telemedicineSession.roomId}`
+          : null,
       };
     }),
   );

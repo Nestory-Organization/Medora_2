@@ -7,9 +7,9 @@ const {
 } = require('../controllers/appointment.controller');
 const { 
 	bookAppointmentWithValidation,
-	getPatientAppointments
 } = require('../controllers/appointmentManagement.controller');
 const {
+	getPatientAppointments,
 	getAppointmentStatusById,
 	getAppointmentById,
 	getDoctorAppointmentsById

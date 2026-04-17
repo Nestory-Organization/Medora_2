@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 const Appointment = require('../models/appointment.model');
+const Telemedicine = require('../models/telemedicine.model');
 const env = require('../config/env');
 const { fetchDoctorById } = require('./doctorSearch.service');
+const { v4: uuidv4 } = require('uuid');
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -48,6 +50,41 @@ const APPOINTMENT_STATUSES = [
   'COMPLETED'
 ];
 const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'FAILED', 'REFUNDED'];
+
+const generateTelemedicineIds = () => ({
+  sessionId: `session_${uuidv4().substring(0, 8)}`,
+  roomId: `room_${uuidv4().substring(0, 8)}`
+});
+
+const shouldHaveTelemedicine = (appointment) => {
+  return (
+    String(appointment?.status || '').toUpperCase() === 'CONFIRMED' &&
+    String(appointment?.paymentStatus || '').toUpperCase() === 'PAID'
+  );
+};
+
+const ensureTelemedicineSession = async (appointment) => {
+  if (!shouldHaveTelemedicine(appointment)) {
+    return null;
+  }
+
+  let session = await Telemedicine.findOne({ appointmentId: appointment._id });
+
+  if (!session) {
+    const { sessionId, roomId } = generateTelemedicineIds();
+    session = await Telemedicine.create({
+      appointmentId: appointment._id,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      sessionId,
+      roomId,
+      status: 'SCHEDULED',
+      paymentVerified: true
+    });
+  }
+
+  return session;
+};
 
 const publishNotificationEvent = async (eventType, payload) => {
   const baseUrl = String(env.notificationServiceUrl || '').replace(/\/$/, '');
@@ -116,6 +153,8 @@ const mapAppointment = async (appointment) => {
     // Continue without doctor name on error
   }
 
+  const telemedicineSession = await ensureTelemedicineSession(appointment);
+
   return {
     appointmentId: appointment._id,
     patientId: appointment.patientId,
@@ -129,6 +168,12 @@ const mapAppointment = async (appointment) => {
     reason: appointment.reason,
     status: appointment.status,
     paymentStatus: appointment.paymentStatus,
+    telemedicineSessionId: telemedicineSession?.sessionId || null,
+    telemedicineRoomId: telemedicineSession?.roomId || null,
+    telemedicineStatus: telemedicineSession?.status || null,
+    telemedicineJoinPath: telemedicineSession?.roomId
+      ? `/patient-telemedicine/${telemedicineSession.roomId}`
+      : null,
     createdAt: appointment.createdAt,
     updatedAt: appointment.updatedAt
   };
