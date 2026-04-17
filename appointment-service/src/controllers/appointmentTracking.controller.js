@@ -1,36 +1,48 @@
 const {
   getMyAppointments,
-  getAppointmentStatus
+  getAppointmentStatus,
+  getDoctorAppointments
 } = require('../services/appointmentTracking.service');
 
 const getPatientAppointments = async (req, res) => {
   try {
+    console.log('[Get Appointments] ========== START ==========');
+    console.log('[Get Appointments] req.user:', req.user);
+    console.log('[Get Appointments] req.query:', req.query);
+    console.log('[Get Appointments] req.headers.authorization present:', !!req.headers.authorization);
+
     let { patientId } = req.query;
 
-    // If patientId is not in query, try to get it from authenticated user (if middleware is present)
-    // JWT token stores ID as either 'id', '_id', 'userId', or 'sub'
-    if (!patientId && req.user) {
-      console.log('[Appointments] Auth user:', req.user);
-      patientId = req.user.id || req.user._id || req.user.userId || req.user.sub;
+    // First priority: Get from query parameter (for direct API calls)
+    if (patientId) {
+      console.log('[Get Appointments] Using patientId from query:', patientId);
+    }
+    // Second priority: Get from authenticated user (JWT from API Gateway)
+    else if (req.user && req.user.id) {
+      patientId = req.user.id;
+      console.log('[Get Appointments] Using patientId from req.user.id:', patientId);
+    }
+    // Fallback: Try other possible user ID fields
+    else if (req.user) {
+      patientId = req.user._id || req.user.userId || req.user.sub;
+      console.log('[Get Appointments] Using patientId from fallback user field:', patientId);
     }
 
     if (!patientId || (typeof patientId === 'string' && !patientId.trim())) {
-      console.warn('[Appointments] patientId not found in query or auth user:', {
-        queryPatientId: req.query.patientId,
-        authUser: req.user,
-        derivedPatientId: patientId
-      });
-      
+      console.error('[Get Appointments] PatientId is missing/empty:', { patientId });
       return res.status(400).json({
         success: false,
-        message: 'Patient ID is required. Please ensure you are authenticated.',
+        message: 'Patient ID is required. Please ensure you are authenticated or pass patientId as query parameter.',
         data: null
       });
     }
 
-    console.log(`[Appointments] Fetching appointments for patient: ${patientId}`);
+    console.log(`[Get Appointments] Querying appointments for patientId: ${patientId}`);
     
     const appointments = await getMyAppointments(patientId);
+    
+    console.log(`[Get Appointments] Found ${appointments.length} appointments`);
+    console.log('[Get Appointments] ========== END ==========');
 
     return res.status(200).json({
       success: true,
@@ -39,14 +51,16 @@ const getPatientAppointments = async (req, res) => {
       data: appointments
     });
   } catch (error) {
-    console.error('[Appointments] Get patient appointments error:', error);
+    console.error('[Get Appointments] Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch patient appointments',
-      data: null
+      data: null,
+      error: error.message
     });
   }
 };
+
 
 const getAppointmentStatusById = async (req, res) => {
   try {
@@ -75,7 +89,85 @@ const getAppointmentStatusById = async (req, res) => {
   }
 };
 
+const getAppointmentById = async (req, res) => {
+  try {
+    const Appointment = require('../models/appointment.model');
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found',
+        data: null
+      });
+    }
+
+    // Verify the user owns this appointment (security check)
+    if (appointment.patientId !== req.user.id && appointment.patientId !== req.user._id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view this appointment',
+        data: null
+      });
+    }
+
+    // Fetch and enrich with doctor name
+    const { fetchDoctorDetails } = require('../services/appointmentTracking.service');
+    const doctorName = await fetchDoctorDetails(appointment.doctorId);
+
+    const enrichedAppointment = {
+      ...appointment.toObject(),
+      doctorName: doctorName || `Doctor ${appointment.doctorId.substring(0, 8)}`
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: 'Appointment fetched successfully',
+      data: enrichedAppointment
+    });
+  } catch (error) {
+    console.error('Get appointment by ID error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch appointment',
+      data: null
+    });
+  }
+};
+
+const getDoctorAppointmentsById = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    if (!doctorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Doctor ID is required',
+        data: null
+      });
+    }
+
+    const appointments = await getDoctorAppointments(doctorId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Doctor appointments fetched successfully',
+      count: appointments.length,
+      data: appointments
+    });
+  } catch (error) {
+    console.error('Get doctor appointments error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch doctor appointments',
+      data: null
+    });
+  }
+};
+
 module.exports = {
   getPatientAppointments,
-  getAppointmentStatusById
+  getAppointmentStatusById,
+  getAppointmentById,
+  getDoctorAppointmentsById
 };

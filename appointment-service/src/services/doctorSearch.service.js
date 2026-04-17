@@ -112,8 +112,56 @@ const searchDoctorsBySpecialty = async (specialty, date = null) => {
   return fetchDoctorsFromDoctorService(specialty, date);
 };
 
+/**
+ * Fetch a single doctor by ID from Doctor Service
+ */
+const fetchDoctorById = async (doctorId) => {
+  if (!doctorId) {
+    throw new ServiceConfigurationError('Doctor ID is required');
+  }
+
+  const baseUrl = env.doctorServiceUrl.replace(/\/+$/, '');
+  const url = baseUrl + '/doctor/' + encodeURIComponent(String(doctorId).trim());
+
+  console.log(`[Doctor Fetch] Fetching doctor from: ${url}`);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+  } catch (error) {
+    console.error('[Doctor Fetch Error]', error.message);
+    // Return null instead of throwing to gracefully handle doctor service downtime
+    return null;
+  }
+
+  if (!response.ok) {
+    console.error(`[Doctor Fetch Error] Status: ${response.status}`);
+    // Return null instead of throwing to gracefully handle 404s
+    return null;
+  }
+
+  try {
+    const payload = await response.json();
+    console.log(`[Doctor Fetch] Response:`, payload);
+
+    // Extract doctor from response - doctor-service returns { success, data: {...} }
+    return payload?.data || null;
+  } catch (error) {
+    console.error('[Doctor Fetch] JSON parse error:', error.message);
+    return null;
+  }
+};
+
 module.exports = {
   searchDoctorsBySpecialty,
+  fetchDoctorById,
   ServiceIntegrationError,
   ServiceConfigurationError
 };
