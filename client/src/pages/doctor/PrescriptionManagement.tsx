@@ -48,9 +48,21 @@ export default function PrescriptionManagement() {
       );
 
       if (response.data.success && response.data.data) {
-        setPrescription(response.data.data);
-        setMedicines(response.data.data.medicines);
-        setNotes(response.data.data.notes || '');
+        const payload = response.data.data;
+        const prescriptionData = payload?.prescription || payload;
+        const fetchedMedicines = Array.isArray(prescriptionData?.medicines)
+          ? prescriptionData.medicines
+          : [{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }];
+
+        setPrescription({
+          _id: payload?.appointmentId || appointmentId || '',
+          appointmentId: payload?.appointmentId || appointmentId || '',
+          medicines: fetchedMedicines,
+          notes: prescriptionData?.notes || '',
+          createdAt: prescriptionData?.prescribedAt || new Date().toISOString()
+        });
+        setMedicines(fetchedMedicines);
+        setNotes(prescriptionData?.notes || '');
       }
     } catch (error: any) {
       if (error.response?.status !== 404) {
@@ -102,7 +114,17 @@ export default function PrescriptionManagement() {
 
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Prescription added successfully' });
-        setPrescription(response.data.data);
+        const savedMedicines = Array.isArray(response.data.data?.medicines)
+          ? response.data.data.medicines
+          : validMedicines;
+        setPrescription({
+          _id: response.data.data?.prescriptionId || appointmentId || '',
+          appointmentId: response.data.data?.appointmentId || appointmentId || '',
+          medicines: savedMedicines,
+          notes: response.data.data?.notes || notes || '',
+          createdAt: new Date().toISOString()
+        });
+        setMedicines(savedMedicines);
         setTimeout(() => {
           navigate('/doctor/appointments');
         }, 2000);
@@ -137,6 +159,7 @@ export default function PrescriptionManagement() {
         <header className="flex items-center gap-4">
           <button
             onClick={() => navigate('/doctor/appointments')}
+            title="Go back to appointments"
             className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
           >
             <ArrowLeft size={20} className="text-slate-400" />
@@ -205,6 +228,7 @@ export default function PrescriptionManagement() {
                         <button
                           type="button"
                           onClick={() => handleRemoveMedicine(index)}
+                          title={`Remove medicine ${index + 1}`}
                           className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
                         >
                           <Trash size={16} weight="bold" />
@@ -251,6 +275,7 @@ export default function PrescriptionManagement() {
                         <select
                           value={medicine.frequency}
                           onChange={(e) => handleMedicineChange(index, 'frequency', e.target.value)}
+                          title="Medicine frequency"
                           className="w-full px-4 py-3 bg-slate-700/50 border border-white/10 rounded-lg text-white focus:outline-none focus:border-green-500/50 transition-all"
                           required
                         >
@@ -265,6 +290,7 @@ export default function PrescriptionManagement() {
                         <select
                           value={medicine.duration}
                           onChange={(e) => handleMedicineChange(index, 'duration', e.target.value)}
+                          title="Medicine duration"
                           className="w-full px-4 py-3 bg-slate-700/50 border border-white/10 rounded-lg text-white focus:outline-none focus:border-green-500/50 transition-all"
                           required
                         >
@@ -326,7 +352,7 @@ export default function PrescriptionManagement() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg hover:shadow-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-white transition-all uppercase tracking-wide flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-3 bg-linear-to-r from-green-500 to-emerald-600 hover:shadow-lg hover:shadow-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-white transition-all uppercase tracking-wide flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>

@@ -167,8 +167,8 @@ services:
       JWT_SECRET: b3431ec0354cd8fa3efab939c9de95b3329730f2c355f2ed9cd733475e01f97e
       SERVICE_NAME: payment-service
       INTERNAL_API_KEY: medora_dev_internal_key
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-change_this_auth_jwt_secret_in_production}
-      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-change_this_auth_jwt_secret_in_production}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_51Qp7fsGGRE3LRD9ZSTCkLlLqSDPB3d5pnDxDLiG1DAcuKTSalDWsY9EXRyWJ4BFzmHPersiL6GeilvVWMLW4XGGe00LHV7pLfM}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_51Qp7fsGGRE3LRD9ZxUxyVKxIb8mi1c36bSCkUieNVmciaB5CIq7bRdXLyWxnSAwzL4AecirGRW0suKndRCLS7Gff00v20iKAAr}
       APPOINTMENT_SERVICE_URL: http://appointment-service:4004
       NOTIFICATION_SERVICE_URL: http://notification-service:4006
       SERVICE_REQUEST_TIMEOUT_MS: 5000
