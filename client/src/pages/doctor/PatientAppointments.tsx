@@ -9,7 +9,8 @@ import {
   XCircle,
   Hourglass,
   MagnifyingGlass,
-  FunnelSimple
+  FunnelSimple,
+  Check
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -38,7 +39,7 @@ const statusConfig = {
   'COMPLETED': { icon: CheckCircle, color: 'bg-blue-500/20 text-blue-300', label: 'Completed', border: 'border-blue-500/30' }
 };
 
-const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void }) => {
+const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void }) => {
   const statusInfo = statusConfig[appointment.status];
   const StatusIcon = statusInfo.icon;
   
@@ -172,6 +173,16 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail }: { appoin
             </button>
           </div>
         )}
+
+        {appointment.status === 'CONFIRMED' && onComplete && (
+          <button
+            onClick={() => onComplete(appointment._id)}
+            className="w-full px-3 py-2.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg font-semibold text-sm transition-all border border-blue-500/30 flex items-center justify-center gap-2 uppercase"
+          >
+            <Check size={16} weight="bold" />
+            Complete Appointment
+          </button>
+        )}
       </div>
     </div>
   );
@@ -265,6 +276,28 @@ export default function PatientAppointments() {
     } catch (error: any) {
       setMessage({ type: 'error', text: 'Failed to update appointment status' });
       console.error('Update status error:', error);
+    }
+  };
+
+  const handleCompleteAppointment = async (appointmentId: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.patch(
+        `http://localhost:4000/api/doctors/appointment/${appointmentId}/complete`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        setMessage({ type: 'success', text: 'Appointment completed successfully' });
+        fetchAppointments();
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || 'Failed to complete appointment';
+      setMessage({ type: 'error', text: errorMsg });
+      console.error('Complete appointment error:', error);
     }
   };
 
@@ -388,6 +421,7 @@ export default function PatientAppointments() {
                 appointment={appointment}
                 onStatusUpdate={handleStatusUpdate}
                 onViewDetail={(patientId) => navigate(`/doctor/patient/${patientId}`)}
+                onComplete={handleCompleteAppointment}
               />
             ))
           )}

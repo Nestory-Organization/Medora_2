@@ -102,8 +102,25 @@ const getAppointmentById = async (req, res) => {
       });
     }
 
-    // Verify the user owns this appointment (security check)
-    if (appointment.patientId !== req.user.id && appointment.patientId !== req.user._id) {
+    // Verify the user is either the patient or doctor of this appointment (security check)
+    // Handle both string and ObjectId formats
+    const userId = req.user.id?.toString ? req.user.id.toString() : String(req.user.id || '');
+    const appointmentDoctor = appointment.doctorId?.toString ? appointment.doctorId.toString() : String(appointment.doctorId || '');
+    const appointmentPatient = appointment.patientId?.toString ? appointment.patientId.toString() : String(appointment.patientId || '');
+    
+    const isPatient = userId && appointmentPatient && userId === appointmentPatient;
+    const isDoctor = userId && appointmentDoctor && userId === appointmentDoctor;
+    
+    if (!isPatient && !isDoctor) {
+      console.error('[Permission Check Failed]', {
+        userId,
+        appointmentDoctor,
+        appointmentPatient,
+        isPatient,
+        isDoctor,
+        userIdLength: userId?.length,
+        doctorIdLength: appointmentDoctor?.length
+      });
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view this appointment',

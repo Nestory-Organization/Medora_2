@@ -42,6 +42,9 @@ app.get('/doctor/availability', getDoctorAvailability);
 app.patch('/doctor/availability/mark-booked', markSlotBooked);
 app.patch('/doctor/availability/release-slot', releaseSlot);
 
+// PUBLIC DOCTOR PROFILE ENDPOINT FOR INTER-SERVICE COMMUNICATION (no auth required)
+app.get('/doctor/public-profile/:doctorId', getDoctorProfile);
+
 // Protected doctor routes (auth required)
 // This includes the /:doctorId GET route which requires authentication
 app.use('/doctor', doctorRoutes);

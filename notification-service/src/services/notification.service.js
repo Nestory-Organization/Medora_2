@@ -27,12 +27,51 @@ class NotificationValidationError extends Error {
   }
 }
 
+const normalizeRecipientList = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const normalizeEmailRecipients = (payload) => {
+  return normalizeRecipientList(
+    payload.emails ||
+      payload.email ||
+      payload.patientEmail ||
+      payload.doctorEmail ||
+      payload.recipients?.emails
+  );
+};
+
+const normalizePhoneRecipients = (payload) => {
+  return normalizeRecipientList(
+    payload.phones ||
+      payload.phone ||
+      payload.patientPhone ||
+      payload.doctorPhone ||
+      payload.recipients?.phones
+  );
+};
+
 const validateEmailPayload = (payload) => {
   if (!payload || typeof payload !== 'object') {
     throw new NotificationValidationError('Payload is required');
   }
 
-  if (!payload.to || typeof payload.to !== 'string') {
+  if (!payload.to || (typeof payload.to !== 'string' && !Array.isArray(payload.to))) {
     throw new NotificationValidationError('"to" email is required');
   }
 
@@ -94,7 +133,7 @@ const sendEmail = async (payload) => {
   const saved = await Notification.create({
     channel: 'EMAIL',
     eventType: payload.eventType || 'MANUAL',
-    recipient: payload.to,
+    recipient: Array.isArray(payload.to) ? payload.to.join(', ') : payload.to,
     subject: payload.subject,
     message: payload.text || payload.html,
     status,
@@ -111,7 +150,8 @@ const sendEmail = async (payload) => {
     recipient: saved.recipient,
     status: saved.status,
     provider: saved.provider,
-    providerMessageId: saved.providerMessageId
+    providerMessageId: saved.providerMessageId,
+    error
   };
 };
 
@@ -163,9 +203,35 @@ const buildEventMessage = (eventType, payload) => {
       subject: 'Appointment booked successfully',
       emailText:
         `Your appointment has been booked for ${payload.appointmentDate || 'the selected date'} ` +
-        `at ${payload.startTime || 'the selected time'}.`,
+        `at ${payload.startTime || 'the selected time'}.` +
+        `${payload.doctorName ? `\nDoctor: ${payload.doctorName}` : ''}` +
+        `${payload.specialty ? `\nSpecialty: ${payload.specialty}` : ''}`,
       smsText:
         `Medora: Appointment booked for ${payload.appointmentDate || 'selected date'} ${payload.startTime || ''}`.trim()
+    };
+  }
+
+  if (type === 'APPOINTMENT_RESCHEDULED') {
+    return {
+      subject: 'Appointment rescheduled',
+      emailText:
+        `Your appointment has been rescheduled to ${payload.appointmentDate || 'the new date'} ` +
+        `at ${payload.startTime || 'the new time'}.` +
+        `${payload.reason ? `\nReason: ${payload.reason}` : ''}`,
+      smsText:
+        `Medora: Your appointment was rescheduled to ${payload.appointmentDate || 'new date'} ${payload.startTime || ''}`.trim()
+    };
+  }
+
+  if (type === 'APPOINTMENT_CANCELLED') {
+    return {
+      subject: 'Appointment cancelled',
+      emailText:
+        `Your appointment for ${payload.appointmentDate || 'the scheduled date'} ` +
+        `at ${payload.startTime || 'the scheduled time'} has been cancelled.` +
+        `${payload.reason ? `\nReason: ${payload.reason}` : ''}`,
+      smsText:
+        `Medora: Your appointment on ${payload.appointmentDate || 'scheduled date'} has been cancelled.`
     };
   }
 
@@ -211,16 +277,21 @@ const notifyByEvent = async (payload) => {
   const templates = buildEventMessage(eventType, payload);
   const results = [];
 
+  const emailRecipients = normalizeEmailRecipients(payload);
+  const phoneRecipients = normalizePhoneRecipients(payload);
+
   if (channels.includes('EMAIL')) {
-    if (payload.email) {
-      const emailResult = await sendEmail({
-        to: payload.email,
-        subject: templates.subject,
-        text: templates.emailText,
-        eventType,
-        metadata: payload.metadata || payload
-      });
-      results.push(emailResult);
+    if (emailRecipients.length) {
+      for (const recipient of emailRecipients) {
+        const emailResult = await sendEmail({
+          to: recipient,
+          subject: templates.subject,
+          text: templates.emailText,
+          eventType,
+          metadata: payload.metadata || payload
+        });
+        results.push(emailResult);
+      }
     } else {
       results.push({
         channel: 'EMAIL',
@@ -231,14 +302,16 @@ const notifyByEvent = async (payload) => {
   }
 
   if (channels.includes('SMS')) {
-    if (payload.phone) {
-      const smsResult = await sendSms({
-        to: payload.phone,
-        message: templates.smsText,
-        eventType,
-        metadata: payload.metadata || payload
-      });
-      results.push(smsResult);
+    if (phoneRecipients.length) {
+      for (const recipient of phoneRecipients) {
+        const smsResult = await sendSms({
+          to: recipient,
+          message: templates.smsText,
+          eventType,
+          metadata: payload.metadata || payload
+        });
+        results.push(smsResult);
+      }
     } else {
       results.push({
         channel: 'SMS',

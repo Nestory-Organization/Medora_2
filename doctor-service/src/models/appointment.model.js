@@ -120,8 +120,8 @@ const appointmentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'accepted', 'rejected', 'completed', 'cancelled'],
-      default: 'pending',
+      enum: ['PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'],
+      default: 'PENDING_PAYMENT',
       index: true
     },
     patientReports: {

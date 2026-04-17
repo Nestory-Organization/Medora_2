@@ -19,6 +19,12 @@ const {
   completeAppointment,
   addPatientReport
 } = require('../controllers/prescriptionAndSession.controller');
+const {
+  getAppointmentNotes,
+  createAppointmentNotes,
+  updateAppointmentNotes,
+  deleteAppointmentNotes
+} = require('../controllers/appointmentNotes.controller');
 const { 
   authenticate, 
   authorizeDoctor, 
@@ -58,5 +64,11 @@ router.patch('/appointment/:appointmentId/complete', completeAppointment);
 
 // Patient report/documentation
 router.post('/appointment/:appointmentId/report', addPatientReport);
+
+// Appointment notes
+router.get('/appointment/:appointmentId/notes', getAppointmentNotes);
+router.post('/appointment/:appointmentId/notes', createAppointmentNotes);
+router.put('/appointment/:appointmentId/notes', updateAppointmentNotes);
+router.delete('/appointment/:appointmentId/notes', deleteAppointmentNotes);
 
 module.exports = router;

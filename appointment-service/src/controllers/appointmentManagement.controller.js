@@ -10,6 +10,9 @@ const {
   releaseBookedSlot,
   AvailabilityValidationError
 } = require('../services/availabilityValidation.service');
+const {
+  publishNotificationEvent
+} = require('../services/appointment.service');
 const Appointment = require('../models/appointment.model');
 
 class ValidationError extends Error {
@@ -43,7 +46,10 @@ const bookAppointmentWithValidation = async (req, res) => {
       startTime,
       endTime,
       consultationFee,
-      reason
+      reason,
+      patientName,
+      patientEmail,
+      patientPhone
     } = req.body;
 
     // Validate required fields
@@ -112,6 +118,9 @@ const bookAppointmentWithValidation = async (req, res) => {
     const appointment = await Appointment.create({
       patientId: patientId.trim(),
       doctorId: doctorId.trim(),
+      patientName: patientName ? patientName.trim() : 'Patient',
+      patientEmail: patientEmail ? patientEmail.trim() : null,
+      patientPhone: patientPhone ? patientPhone.trim() : null,
       specialty: specialty.trim(),
       appointmentDate: appointmentDateObj,
       startTime: startTime.trim(),
@@ -124,6 +133,20 @@ const bookAppointmentWithValidation = async (req, res) => {
 
     // Mark slot as booked in doctor-service
     await markSlotAsBooked(doctorId.trim(), appointmentDateObj, startTime.trim());
+
+    publishNotificationEvent('APPOINTMENT_BOOKED', {
+      appointmentId: String(appointment._id),
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      appointmentDate: appointment.appointmentDate,
+      startTime: appointment.startTime,
+      metadata: {
+        specialty: appointment.specialty,
+        consultationFee: appointment.consultationFee
+      },
+      email: appointment.patientEmail || null,
+      phone: appointment.patientPhone || null
+    });
 
     return res.status(201).json({
       success: true,
