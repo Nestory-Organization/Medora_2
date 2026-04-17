@@ -35,7 +35,18 @@ const createSession = async (req, res) => {
 
 const handleWebhook = async (req, res) => {
   try {
-    const payment = await processWebhook(req.body || {});
+    // Get the Stripe event from the middleware
+    const event = req.stripeEvent;
+    
+    if (!event) {
+      return res.status(400).json({
+        success: false,
+        message: 'No stripe event found',
+        data: null
+      });
+    }
+
+    const payment = await processWebhook(event);
 
     return res.status(200).json({
       success: true,

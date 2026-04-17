@@ -6,19 +6,30 @@ const morgan = require('morgan');
 const systemRoutes = require('./routes/system.routes');
 const internalRoutes = require('./routes/internal.routes');
 const paymentRoutes = require('./routes/payment.routes');
+const webhookRoutes = require('./routes/webhook.routes');
 
 const app = express();
 
 app.use(helmet());
 app.use(cors());
 app.use(compression());
-app.use(express.json({ limit: '1mb' }));
+
+// Store raw body for Stripe webhook signature verification
+app.use(express.json({ 
+  limit: '1mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
 app.use('/', systemRoutes);
 app.use('/internal', internalRoutes);
 app.use('/payment', paymentRoutes);
+// Webhook endpoint accessible at both /webhook and /payment/webhook
+app.use('/webhook', webhookRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

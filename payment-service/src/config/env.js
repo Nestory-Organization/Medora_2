@@ -11,7 +11,7 @@ const defaultNotificationServiceUrl =
   process.env.NODE_ENV === 'production'
     ? 'http://notification-service:4006'
     : 'http://localhost:4006';
-const requiredVars = ['PORT', 'MONGO_URI'];
+const requiredVars = ['PORT', 'MONGO_URI', 'JWT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY'];
 
 requiredVars.forEach((key) => {
   if (!process.env[key]) {
@@ -24,13 +24,11 @@ module.exports = {
   port: Number(process.env.PORT),
   mongoUri: process.env.MONGO_URI,
   serviceName: process.env.SERVICE_NAME || 'payment-service',
+  jwtSecret: process.env.JWT_SECRET,
   internalApiKey: process.env.INTERNAL_API_KEY || '',
-  payHereSandbox: process.env.PAYHERE_SANDBOX,
-  payHereMerchantId: process.env.PAYHERE_MERCHANT_ID,
-  payHereReturnUrl: process.env.PAYHERE_RETURN_URL,
-  payHereCancelUrl: process.env.PAYHERE_CANCEL_URL,
-  payHereNotifyUrl: process.env.PAYHERE_NOTIFY_URL,
-  payHereCheckoutUrl: process.env.PAYHERE_CHECKOUT_URL,
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+  stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   appointmentServiceUrl:
     process.env.APPOINTMENT_SERVICE_URL || defaultAppointmentServiceUrl,
   notificationServiceUrl:
