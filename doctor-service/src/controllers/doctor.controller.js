@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const env = require('../config/env');
 const DoctorProfile = require('../models/doctorProfile.model');
 const Availability = require('../models/availability.model');
 const Appointment = require('../models/appointment.model');
@@ -9,6 +11,27 @@ const getDoctorObjectId = (req) => {
   }
 
   return new mongoose.Types.ObjectId(req.user.id);
+};
+
+// Extract doctorId from JWT token in Authorization header
+const extractDoctorIdFromJWT = (req) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    if (!token) {
+      return null;
+    }
+
+    const decoded = jwt.verify(token, env.jwtSecret);
+    if (!decoded.id || !mongoose.Types.ObjectId.isValid(decoded.id)) {
+      return null;
+    }
+
+    return new mongoose.Types.ObjectId(decoded.id);
+  } catch (error) {
+    return null;
+  }
 };
 
 const createDoctorProfile = async (req, res) => {
@@ -215,18 +238,43 @@ const getAssignedAppointments = async (req, res) => {
       });
     }
 
-    const query = { doctorId };
-
+    // Fetch appointments from appointment service database
+    const appointmentServiceUrl = process.env.APPOINTMENT_SERVICE_URL || 'http://appointment-service:3004';
+    
+    let queryParams = new URLSearchParams();
+    queryParams.append('doctorId', doctorId.toString());
+    
     if (req.query.status) {
-      query.status = req.query.status;
+      queryParams.append('status', req.query.status);
     }
 
-    const appointments = await Appointment.find(query)
-      .sort({ appointmentDate: 1, startTime: 1 })
-      .lean();
+    const appointmentResponse = await fetch(
+      `${appointmentServiceUrl}/api/appointments/doctor/${doctorId}?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': req.headers.authorization || ''
+        },
+        timeout: 5000
+      }
+    );
+
+    if (!appointmentResponse.ok) {
+      console.warn(`Appointment service returned status ${appointmentResponse.status}`);
+      // Fallback to empty array if appointment service is unavailable
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: 'Appointment service temporarily unavailable'
+      });
+    }
+
+    const appointmentData = await appointmentResponse.json();
+    const appointments = appointmentData.data || appointmentData.appointments || [];
 
     // Log for debugging visibility
-    console.log(`[DoctorService] Found ${appointments.length} appointments for doctor ${doctorId}`);
+    console.log(`[DoctorService] Fetched ${appointments.length} appointments for doctor ${doctorId} from appointment service`);
 
     return res.status(200).json({
       success: true,
@@ -234,9 +282,11 @@ const getAssignedAppointments = async (req, res) => {
     });
   } catch (error) {
     console.error('Get appointments error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch appointments'
+    // Return empty array instead of error to allow graceful degradation
+    return res.status(200).json({
+      success: true,
+      data: [],
+      message: 'Could not fetch appointments from appointment service'
     });
   }
 };
@@ -262,16 +312,26 @@ const updateAppointmentStatus = async (req, res) => {
       });
     }
 
-    if (!['accepted', 'rejected'].includes(status)) {
+    // Map status values to what the appointment model accepts
+    const statusMap = {
+      'ACCEPTED': 'CONFIRMED',
+      'CONFIRMED': 'CONFIRMED',
+      'REJECTED': 'CANCELLED',
+      'CANCELLED': 'CANCELLED'
+    };
+
+    const mappedStatus = statusMap[status] || status;
+
+    if (!['PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(mappedStatus)) {
       return res.status(400).json({
         success: false,
-        message: 'Status must be either accepted or rejected'
+        message: 'Invalid status provided'
       });
     }
 
     const appointment = await Appointment.findOneAndUpdate(
       { _id: id, doctorId },
-      { $set: { status } },
+      { $set: { status: mappedStatus } },
       { new: true }
     );
 
@@ -428,7 +488,9 @@ const createTelemedicineSession = async (req, res) => {
 
 const getDoctorAvailability = async (req, res) => {
   try {
-    const doctorId = getDoctorObjectId(req);
+    // For public calls from appointment-service: accept doctorId from query
+    // For authenticated doctor calls: extract from JWT or req.user
+    let doctorId = req.query.doctorId || getDoctorObjectId(req) || extractDoctorIdFromJWT(req);
 
     if (!doctorId) {
       return res.status(400).json({
@@ -554,9 +616,43 @@ const releaseSlot = async (req, res) => {
   }
 };
 
+const getDoctorProfile = async (req, res) => {
+  try {
+    const doctorId = getDoctorObjectId(req);
+
+    if (!doctorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid doctor identifier'
+      });
+    }
+
+    const profile = await DoctorProfile.findOne({ doctorId });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor profile not found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: profile
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch doctor profile'
+    });
+  }
+};
+
 module.exports = {
   createDoctorProfile,
   updateDoctorProfile,
+  getDoctorProfile,
   setAvailability,
   getDoctorAvailability,
   markSlotBooked,

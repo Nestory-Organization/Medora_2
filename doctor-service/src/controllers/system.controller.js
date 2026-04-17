@@ -36,13 +36,13 @@ const getAllDoctors = async (req, res) => {
 };
 
 const verifyDoctor = async (req, res) => {
-  console.log(`[System] PATCH /doctors/:id/verify - doctorId=${req.params.doctorId}`);
-  try {
-    const { doctorId } = req.params;
-    const { status } = req.body;
+  const { id } = req.params;
+  const { status } = req.body;
+  console.log(`[System] PATCH /doctors/${id}/verify - status=${status}`);
 
+  try {
     const profile = await DoctorProfile.findOneAndUpdate(
-      { doctorId },
+      { doctorId: id },
       { isVerified: status },
       { new: true }
     );

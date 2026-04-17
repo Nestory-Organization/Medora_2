@@ -2,6 +2,7 @@ const express = require('express');
 const {
   createDoctorProfile,
   updateDoctorProfile,
+  getDoctorProfile,
   setAvailability,
   getDoctorAvailability,
   markSlotBooked,
@@ -31,13 +32,14 @@ router.use(authenticate, authorizeDoctor);
 
 // Allow creating a profile even if not verified
 router.post('/profile', createDoctorProfile);
+router.get('/profile', getDoctorProfile);
 
-// Secure other doctor routes with verification check
-// Move availability routes before checkDoctorVerified to allow newly registered doctors to set up
+// NOTE: /availability endpoints (GET, mark-booked, release-slot) are now PUBLIC
+// They are mounted directly in app.js for inter-service communication
+// Only keeping POST /availability for doctors to set their availability
+
+// Allow posting availability without verification
 router.post('/availability', setAvailability);
-router.get('/availability', getDoctorAvailability);
-router.patch('/availability/mark-booked', markSlotBooked);
-router.patch('/availability/release-slot', releaseSlot);
 
 router.use(checkDoctorVerified);
 

@@ -15,6 +15,8 @@ module.exports = {
   port: Number(process.env.PORT),
   mongoUri: process.env.MONGO_URI,
   jwtSecret: process.env.JWT_SECRET,
-  serviceName: process.env.SERVICE_NAME || 'doctor-service'
+  serviceName: process.env.SERVICE_NAME || 'doctor-service',
+  patientServiceUrl: process.env.PATIENT_SERVICE_URL || 'http://localhost:4002',
+  serviceRequestTimeoutMs: Number(process.env.SERVICE_REQUEST_TIMEOUT_MS || 8000)
 };
 
