@@ -43,9 +43,9 @@ const SidebarItem = ({ to, icon: Icon, label, badge, submenu }: SidebarItemProps
               : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}
           `}
         >
-          <div className="flex items-center gap-2">
-            <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform" />
-            <span className="font-semibold text-[13px]">{label}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform shrink-0" />
+            <span className="font-semibold text-[13px] truncate">{label}</span>
           </div>
           <div className="flex items-center gap-2">
             {badge && (
@@ -81,9 +81,9 @@ const SidebarItem = ({ to, icon: Icon, label, badge, submenu }: SidebarItemProps
           : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}
       `}
     >
-      <div className="flex items-center gap-2">
-        <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform" />
-        <span className="font-semibold text-[13px]">{label}</span>
+      <div className="flex items-center gap-2 min-w-0">
+        <Icon size={18} weight="duotone" className="group-hover:scale-110 transition-transform shrink-0" />
+        <span className="font-semibold text-[13px] whitespace-nowrap">{label}</span>
       </div>
       {badge && (
         <span className="bg-teal-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
@@ -172,9 +172,11 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
       {/* Navigation */}
       <div className="flex-1 space-y-1 overflow-y-auto pr-1 -mr-1 custom-scrollbar">
         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-2">Main Menu</p>
-        {navItems.map((item, index) => (
-          <SidebarItem key={`${item.to}-${item.label}-${index}`} to={item.to} icon={item.icon} label={item.label} badge={item.badge} submenu={item.submenu} />
-        ))}
+        <div className="space-y-1">
+          {navItems.map((item, index) => (
+            <SidebarItem key={`${item.to}-${item.label}-${index}`} {...item} />
+          ))}
+        </div>
       </div>
 
       {/* User Card */}
