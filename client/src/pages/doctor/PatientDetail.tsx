@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Phone, Envelope, MapPin, UserCircle } from '@phosphor-icons/react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Phone, Envelope, MapPin, Cake, FileText, DownloadSimple } from '@phosphor-icons/react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
 
@@ -21,16 +21,44 @@ interface PatientDetail {
   createdAt: string;
 }
 
+interface MedicalDocument {
+  _id: string;
+  documentType?: string;
+  title?: string;
+  category?: string;
+  originalName?: string;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+  uploadedAt?: string;
+}
+
 export default function PatientDetail() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const reportsRef = useRef<HTMLDivElement | null>(null);
   const [patient, setPatient] = useState<PatientDetail | null>(null);
+  const [documents, setDocuments] = useState<MedicalDocument[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPatientDetail();
   }, [patientId]);
+
+  useEffect(() => {
+    if (patientId) {
+      fetchPatientReports();
+    }
+  }, [patientId]);
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'reports' && reportsRef.current) {
+      reportsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [searchParams, documents, reportsLoading]);
 
   const fetchPatientDetail = async () => {
     setLoading(true);
@@ -73,6 +101,65 @@ export default function PatientDetail() {
     return age;
   };
 
+  const fetchPatientReports = async () => {
+    setReportsLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get('http://localhost:4000/api/patients/documents', {
+        params: { patientId },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const docs = response.data?.data?.documents;
+      setDocuments(Array.isArray(docs) ? docs : []);
+    } catch (reportError) {
+      console.error('Fetch patient reports error:', reportError);
+      setDocuments([]);
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  const formatFileSize = (size?: number) => {
+    if (!size || size <= 0) {
+      return 'Unknown size';
+    }
+
+    const mb = size / (1024 * 1024);
+    if (mb >= 1) {
+      return `${mb.toFixed(2)} MB`;
+    }
+
+    const kb = size / 1024;
+    return `${kb.toFixed(1)} KB`;
+  };
+
+  const handleDownloadReport = async (medicalDoc: MedicalDocument) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get(
+        `http://localhost:4000/api/patients/documents/${medicalDoc._id}`,
+        {
+          params: { patientId },
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob'
+        }
+      );
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = medicalDoc.originalName || medicalDoc.fileName || 'medical-report';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (downloadError) {
+      console.error('Download report error:', downloadError);
+      setError('Failed to download report');
+    }
+  };
+
   return (
     <PageTransition>
       <div className="space-y-6">
@@ -80,6 +167,7 @@ export default function PatientDetail() {
         <header className="flex items-center gap-4">
           <button
             onClick={() => navigate('/doctor/appointments')}
+            title="Back to appointments"
             className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
           >
             <ArrowLeft size={20} className="text-slate-400" />
@@ -110,10 +198,10 @@ export default function PatientDetail() {
         ) : patient ? (
           <div className="space-y-6">
             {/* Main Info Card */}
-            <div className="bg-gradient-to-br from-slate-900/60 to-slate-800/40 border border-white/10 rounded-2xl p-8 shadow-2xl">
+            <div className="bg-linear-to-br from-slate-900/60 to-slate-800/40 border border-white/10 rounded-2xl p-8 shadow-2xl">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg">
+                  <div className="w-16 h-16 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg">
                     {patient.firstName?.[0]}{patient.lastName?.[0]}
                   </div>
                   <div>
@@ -235,6 +323,56 @@ export default function PatientDetail() {
                 <p className="text-white font-semibold text-lg">{patient.emergencyContact}</p>
               </div>
             )}
+
+            {/* Medical Reports */}
+            <div ref={reportsRef} className="bg-slate-900/40 border border-white/5 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FileText size={18} className="text-cyan-400" weight="bold" />
+                  <h3 className="text-lg font-black text-white uppercase tracking-tight italic">Medical Reports</h3>
+                </div>
+                <span className="text-xs font-semibold text-slate-400 uppercase">
+                  {documents.length} files
+                </span>
+              </div>
+
+              {reportsLoading ? (
+                <div className="space-y-2">
+                  {[...Array(2)].map((_, idx) => (
+                    <div key={idx} className="h-14 bg-slate-800/50 rounded-lg animate-pulse border border-white/5" />
+                  ))}
+                </div>
+              ) : documents.length === 0 ? (
+                <div className="text-sm text-slate-400 bg-slate-800/40 border border-white/5 rounded-lg p-4">
+                  No medical reports uploaded for this patient yet.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc._id}
+                      className="flex items-center justify-between gap-3 p-3 bg-slate-800/50 rounded-lg border border-white/5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {doc.originalName || doc.fileName || doc.title || 'Medical Document'}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : 'Unknown date'} · {formatFileSize(doc.size)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDownloadReport(doc)}
+                        className="px-3 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-lg font-semibold text-xs transition-all border border-cyan-500/30 flex items-center gap-1 uppercase"
+                      >
+                        <DownloadSimple size={14} weight="bold" />
+                        Download
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Actions */}
             <div className="flex gap-3">
