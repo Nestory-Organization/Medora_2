@@ -297,9 +297,203 @@ const findPaymentForWebhook = async (payload) => {
   return null;
 };
 
+const getDoctorEarnings = async (doctorId, options = {}) => {
+  const { startDate, endDate, period = 'day' } = options;
+  
+  // Build date filter
+  const dateFilter = {};
+  if (startDate) {
+    dateFilter.$gte = new Date(startDate);
+  }
+  if (endDate) {
+    dateFilter.$lte = new Date(endDate);
+  }
+
+  // Get payments for the doctor (successful payments only)
+  const earnings = await Payment.aggregate([
+    {
+      $match: {
+        status: 'SUCCESS',
+        createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined
+      }
+    },
+    {
+      $lookup: {
+        from: 'transactions',
+        let: { appointmentId: '$appointmentId' },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ['$appointmentId', '$$appointmentId'] },
+              doctorId: doctorId,
+              status: 'completed'
+            }
+          }
+        ],
+        as: 'transaction'
+      }
+    },
+    {
+      $match: { transaction: { $ne: [] } }
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: '%Y-%m-%d',
+            date: '$createdAt',
+            timezone: 'UTC'
+          }
+        },
+        totalEarnings: { $sum: '$amount' },
+        totalTransactions: { $sum: 1 },
+        appointmentIds: { $push: '$appointmentId' }
+      }
+    },
+    {
+      $sort: { _id: -1 }
+    }
+  ]);
+
+  const totalEarnings = earnings.reduce((sum, day) => sum + day.totalEarnings, 0);
+  const totalAppointments = earnings.reduce((sum, day) => sum + day.totalTransactions, 0);
+
+  return {
+    doctorId,
+    period,
+    dateRange: {
+      startDate: startDate || null,
+      endDate: endDate || null
+    },
+    summary: {
+      totalEarnings,
+      totalAppointments,
+      averagePerAppointment: totalAppointments > 0 ? (totalEarnings / totalAppointments).toFixed(2) : 0
+    },
+    dailyEarnings: earnings.map(day => ({
+      date: day._id,
+      earnings: day.totalEarnings,
+      appointments: day.totalTransactions,
+      appointmentIds: day.appointmentIds
+    }))
+  };
+};
+
+const getAllDoctorEarnings = async (options = {}) => {
+  const { startDate, endDate, period = 'day' } = options;
+
+  // Build date filter
+  const dateFilter = {};
+  if (startDate) {
+    dateFilter.$gte = new Date(startDate);
+  }
+  if (endDate) {
+    dateFilter.$lte = new Date(endDate);
+  }
+
+  // Get all successful payments with transaction data
+  const payments = await Payment.aggregate([
+    {
+      $match: {
+        status: 'SUCCESS',
+        createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined
+      }
+    },
+    {
+      $lookup: {
+        from: 'transactions',
+        let: { appointmentId: '$appointmentId' },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ['$appointmentId', '$$appointmentId'] },
+              status: 'completed'
+            }
+          }
+        ],
+        as: 'transaction'
+      }
+    },
+    {
+      $match: { transaction: { $ne: [] } }
+    },
+    {
+      $unwind: '$transaction'
+    }
+  ]);
+
+  // Group by doctor and date
+  const earningsByDoctor = {};
+  const doctorStats = {};
+
+  payments.forEach(payment => {
+    const doctorId = payment.transaction.doctorId;
+    const date = new Date(payment.createdAt).toISOString().split('T')[0];
+
+    if (!earningsByDoctor[doctorId]) {
+      earningsByDoctor[doctorId] = {};
+      doctorStats[doctorId] = {
+        totalEarnings: 0,
+        totalAppointments: 0
+      };
+    }
+
+    if (!earningsByDoctor[doctorId][date]) {
+      earningsByDoctor[doctorId][date] = {
+        earnings: 0,
+        appointments: 0,
+        appointmentIds: []
+      };
+    }
+
+    earningsByDoctor[doctorId][date].earnings += payment.amount;
+    earningsByDoctor[doctorId][date].appointments += 1;
+    earningsByDoctor[doctorId][date].appointmentIds.push(payment.appointmentId);
+
+    doctorStats[doctorId].totalEarnings += payment.amount;
+    doctorStats[doctorId].totalAppointments += 1;
+  });
+
+  // Format results
+  const result = [];
+  for (const [doctorId, dailyData] of Object.entries(earningsByDoctor)) {
+    const stats = doctorStats[doctorId];
+    const dailyEarnings = Object.entries(dailyData)
+      .map(([date, data]) => ({
+        date,
+        earnings: data.earnings,
+        appointments: data.appointments,
+        appointmentIds: data.appointmentIds
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    result.push({
+      doctorId,
+      summary: {
+        totalEarnings: stats.totalEarnings,
+        totalAppointments: stats.totalAppointments,
+        averagePerAppointment: stats.totalAppointments > 0 ? (stats.totalEarnings / stats.totalAppointments).toFixed(2) : 0
+      },
+      dailyEarnings
+    });
+  }
+
+  return {
+    period,
+    dateRange: {
+      startDate: startDate || null,
+      endDate: endDate || null
+    },
+    totalDoctors: result.length,
+    doctors: result.sort((a, b) => b.summary.totalEarnings - a.summary.totalEarnings)
+  };
+};
+
 module.exports = {
   createPaymentSession,
   processWebhook,
   PaymentValidationError,
-  PaymentNotFoundError
+  PaymentNotFoundError,
+  getDoctorEarnings,
+  getAllDoctorEarnings
 };

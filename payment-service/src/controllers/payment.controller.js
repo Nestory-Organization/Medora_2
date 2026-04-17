@@ -2,7 +2,9 @@ const {
   createPaymentSession,
   processWebhook,
   PaymentValidationError,
-  PaymentNotFoundError
+  PaymentNotFoundError,
+  getDoctorEarnings,
+  getAllDoctorEarnings
 } = require('../services/payment.service');
 
 const createSession = async (req, res) => {
@@ -80,7 +82,68 @@ const handleWebhook = async (req, res) => {
   }
 };
 
+const getDoctorEarningsHandler = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { startDate, endDate, period = 'day' } = req.query;
+
+    if (!doctorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Doctor ID is required',
+        data: null
+      });
+    }
+
+    const earnings = await getDoctorEarnings(doctorId, {
+      startDate,
+      endDate,
+      period
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Doctor earnings retrieved successfully',
+      data: earnings
+    });
+  } catch (error) {
+    console.error('Get doctor earnings error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve doctor earnings',
+      data: null
+    });
+  }
+};
+
+const getAllDoctorEarningsHandler = async (req, res) => {
+  try {
+    const { startDate, endDate, period = 'day' } = req.query;
+
+    const earnings = await getAllDoctorEarnings({
+      startDate,
+      endDate,
+      period
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'All doctor earnings retrieved successfully',
+      data: earnings
+    });
+  } catch (error) {
+    console.error('Get all doctor earnings error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve all doctor earnings',
+      data: null
+    });
+  }
+};
+
 module.exports = {
   createSession,
-  handleWebhook
+  handleWebhook,
+  getDoctorEarningsHandler,
+  getAllDoctorEarningsHandler
 };
