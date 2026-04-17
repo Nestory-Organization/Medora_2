@@ -61,7 +61,7 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
       <div className="flex items-start justify-between">
         <div className="flex-1 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => onViewDetail?.(appointment.patientId)}>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
               {appointment.patientName ? appointment.patientName[0] : 'P'}
             </div>
             <div>
@@ -227,7 +227,41 @@ export default function PatientAppointments() {
       );
 
       if (response.data.success) {
-        setAppointments(response.data.data || []);
+        const rawAppointments: Appointment[] = response.data.data || [];
+
+        const enrichedAppointments = await Promise.all(
+          rawAppointments.map(async (appointment) => {
+            if (appointment.patientName && appointment.patientName.trim().length > 0) {
+              return appointment;
+            }
+
+            try {
+              const patientRes = await axios.get(
+                `http://localhost:4000/api/patients/${appointment.patientId}`,
+                {
+                  headers: { Authorization: `Bearer ${token}` }
+                }
+              );
+
+              const patient = patientRes.data?.data?.patient || patientRes.data?.data || {};
+              const firstName = patient.firstName || '';
+              const lastName = patient.lastName || '';
+              const fullName = `${firstName} ${lastName}`.trim();
+
+              return {
+                ...appointment,
+                patientName: fullName || appointment.patientName || 'Patient'
+              };
+            } catch {
+              return {
+                ...appointment,
+                patientName: appointment.patientName || 'Patient'
+              };
+            }
+          })
+        );
+
+        setAppointments(enrichedAppointments);
       }
     } catch (error: any) {
       console.error('Fetch appointments error:', error);
@@ -316,6 +350,7 @@ export default function PatientAppointments() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/doctor/dashboard')}
+              title="Go back to dashboard"
               className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
             >
               <ArrowLeft size={20} className="text-slate-400" />

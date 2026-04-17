@@ -189,7 +189,10 @@ const getDoctorAppointmentsById = async (req, res) => {
       });
     }
 
-    const appointments = await getDoctorAppointments(doctorId);
+    const appointments = await getDoctorAppointments(
+      doctorId,
+      req.headers.authorization,
+    );
 
     return res.status(200).json({
       success: true,

@@ -56,6 +56,56 @@ const fetchDoctorDetails = async (doctorId) => {
   }
 };
 
+const fetchPatientDetails = async (patientId, authorization) => {
+  try {
+    if (!patientId || !authorization) {
+      return null;
+    }
+
+    const baseUrl =
+      env.patientServiceUrl?.replace(/\/+$/, "") ||
+      "http://patient-service:4002";
+    const encodedPatientId = encodeURIComponent(String(patientId).trim());
+    const url = `${baseUrl}/api/patients/${encodedPatientId}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: authorization,
+        "Content-Type": "application/json",
+      },
+      timeout: 5000,
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const patient = data?.data || data?.data?.patient;
+
+    if (!patient) {
+      return null;
+    }
+
+    const firstName = String(patient.firstName || "").trim();
+    const lastName = String(patient.lastName || "").trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return {
+      name: fullName || null,
+      email: patient.email || null,
+      phone: patient.phone || null,
+    };
+  } catch (error) {
+    console.error(
+      `[fetchPatientDetails] Error fetching patient ${patientId}:`,
+      error.message,
+    );
+    return null;
+  }
+};
+
 const mapAppointmentDetails = (appointment) => ({
   _id: appointment._id,
   appointmentId: appointment._id,
@@ -122,7 +172,7 @@ const getAppointmentStatus = async (appointmentId) => {
   });
 };
 
-const getDoctorAppointments = async (doctorId) => {
+const getDoctorAppointments = async (doctorId, authorization) => {
   const normalizedDoctorId = doctorId.toString().trim();
 
   const appointments = await Appointment.find({
@@ -139,8 +189,37 @@ const getDoctorAppointments = async (doctorId) => {
     `[AppointmentTrackingService] Found ${appointments.length} appointments for doctor ${doctorId}`,
   );
 
-  // Return appointments with patient data already stored in the appointment record
-  return appointments.map((apt) => ({
+  const enrichedAppointments = await Promise.all(
+    appointments.map(async (apt) => {
+      const hasRealName =
+        apt.patientName &&
+        apt.patientName.trim().length > 0 &&
+        apt.patientName.trim().toLowerCase() !== "patient";
+
+      if (hasRealName) {
+        return {
+          ...apt,
+          patientName: apt.patientName,
+          patientEmail: apt.patientEmail || null,
+          patientPhone: apt.patientPhone || null,
+        };
+      }
+
+      const patientDetails = await fetchPatientDetails(
+        apt.patientId,
+        authorization,
+      );
+
+      return {
+        ...apt,
+        patientName: patientDetails?.name || apt.patientName || "Patient",
+        patientEmail: patientDetails?.email || apt.patientEmail || null,
+        patientPhone: patientDetails?.phone || apt.patientPhone || null,
+      };
+    }),
+  );
+
+  return enrichedAppointments.map((apt) => ({
     _id: apt._id,
     appointmentId: apt._id,
     patientId: apt.patientId,
