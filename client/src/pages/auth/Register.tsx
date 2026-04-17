@@ -40,25 +40,27 @@ export default function Register() {
       if (response.success) {
         // Access token and user from response.data based on backend controller
         const { token, user } = response.data;
+        const normalizedRole = String(user?.role || role).toLowerCase();
+        const normalizedUser = { ...user, role: normalizedRole };
         
         localStorage.setItem('authToken', token);
-        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
         
-        if (role === 'doctor') {
+        if (normalizedRole === 'doctor') {
           navigate('/doctor/dashboard');
         } else {
           try {
-            const userId = getUserId(user);
+            const userId = getUserId(normalizedUser);
             if (userId) {
               await registerPatientProfile({
                 userId,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                phone: user.phone,
+                email: normalizedUser.email,
+                firstName: normalizedUser.firstName,
+                lastName: normalizedUser.lastName,
+                phone: normalizedUser.phone,
               });
             }
-          } catch (bootstrapErr) {
+          } catch {
             // Profile bootstrap is best-effort; PatientContext also auto-recovers on first load.
           }
           navigate('/patient/dashboard');

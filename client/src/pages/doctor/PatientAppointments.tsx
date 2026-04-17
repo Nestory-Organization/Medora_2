@@ -40,7 +40,7 @@ const statusConfig = {
   'COMPLETED': { icon: CheckCircle, color: 'bg-blue-500/20 text-blue-300', label: 'Completed', border: 'border-blue-500/30' }
 };
 
-const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete, onViewReports }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void; onViewReports?: (patientId: string) => void }) => {
+const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete, onViewReports, navigate }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void; onViewReports?: (patientId: string) => void; navigate: (path: string) => void }) => {
   const statusInfo = statusConfig[appointment.status];
   const StatusIcon = statusInfo.icon;
   
@@ -155,19 +155,19 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
         {appointment.status !== 'CANCELLED' && (
           <div className="grid grid-cols-3 gap-2">
             <button
-              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/prescription`}
+              onClick={() => navigate(`/doctor/appointment/${appointment._id}/prescription`)}
               className="px-3 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg font-semibold text-xs transition-all border border-green-500/30 uppercase"
             >
-              Rx
+              Prescription
             </button>
             <button
-              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/notes`}
+              onClick={() => navigate(`/doctor/appointment/${appointment._id}/notes`)}
               className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg font-semibold text-xs transition-all border border-purple-500/30 uppercase"
             >
               Notes
             </button>
             <button
-              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/telemedicine`}
+              onClick={() => navigate(`/doctor/appointment/${appointment._id}/telemedicine`)}
               className="px-3 py-2 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-lg font-semibold text-xs transition-all border border-pink-500/30 uppercase"
             >
               Call
@@ -469,6 +469,7 @@ export default function PatientAppointments() {
                 onViewDetail={(patientId) => navigate(`/doctor/patient/${patientId}`)}
                 onViewReports={(patientId) => navigate(`/doctor/patient/${patientId}?tab=reports`)}
                 onComplete={handleCompleteAppointment}
+                navigate={navigate}
               />
             ))
           )}

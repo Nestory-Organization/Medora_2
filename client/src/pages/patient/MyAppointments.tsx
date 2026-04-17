@@ -11,7 +11,8 @@ import {
   CreditCard,
   Plus,
   X,
-  CalendarPlus
+  CalendarPlus,
+  VideoCamera
 } from '@phosphor-icons/react';
 import { getMyAppointments, cancelAppointment, rescheduleAppointment } from '../../api/patient';
 import PageTransition from '../../components/PageTransition';
@@ -138,6 +139,9 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
     status: appointment.status === 'PENDING_PAYMENT' ? 'pending' : appointment.status?.toLowerCase(),
     specialty: appointment.specialty || 'General',
     paymentStatus: appointment.paymentStatus,
+    telemedicineRoomId: appointment.telemedicineRoomId,
+    telemedicineJoinPath: appointment.telemedicineJoinPath,
+    telemedicineStatus: appointment.telemedicineStatus,
     consultationFee: appointment.consultationFee,
     reason: appointment.reason
   };
@@ -166,6 +170,14 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
       consultationFee: mapped.consultationFee,
       reason: mapped.reason
     });
+  };
+
+  const handleJoinTelemedicine = (e: any) => {
+    e.stopPropagation();
+
+    if (mapped.telemedicineRoomId) {
+      navigate(`/patient-telemedicine/${mapped.telemedicineRoomId}`);
+    }
   };
 
   return (
@@ -213,6 +225,15 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
                 >
                   <CalendarPlus size={14} />
                   Reschedule
+                </button>
+              )}
+              {mapped.paymentStatus === 'PAID' && mapped.telemedicineRoomId && (
+                <button
+                  onClick={handleJoinTelemedicine}
+                  className="px-4 py-2.5 bg-purple-500/10 text-purple-300 rounded-xl font-bold uppercase text-[10px] hover:bg-purple-500 hover:text-white transition-all shadow-lg active:scale-95 border border-purple-500/30 flex items-center gap-2 whitespace-nowrap"
+                >
+                  <VideoCamera size={14} />
+                  Join Call
                 </button>
               )}
               {mapped.status !== 'cancelled' && mapped.status !== 'completed' && (
@@ -263,6 +284,23 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
                         <CreditCard size={14} weight="duotone" className="text-teal-400" /> Fee
                     </p>
                     <p className="text-slate-300 font-semibold">${mapped.consultationFee}</p>
+                </div>
+                <div className="p-4 bg-slate-900/40 rounded-2xl border border-white/5 space-y-2 md:col-span-2 lg:col-span-4">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                        <VideoCamera size={14} weight="duotone" className="text-purple-300" /> Telemedicine Link
+                    </p>
+                    {mapped.telemedicineRoomId ? (
+                      <button
+                        onClick={handleJoinTelemedicine}
+                        className="px-4 py-2 bg-purple-500/10 text-purple-300 rounded-lg font-bold uppercase text-[10px] hover:bg-purple-500 hover:text-white transition-all border border-purple-500/30"
+                      >
+                        Open Video Call Link
+                      </button>
+                    ) : (
+                      <p className="text-slate-500 text-xs">
+                        Link will appear automatically after payment is processed.
+                      </p>
+                    )}
                 </div>
             </div>
           </motion.div>

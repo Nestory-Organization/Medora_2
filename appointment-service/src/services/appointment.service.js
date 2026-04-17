@@ -1,14 +1,16 @@
-const mongoose = require('mongoose');
-const Appointment = require('../models/appointment.model');
-const env = require('../config/env');
-const { fetchDoctorById } = require('./doctorSearch.service');
+const mongoose = require("mongoose");
+const Appointment = require("../models/appointment.model");
+const Telemedicine = require("../models/telemedicine.model");
+const env = require("../config/env");
+const { fetchDoctorById } = require("./doctorSearch.service");
+const { v4: uuidv4 } = require("uuid");
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 class AppointmentValidationError extends Error {
   constructor(message) {
     super(message);
-    this.name = 'AppointmentValidationError';
+    this.name = "AppointmentValidationError";
     this.statusCode = 400;
   }
 }
@@ -16,7 +18,7 @@ class AppointmentValidationError extends Error {
 class AppointmentConflictError extends Error {
   constructor(message) {
     super(message);
-    this.name = 'AppointmentConflictError';
+    this.name = "AppointmentConflictError";
     this.statusCode = 409;
   }
 }
@@ -24,33 +26,68 @@ class AppointmentConflictError extends Error {
 class AppointmentNotFoundError extends Error {
   constructor(message) {
     super(message);
-    this.name = 'AppointmentNotFoundError';
+    this.name = "AppointmentNotFoundError";
     this.statusCode = 404;
   }
 }
 
 const requiredFields = [
-  'patientId',
-  'doctorId',
-  'specialty',
-  'appointmentDate',
-  'startTime',
-  'endTime',
-  'consultationFee',
-  'reason'
+  "patientId",
+  "doctorId",
+  "specialty",
+  "appointmentDate",
+  "startTime",
+  "endTime",
+  "consultationFee",
+  "reason",
 ];
 
-const blockedUpdateStatuses = ['CANCELLED', 'COMPLETED'];
+const blockedUpdateStatuses = ["CANCELLED", "COMPLETED"];
 const APPOINTMENT_STATUSES = [
-  'PENDING_PAYMENT',
-  'CONFIRMED',
-  'CANCELLED',
-  'COMPLETED'
+  "PENDING_PAYMENT",
+  "CONFIRMED",
+  "CANCELLED",
+  "COMPLETED",
 ];
-const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'FAILED', 'REFUNDED'];
+const PAYMENT_STATUSES = ["UNPAID", "PAID", "FAILED", "REFUNDED"];
+
+const generateTelemedicineIds = () => ({
+  sessionId: `session_${uuidv4().substring(0, 8)}`,
+  roomId: `room_${uuidv4().substring(0, 8)}`,
+});
+
+const shouldHaveTelemedicine = (appointment) => {
+  return (
+    String(appointment?.status || "").toUpperCase() === "CONFIRMED" &&
+    String(appointment?.paymentStatus || "").toUpperCase() === "PAID"
+  );
+};
+
+const ensureTelemedicineSession = async (appointment) => {
+  if (!shouldHaveTelemedicine(appointment)) {
+    return null;
+  }
+
+  let session = await Telemedicine.findOne({ appointmentId: appointment._id });
+
+  if (!session) {
+    const { sessionId, roomId } = generateTelemedicineIds();
+    session = await Telemedicine.create({
+      appointmentId: appointment._id,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+      sessionId,
+      roomId,
+      status: "SCHEDULED",
+      paymentVerified: true,
+    });
+  }
+
+  return session;
+};
 
 const publishNotificationEvent = async (eventType, payload) => {
-  const baseUrl = String(env.notificationServiceUrl || '').replace(/\/$/, '');
+  const baseUrl = String(env.notificationServiceUrl || "").replace(/\/$/, "");
 
   if (!baseUrl) {
     return;
@@ -62,28 +99,28 @@ const publishNotificationEvent = async (eventType, payload) => {
   }, env.serviceRequestTimeoutMs);
 
   try {
-    const response = await fetch(baseUrl + '/notify/event', {
-      method: 'POST',
+    const response = await fetch(baseUrl + "/notify/event", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         eventType,
-        ...payload
+        ...payload,
       }),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     if (!response.ok) {
-      console.error('notification-service event publish failed:', {
+      console.error("notification-service event publish failed:", {
         eventType,
-        statusCode: response.status
+        statusCode: response.status,
       });
     }
   } catch (error) {
-    console.error('notification-service event publish error:', {
+    console.error("notification-service event publish error:", {
       eventType,
-      error: error.name === 'AbortError' ? 'Request timed out' : error.message
+      error: error.name === "AbortError" ? "Request timed out" : error.message,
     });
   } finally {
     clearTimeout(timeout);
@@ -94,7 +131,9 @@ const normalizeDateToDay = (value) => {
   const parsedDate = new Date(value);
 
   if (Number.isNaN(parsedDate.getTime())) {
-    throw new AppointmentValidationError('appointmentDate must be a valid date');
+    throw new AppointmentValidationError(
+      "appointmentDate must be a valid date",
+    );
   }
 
   parsedDate.setUTCHours(0, 0, 0, 0);
@@ -103,18 +142,24 @@ const normalizeDateToDay = (value) => {
 
 const mapAppointment = async (appointment) => {
   // Fetch doctor details to include doctor name
-  let doctorName = 'Unknown Doctor';
+  let doctorName = "Unknown Doctor";
   try {
     const doctorProfile = await fetchDoctorById(appointment.doctorId);
     if (doctorProfile && doctorProfile.name) {
       doctorName = doctorProfile.name;
-    } else if (doctorProfile && doctorProfile.firstName && doctorProfile.lastName) {
+    } else if (
+      doctorProfile &&
+      doctorProfile.firstName &&
+      doctorProfile.lastName
+    ) {
       doctorName = `Dr. ${doctorProfile.firstName} ${doctorProfile.lastName}`;
     }
   } catch (error) {
-    console.error('Error fetching doctor name:', error);
+    console.error("Error fetching doctor name:", error);
     // Continue without doctor name on error
   }
+
+  const telemedicineSession = await ensureTelemedicineSession(appointment);
 
   return {
     appointmentId: appointment._id,
@@ -129,8 +174,14 @@ const mapAppointment = async (appointment) => {
     reason: appointment.reason,
     status: appointment.status,
     paymentStatus: appointment.paymentStatus,
+    telemedicineSessionId: telemedicineSession?.sessionId || null,
+    telemedicineRoomId: telemedicineSession?.roomId || null,
+    telemedicineStatus: telemedicineSession?.status || null,
+    telemedicineJoinPath: telemedicineSession?.roomId
+      ? `/patient-telemedicine/${telemedicineSession.roomId}`
+      : null,
     createdAt: appointment.createdAt,
-    updatedAt: appointment.updatedAt
+    updatedAt: appointment.updatedAt,
   };
 };
 
@@ -142,7 +193,7 @@ const validatePayload = (payload) => {
       return true;
     }
 
-    if (typeof value === 'string' && !value.trim()) {
+    if (typeof value === "string" && !value.trim()) {
       return true;
     }
 
@@ -151,58 +202,66 @@ const validatePayload = (payload) => {
 
   if (missingFields.length > 0) {
     throw new AppointmentValidationError(
-      'Missing required fields: ' + missingFields.join(', ')
+      "Missing required fields: " + missingFields.join(", "),
     );
   }
 
-  if (!TIME_PATTERN.test(payload.startTime) || !TIME_PATTERN.test(payload.endTime)) {
+  if (
+    !TIME_PATTERN.test(payload.startTime) ||
+    !TIME_PATTERN.test(payload.endTime)
+  ) {
     throw new AppointmentValidationError(
-      'startTime and endTime must be in HH:mm format'
+      "startTime and endTime must be in HH:mm format",
     );
   }
 
   if (payload.endTime <= payload.startTime) {
-    throw new AppointmentValidationError('endTime must be later than startTime');
+    throw new AppointmentValidationError(
+      "endTime must be later than startTime",
+    );
   }
 
-  if (typeof payload.consultationFee !== 'number' || payload.consultationFee < 0) {
+  if (
+    typeof payload.consultationFee !== "number" ||
+    payload.consultationFee < 0
+  ) {
     throw new AppointmentValidationError(
-      'consultationFee must be a non-negative number'
+      "consultationFee must be a non-negative number",
     );
   }
 };
 
 const validateUpdatePayload = (payload) => {
-  const allowedFields = ['appointmentDate', 'startTime', 'endTime', 'reason'];
+  const allowedFields = ["appointmentDate", "startTime", "endTime", "reason"];
   const updateKeys = Object.keys(payload || {}).filter((key) =>
-    allowedFields.includes(key)
+    allowedFields.includes(key),
   );
 
   if (updateKeys.length === 0) {
     throw new AppointmentValidationError(
-      'At least one updatable field is required: appointmentDate, startTime, endTime, reason'
+      "At least one updatable field is required: appointmentDate, startTime, endTime, reason",
     );
   }
 
   if (
-    Object.prototype.hasOwnProperty.call(payload, 'reason') &&
-    (typeof payload.reason !== 'string' || !payload.reason.trim())
+    Object.prototype.hasOwnProperty.call(payload, "reason") &&
+    (typeof payload.reason !== "string" || !payload.reason.trim())
   ) {
-    throw new AppointmentValidationError('reason must be a non-empty string');
+    throw new AppointmentValidationError("reason must be a non-empty string");
   }
 
   if (
-    Object.prototype.hasOwnProperty.call(payload, 'startTime') &&
+    Object.prototype.hasOwnProperty.call(payload, "startTime") &&
     !TIME_PATTERN.test(payload.startTime)
   ) {
-    throw new AppointmentValidationError('startTime must be in HH:mm format');
+    throw new AppointmentValidationError("startTime must be in HH:mm format");
   }
 
   if (
-    Object.prototype.hasOwnProperty.call(payload, 'endTime') &&
+    Object.prototype.hasOwnProperty.call(payload, "endTime") &&
     !TIME_PATTERN.test(payload.endTime)
   ) {
-    throw new AppointmentValidationError('endTime must be in HH:mm format');
+    throw new AppointmentValidationError("endTime must be in HH:mm format");
   }
 };
 
@@ -214,11 +273,11 @@ const createAppointment = async (payload) => {
   const existingAppointment = await Appointment.findOne({
     doctorId: payload.doctorId.trim(),
     appointmentDate: normalizedAppointmentDate,
-    startTime: payload.startTime.trim()
+    startTime: payload.startTime.trim(),
   }).lean();
 
   if (existingAppointment) {
-    throw new AppointmentConflictError('Appointment slot is already booked');
+    throw new AppointmentConflictError("Appointment slot is already booked");
   }
 
   let created;
@@ -227,7 +286,7 @@ const createAppointment = async (payload) => {
     created = await Appointment.create({
       patientId: payload.patientId.trim(),
       doctorId: payload.doctorId.trim(),
-      patientName: payload.patientName ? payload.patientName.trim() : 'Patient',
+      patientName: payload.patientName ? payload.patientName.trim() : "Patient",
       patientPhone: payload.patientPhone ? payload.patientPhone.trim() : null,
       patientEmail: payload.patientEmail ? payload.patientEmail.trim() : null,
       specialty: payload.specialty.trim(),
@@ -235,17 +294,17 @@ const createAppointment = async (payload) => {
       startTime: payload.startTime.trim(),
       endTime: payload.endTime.trim(),
       consultationFee: payload.consultationFee,
-      reason: payload.reason.trim()
+      reason: payload.reason.trim(),
     });
   } catch (error) {
     if (error?.code === 11000) {
-      throw new AppointmentConflictError('Appointment slot is already booked');
+      throw new AppointmentConflictError("Appointment slot is already booked");
     }
 
     throw error;
   }
 
-  publishNotificationEvent('APPOINTMENT_BOOKED', {
+  publishNotificationEvent("APPOINTMENT_BOOKED", {
     appointmentId: String(created._id),
     patientId: created.patientId,
     doctorId: created.doctorId,
@@ -253,10 +312,10 @@ const createAppointment = async (payload) => {
     startTime: created.startTime,
     metadata: {
       specialty: created.specialty,
-      consultationFee: created.consultationFee
+      consultationFee: created.consultationFee,
     },
     email: payload.patientEmail || null,
-    phone: payload.patientPhone || null
+    phone: payload.patientPhone || null,
   });
 
   return await mapAppointment(created);
@@ -264,7 +323,7 @@ const createAppointment = async (payload) => {
 
 const updateAppointment = async (appointmentId, payload) => {
   if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
-    throw new AppointmentValidationError('Invalid appointment id');
+    throw new AppointmentValidationError("Invalid appointment id");
   }
 
   validateUpdatePayload(payload);
@@ -272,48 +331,54 @@ const updateAppointment = async (appointmentId, payload) => {
   const existingAppointment = await Appointment.findById(appointmentId);
 
   if (!existingAppointment) {
-    throw new AppointmentNotFoundError('Appointment not found');
+    throw new AppointmentNotFoundError("Appointment not found");
   }
 
   if (blockedUpdateStatuses.includes(existingAppointment.status)) {
     throw new AppointmentValidationError(
-      'Cannot modify appointment when status is ' + existingAppointment.status
+      "Cannot modify appointment when status is " + existingAppointment.status,
     );
   }
 
   const nextAppointmentDate = Object.prototype.hasOwnProperty.call(
     payload,
-    'appointmentDate'
+    "appointmentDate",
   )
     ? normalizeDateToDay(payload.appointmentDate)
     : existingAppointment.appointmentDate;
 
-  const nextStartTime = Object.prototype.hasOwnProperty.call(payload, 'startTime')
+  const nextStartTime = Object.prototype.hasOwnProperty.call(
+    payload,
+    "startTime",
+  )
     ? payload.startTime.trim()
     : existingAppointment.startTime;
 
-  const nextEndTime = Object.prototype.hasOwnProperty.call(payload, 'endTime')
+  const nextEndTime = Object.prototype.hasOwnProperty.call(payload, "endTime")
     ? payload.endTime.trim()
     : existingAppointment.endTime;
 
   if (nextEndTime <= nextStartTime) {
-    throw new AppointmentValidationError('endTime must be later than startTime');
+    throw new AppointmentValidationError(
+      "endTime must be later than startTime",
+    );
   }
 
   const hasSlotChanged =
     nextStartTime !== existingAppointment.startTime ||
-    nextAppointmentDate.getTime() !== existingAppointment.appointmentDate.getTime();
+    nextAppointmentDate.getTime() !==
+      existingAppointment.appointmentDate.getTime();
 
   if (hasSlotChanged) {
     const conflictingAppointment = await Appointment.findOne({
       _id: { $ne: existingAppointment._id },
       doctorId: existingAppointment.doctorId,
       appointmentDate: nextAppointmentDate,
-      startTime: nextStartTime
+      startTime: nextStartTime,
     }).lean();
 
     if (conflictingAppointment) {
-      throw new AppointmentConflictError('Appointment slot is already booked');
+      throw new AppointmentConflictError("Appointment slot is already booked");
     }
   }
 
@@ -321,7 +386,7 @@ const updateAppointment = async (appointmentId, payload) => {
   existingAppointment.startTime = nextStartTime;
   existingAppointment.endTime = nextEndTime;
 
-  if (Object.prototype.hasOwnProperty.call(payload, 'reason')) {
+  if (Object.prototype.hasOwnProperty.call(payload, "reason")) {
     existingAppointment.reason = payload.reason.trim();
   }
 
@@ -330,13 +395,13 @@ const updateAppointment = async (appointmentId, payload) => {
     updated = await existingAppointment.save();
   } catch (error) {
     if (error?.code === 11000) {
-      throw new AppointmentConflictError('Appointment slot is already booked');
+      throw new AppointmentConflictError("Appointment slot is already booked");
     }
 
     throw error;
   }
 
-  publishNotificationEvent('APPOINTMENT_RESCHEDULED', {
+  publishNotificationEvent("APPOINTMENT_RESCHEDULED", {
     appointmentId: String(updated._id),
     patientId: updated.patientId,
     doctorId: updated.doctorId,
@@ -344,10 +409,10 @@ const updateAppointment = async (appointmentId, payload) => {
     startTime: updated.startTime,
     metadata: {
       specialty: updated.specialty,
-      reason: updated.reason
+      reason: updated.reason,
     },
     email: updated.patientEmail || null,
-    phone: updated.patientPhone || null
+    phone: updated.patientPhone || null,
   });
 
   return await mapAppointment(updated);
@@ -355,41 +420,41 @@ const updateAppointment = async (appointmentId, payload) => {
 
 const cancelAppointment = async (appointmentId) => {
   if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
-    throw new AppointmentValidationError('Invalid appointment id');
+    throw new AppointmentValidationError("Invalid appointment id");
   }
 
   const existingAppointment = await Appointment.findById(appointmentId);
 
   if (!existingAppointment) {
-    throw new AppointmentNotFoundError('Appointment not found');
+    throw new AppointmentNotFoundError("Appointment not found");
   }
 
-  if (existingAppointment.status === 'CANCELLED') {
-    throw new AppointmentValidationError('Appointment is already cancelled');
+  if (existingAppointment.status === "CANCELLED") {
+    throw new AppointmentValidationError("Appointment is already cancelled");
   }
 
-  if (existingAppointment.status === 'COMPLETED') {
+  if (existingAppointment.status === "COMPLETED") {
     throw new AppointmentValidationError(
-      'Cannot cancel appointment when status is COMPLETED'
+      "Cannot cancel appointment when status is COMPLETED",
     );
   }
 
-  existingAppointment.status = 'CANCELLED';
+  existingAppointment.status = "CANCELLED";
 
   const updated = await existingAppointment.save();
 
   // Future inter-service communication: trigger refund workflow with payment-service.
-  publishNotificationEvent('APPOINTMENT_CANCELLED', {
+  publishNotificationEvent("APPOINTMENT_CANCELLED", {
     appointmentId: String(updated._id),
     patientId: updated.patientId,
     doctorId: updated.doctorId,
     appointmentDate: updated.appointmentDate,
     startTime: updated.startTime,
     metadata: {
-      specialty: updated.specialty
+      specialty: updated.specialty,
     },
     email: updated.patientEmail || null,
-    phone: updated.patientPhone || null
+    phone: updated.patientPhone || null,
   });
 
   return await mapAppointment(updated);
@@ -397,52 +462,52 @@ const cancelAppointment = async (appointmentId) => {
 
 const updateAppointmentPaymentState = async (appointmentId, payload) => {
   if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
-    throw new AppointmentValidationError('Invalid appointment id');
+    throw new AppointmentValidationError("Invalid appointment id");
   }
 
-  if (!payload || typeof payload !== 'object') {
-    throw new AppointmentValidationError('Request payload is required');
+  if (!payload || typeof payload !== "object") {
+    throw new AppointmentValidationError("Request payload is required");
   }
 
   const hasPaymentStatus = Object.prototype.hasOwnProperty.call(
     payload,
-    'paymentStatus'
+    "paymentStatus",
   );
 
   if (!hasPaymentStatus) {
-    throw new AppointmentValidationError('paymentStatus is required');
+    throw new AppointmentValidationError("paymentStatus is required");
   }
 
   const paymentStatus = String(payload.paymentStatus).trim().toUpperCase();
 
   if (!PAYMENT_STATUSES.includes(paymentStatus)) {
     throw new AppointmentValidationError(
-      'paymentStatus must be one of: ' + PAYMENT_STATUSES.join(', ')
+      "paymentStatus must be one of: " + PAYMENT_STATUSES.join(", "),
     );
   }
 
-  const nextStatus = Object.prototype.hasOwnProperty.call(payload, 'status')
+  const nextStatus = Object.prototype.hasOwnProperty.call(payload, "status")
     ? String(payload.status).trim().toUpperCase()
     : null;
 
   if (nextStatus && !APPOINTMENT_STATUSES.includes(nextStatus)) {
     throw new AppointmentValidationError(
-      'status must be one of: ' + APPOINTMENT_STATUSES.join(', ')
+      "status must be one of: " + APPOINTMENT_STATUSES.join(", "),
     );
   }
 
   const existingAppointment = await Appointment.findById(appointmentId);
 
   if (!existingAppointment) {
-    throw new AppointmentNotFoundError('Appointment not found');
+    throw new AppointmentNotFoundError("Appointment not found");
   }
 
   if (
-    nextStatus === 'CONFIRMED' &&
-    ['CANCELLED', 'COMPLETED'].includes(existingAppointment.status)
+    nextStatus === "CONFIRMED" &&
+    ["CANCELLED", "COMPLETED"].includes(existingAppointment.status)
   ) {
     throw new AppointmentValidationError(
-      'Cannot confirm appointment when status is ' + existingAppointment.status
+      "Cannot confirm appointment when status is " + existingAppointment.status,
     );
   }
 
@@ -454,18 +519,18 @@ const updateAppointmentPaymentState = async (appointmentId, payload) => {
 
   const updated = await existingAppointment.save();
 
-  if (nextStatus === 'COMPLETED') {
-    publishNotificationEvent('APPOINTMENT_COMPLETED', {
+  if (nextStatus === "COMPLETED") {
+    publishNotificationEvent("APPOINTMENT_COMPLETED", {
       appointmentId: String(updated._id),
       patientId: updated.patientId,
       doctorId: updated.doctorId,
       appointmentDate: updated.appointmentDate,
       startTime: updated.startTime,
       metadata: {
-        paymentStatus: updated.paymentStatus
+        paymentStatus: updated.paymentStatus,
       },
       email: updated.patientEmail || null,
-      phone: updated.patientPhone || null
+      phone: updated.patientPhone || null,
     });
   }
 
@@ -480,5 +545,5 @@ module.exports = {
   publishNotificationEvent,
   AppointmentValidationError,
   AppointmentConflictError,
-  AppointmentNotFoundError
+  AppointmentNotFoundError,
 };

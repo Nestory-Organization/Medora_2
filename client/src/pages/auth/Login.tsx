@@ -28,14 +28,16 @@ export default function Login() {
       if (response.success) {
         // Access token and user from response.data based on backend controller
         const { token, user } = response.data;
+        const normalizedRole = String(user?.role || '').toLowerCase();
+        const normalizedUser = { ...user, role: normalizedRole };
         
         localStorage.setItem('authToken', token);
-        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
         
         // Redirect based on role
-        if (user.role === 'admin') {
+        if (normalizedRole === 'admin') {
           navigate('/admin/dashboard');
-        } else if (user.role === 'doctor') {
+        } else if (normalizedRole === 'doctor') {
           navigate('/doctor/dashboard');
         } else {
           navigate('/patient/dashboard');
