@@ -127,6 +127,7 @@ aiApi.interceptors.request.use(
 
 export const analyzeSymptoms = async (data: {
   symptoms: string[];
+  description?: string;
   duration: string;
   severity: number;
   age: number;
@@ -140,6 +141,7 @@ export const analyzeSymptoms = async (data: {
     const normalizedData = {
       ...payload,
       symptoms: data.symptoms,
+      description: data.description,
       age: data.age,
       medicalHistory: data.medicalHistory,
       conditions,
@@ -152,6 +154,7 @@ export const analyzeSymptoms = async (data: {
         '',
       redFlags: Array.isArray(payload?.redFlags) ? payload.redFlags : [],
       recommendations: Array.isArray(payload?.recommendations) ? payload.recommendations : [],
+      possibleConditions: conditions, // Add this for consistency in history
     };
 
     return {

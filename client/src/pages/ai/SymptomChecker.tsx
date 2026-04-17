@@ -157,10 +157,10 @@ const SymptomChecker: React.FC = () => {
             <Sparkle size={18} weight="fill" className="text-cyan-400 animate-pulse" />
             <span className="text-sm font-bold tracking-[0.2em] uppercase text-cyan-200/80">Next-Gen Health Diagnostics</span>
           </motion.div>
-          <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter leading-tight italic">
-            Medora <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 underline decoration-cyan-500/30">AI</span>
+          <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter leading-tight italic flex items-center justify-center">
+            Medora <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 underline decoration-cyan-500/30 ml-4">AI</span>
           </h1>
-          <p className="text-cyan-100/60 max-w-2xl mx-auto text-xl font-light leading-relaxed">
+          <p className="text-cyan-100/60 mx-auto text-xl font-light leading-relaxed">
             Harnessing the power of advanced neural networks to provide rapid, accurate, and personalized health assessments.
           </p>
 
