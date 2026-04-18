@@ -1,5 +1,6 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import { usePatient } from '../api/PatientContext';
 import { 
   CalendarCheck, 
   User, 
@@ -97,6 +98,7 @@ const SidebarItem = ({ to, icon: Icon, label, badge, submenu }: SidebarItemProps
 
 export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin' }) {
   const navigate = useNavigate();
+  const { profile } = usePatient();
   const userStr = localStorage.getItem('user');
 
   let user = null;
@@ -111,6 +113,9 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
     localStorage.removeItem('user');
     navigate('/login');
   };
+
+  const sidebarFirstName = role === 'patient' ? (profile?.firstName || user?.firstName) : user?.firstName;
+  const sidebarLastName = role === 'patient' ? (profile?.lastName || user?.lastName) : user?.lastName;
 
   const navItems = role === 'patient' 
     ? [
@@ -194,7 +199,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
             <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border-2 border-slate-900 rounded-full" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-bold text-slate-200 truncate">{user?.firstName} {user?.lastName}</p>
+            <p className="text-[11px] font-bold text-slate-200 truncate">{sidebarFirstName} {sidebarLastName}</p>
             <p className="text-[9px] font-medium text-slate-500 capitalize">{user?.role || role}</p>
           </div>
           <button 
