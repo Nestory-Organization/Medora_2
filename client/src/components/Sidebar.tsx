@@ -16,6 +16,7 @@ import {
   VideoCamera,
   Stethoscope,
   ChartLine,
+  ArrowsClockwise,
   type IconProps
 } from '@phosphor-icons/react';
 
@@ -136,6 +137,11 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
           to: '/doctor/earnings', 
           icon: ChartLine, 
           label: 'My Earnings'
+        },
+        {
+          to: '/doctor/reschedule-requests',
+          icon: ArrowsClockwise,
+          label: 'Reschedule Requests'
         },
         { 
           to: '/doctor/profile', 

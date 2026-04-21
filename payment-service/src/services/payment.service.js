@@ -119,8 +119,62 @@ const validateWebhookPayload = (payload) => {
   }
 };
 
+const ensureAppointmentEligibleForPayment = async (appointmentId) => {
+  const baseUrl = String(env.appointmentServiceUrl || '').replace(/\/$/, '');
+  if (!baseUrl) {
+    throw new PaymentValidationError('Appointment service URL is not configured');
+  }
+
+  const targetUrl =
+    baseUrl +
+    '/appointments/' +
+    encodeURIComponent(String(appointmentId).trim()) +
+    '/payment-eligibility';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, env.serviceRequestTimeoutMs);
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json'
+      },
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new PaymentValidationError('Unable to verify appointment status for payment');
+    }
+
+    const payload = await response.json();
+    const eligible = payload?.data?.eligible === true;
+
+    if (!eligible) {
+      throw new PaymentValidationError(
+        payload?.data?.reason || 'Payment is allowed only after appointment acceptance'
+      );
+    }
+  } catch (error) {
+    if (error instanceof PaymentValidationError) {
+      throw error;
+    }
+
+    throw new PaymentValidationError(
+      error.name === 'AbortError'
+        ? 'Timed out while verifying appointment payment eligibility'
+        : 'Unable to verify appointment eligibility for payment'
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const createPaymentSession = async (payload) => {
   validateCreateSessionPayload(payload);
+  await ensureAppointmentEligibleForPayment(payload.appointmentId);
 
   const created = await Payment.create({
     appointmentId: payload.appointmentId.trim(),

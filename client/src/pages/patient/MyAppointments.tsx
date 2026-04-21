@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { 
   CalendarCheck, 
@@ -9,15 +9,20 @@ import {
   CheckCircle, 
   CaretDown,
   CaretUp,
-  CreditCard
+  CreditCard,
+  VideoCamera,
+  CalendarPlus,
+  X,
+  Warning
 } from '@phosphor-icons/react';
-import { getMyAppointments, cancelAppointment } from '../../api/patient';
+import { getMyAppointments, cancelAppointment, joinMeeting, requestReschedule, getDoctorAvailabilitySlots } from '../../api/patient';
 import PageTransition from '../../components/PageTransition';
 import EmptyState from '../../components/EmptyState';
 import { TableSkeleton } from '../../components/Skeleton';
 
-const AppointmentRow = ({ appointment, onCancel, navigate }: any) => {
+const AppointmentRow = ({ appointment, onCancel, navigate, onReschedule, onJoinMeeting }: any) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Map API response to component format
   const mapped = {
@@ -33,8 +38,20 @@ const AppointmentRow = ({ appointment, onCancel, navigate }: any) => {
     status: appointment.status === 'PENDING_PAYMENT' ? 'pending' : appointment.status?.toLowerCase(),
     specialty: appointment.specialty || 'General',
     paymentStatus: appointment.paymentStatus,
-    consultationFee: appointment.consultationFee
+    consultationFee: appointment.consultationFee,
+    appointmentDate: appointment.appointmentDate,
+    startTime: appointment.startTime,
+    endTime: appointment.endTime
   };
+  
+  // Check if appointment is in the future
+  const appointmentDateTime = new Date(mapped.appointmentDate);
+  const now = new Date();
+  const isFuture = appointmentDateTime > now;
+  
+  // Check if appointment is soon (within 24 hours) for join meeting button
+  const timeDiffMinutes = (appointmentDateTime.getTime() - now.getTime()) / (1000 * 60);
+  const canJoinMeeting = timeDiffMinutes <= 60 && timeDiffMinutes >= -15 && mapped.status === 'confirmed';
   
   const statusColors = {
     pending: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
@@ -46,6 +63,21 @@ const AppointmentRow = ({ appointment, onCancel, navigate }: any) => {
   const handlePayment = (e: any) => {
     e.stopPropagation();
     navigate(`/patient/payment?appointmentId=${mapped.id}`);
+  };
+
+  const handleJoinMeeting = async (e: any) => {
+    e.stopPropagation();
+    setIsLoading(true);
+    try {
+      await onJoinMeeting(mapped.id);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReschedule = (e: any) => {
+    e.stopPropagation();
+    onReschedule(appointment);
   };
 
   return (
@@ -68,6 +100,24 @@ const AppointmentRow = ({ appointment, onCancel, navigate }: any) => {
                 <span className="w-1 h-1 rounded-full bg-slate-700" />
                 <Clock size={14} weight="duotone" /> {mapped.time}
               </p>
+              {appointment.rescheduleRequest?.status === 'PENDING' && (
+                <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-2 flex items-center gap-1.5">
+                  <Warning size={12} weight="duotone" /> 
+                  Reschedule request pending
+                </p>
+              )}
+              {appointment.rescheduleRequest?.status === 'APPROVED' && (
+                <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mt-2 flex items-center gap-1.5">
+                  <CheckCircle size={12} weight="duotone" /> 
+                  Rescheduled to {new Date(appointment.rescheduleRequest.requestedDate).toLocaleDateString()} at {appointment.rescheduleRequest.requestedStartTime}
+                </p>
+              )}
+              {appointment.rescheduleRequest?.status === 'REJECTED' && (
+                <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest mt-2 flex items-center gap-1.5">
+                  <Warning size={12} weight="duotone" /> 
+                  Reschedule request declined
+                </p>
+              )}
             </div>
           </div>
           
@@ -78,20 +128,39 @@ const AppointmentRow = ({ appointment, onCancel, navigate }: any) => {
               </span>
               {mapped.paymentStatus && <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">{mapped.paymentStatus}</p>}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               {mapped.status === 'pending' && (
                 <button 
                   onClick={handlePayment}
-                  className="px-4 py-2.5 bg-teal-500/10 text-teal-400 rounded-xl font-bold uppercase text-[10px] hover:bg-teal-500 hover:text-white transition-all shadow-lg active:scale-95 border border-teal-500/20 flex items-center gap-2 whitespace-nowrap"
+                  className="px-3 py-2 bg-teal-500/10 text-teal-400 rounded-xl font-bold uppercase text-[10px] hover:bg-teal-500 hover:text-white transition-all shadow-lg active:scale-95 border border-teal-500/20 flex items-center gap-1.5 whitespace-nowrap"
                 >
-                  <CreditCard size={14} />
-                  Pay Now
+                  <CreditCard size={13} />
+                  Pay
+                </button>
+              )}
+              {canJoinMeeting && (
+                <button 
+                  onClick={handleJoinMeeting}
+                  disabled={isLoading}
+                  className="px-3 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl font-bold uppercase text-[10px] hover:bg-emerald-500 hover:text-white transition-all shadow-lg active:scale-95 border border-emerald-500/20 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <VideoCamera size={13} weight="fill" />
+                  {isLoading ? 'Joining...' : 'Join'}
+                </button>
+              )}
+              {isFuture && mapped.status !== 'cancelled' && mapped.status !== 'completed' && appointment.rescheduleRequest?.status !== 'PENDING' && (
+                <button 
+                  onClick={handleReschedule}
+                  className="px-3 py-2 bg-blue-500/10 text-blue-400 rounded-xl font-bold uppercase text-[10px] hover:bg-blue-500 hover:text-white transition-all shadow-lg active:scale-95 border border-blue-500/20 flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <CalendarPlus size={13} />
+                  Reschedule
                 </button>
               )}
               {mapped.status !== 'cancelled' && mapped.status !== 'completed' && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); onCancel(mapped.id); }}
-                  className="px-6 py-2.5 bg-rose-500/10 text-rose-500 rounded-xl font-bold uppercase text-[10px] hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-95 border border-rose-500/10"
+                  className="px-3 py-2 bg-rose-500/10 text-rose-500 rounded-xl font-bold uppercase text-[10px] hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-95 border border-rose-500/10 whitespace-nowrap"
                 >
                   Cancel
                 </button>
@@ -147,10 +216,23 @@ const AppointmentRow = ({ appointment, onCancel, navigate }: any) => {
 
 export default function MyAppointments() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'history'>('all');
+  const [rescheduleModal, setRescheduleModal] = useState<{ isOpen: boolean; appointmentId: string | null; doctorId: string | null }>({
+    isOpen: false,
+    appointmentId: null,
+    doctorId: null
+  });
+  const [rescheduleForm, setRescheduleForm] = useState({
+    newDate: '',
+    startTime: '',
+    endTime: '',
+    reason: ''
+  });
+  const [availableSlots, setAvailableSlots] = useState<Array<{ startTime: string; endTime: string }>>([]);
+  const [slotLoading, setSlotLoading] = useState(false);
+  const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -179,6 +261,97 @@ export default function MyAppointments() {
       setAppointments(prev => prev.map(a => a._id === id ? { ...a, status: 'CANCELLED' } : a));
     } catch (err) {
       console.error("Cancel failed", err);
+    }
+  };
+
+  const loadAvailableSlots = async (doctorId: string, date: string) => {
+    setSlotLoading(true);
+    try {
+      const slots = await getDoctorAvailabilitySlots(doctorId, date);
+      setAvailableSlots(slots);
+    } catch (error) {
+      console.error('Failed to load doctor slots', error);
+      setAvailableSlots([]);
+    } finally {
+      setSlotLoading(false);
+    }
+  };
+
+  const handleReschedule = (appointment: any) => {
+    const dateValue = new Date().toISOString().split('T')[0];
+    setRescheduleModal({ isOpen: true, appointmentId: appointment._id, doctorId: appointment.doctorId });
+    setRescheduleForm({ newDate: '', startTime: '', endTime: '', reason: '' });
+
+    if (appointment?.doctorId) {
+      setRescheduleForm((prev) => ({ ...prev, newDate: dateValue }));
+      loadAvailableSlots(appointment.doctorId, dateValue);
+    }
+  };
+
+  const handleRescheduleDateChange = async (newDate: string) => {
+    setRescheduleForm((prev) => ({ ...prev, newDate, startTime: '', endTime: '' }));
+
+    if (!rescheduleModal.doctorId || !newDate) {
+      setAvailableSlots([]);
+      return;
+    }
+
+    await loadAvailableSlots(rescheduleModal.doctorId, newDate);
+  };
+
+  const handleSlotSelect = (startTime: string, endTime: string) => {
+    setRescheduleForm((prev) => ({ ...prev, startTime, endTime }));
+  };
+
+  const handleRescheduleSubmit = async () => {
+    if (!rescheduleForm.newDate || !rescheduleForm.startTime || !rescheduleForm.endTime) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    if (!rescheduleModal.appointmentId) return;
+
+    setIsSubmittingReschedule(true);
+    try {
+      const response = await requestReschedule(
+        rescheduleModal.appointmentId,
+        rescheduleForm.newDate,
+        rescheduleForm.startTime,
+        rescheduleForm.endTime,
+        rescheduleForm.reason
+      );
+
+      if (response.success) {
+        alert('Reschedule request sent! Waiting for doctor approval.');
+        setAppointments(prev =>
+          prev.map(a => a._id === rescheduleModal.appointmentId
+            ? { ...a, rescheduleRequest: response.data.rescheduleRequest }
+            : a
+          )
+        );
+        setRescheduleModal({ isOpen: false, appointmentId: null, doctorId: null });
+        setAvailableSlots([]);
+      }
+    } catch (err) {
+      console.error("Reschedule request failed", err);
+      alert('Failed to submit reschedule request');
+    } finally {
+      setIsSubmittingReschedule(false);
+    }
+  };
+
+  const handleJoinMeeting = async (appointmentId: string) => {
+    try {
+      const response = await joinMeeting(appointmentId);
+      const roomId = response?.data?.roomId;
+      if (roomId) {
+        // Navigate to telemedicine room
+        navigate(`/patient-telemedicine/${roomId}`);
+      } else {
+        console.error("No room ID received");
+      }
+    } catch (err) {
+      console.error("Failed to join meeting", err);
     }
   };
 
@@ -226,7 +399,7 @@ export default function MyAppointments() {
           {loading ? (
             <TableSkeleton rows={4} />
           ) : filteredAppointments.length > 0 ? (
-            filteredAppointments.map((a, idx) => <AppointmentRow key={idx} appointment={a} onCancel={handleCancel} navigate={navigate} />)
+            filteredAppointments.map((a, idx) => <AppointmentRow key={idx} appointment={a} onCancel={handleCancel} navigate={navigate} onReschedule={handleReschedule} onJoinMeeting={handleJoinMeeting} />)
           ) : (
             <EmptyState 
               type="appointments"
@@ -240,6 +413,143 @@ export default function MyAppointments() {
           )}
         </div>
       </div>
+
+      {/* Reschedule Request Modal */}
+      <AnimatePresence>
+        {rescheduleModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            onClick={() => {
+              setRescheduleModal({ isOpen: false, appointmentId: null, doctorId: null });
+              setAvailableSlots([]);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="bg-linear-to-r from-blue-600/20 to-teal-600/20 border-b border-white/10 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                    <CalendarPlus size={20} className="text-blue-400" weight="duotone" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Request Reschedule</h3>
+                    <p className="text-xs text-slate-400">Doctor approval required</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setRescheduleModal({ isOpen: false, appointmentId: null, doctorId: null });
+                    setAvailableSlots([]);
+                  }}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X size={20} weight="bold" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">
+                    New Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={rescheduleForm.newDate}
+                    onChange={(e) => handleRescheduleDateChange(e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">
+                    Available Slots *
+                  </label>
+                  {slotLoading ? (
+                    <div className="text-sm text-slate-400">Loading available slots...</div>
+                  ) : availableSlots.length === 0 ? (
+                    <div className="text-sm text-slate-400 bg-slate-800/40 border border-slate-700 rounded-xl px-3 py-2">
+                      No available slots for this date.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {availableSlots.map((slot) => {
+                        const isSelected = rescheduleForm.startTime === slot.startTime && rescheduleForm.endTime === slot.endTime;
+                        return (
+                          <button
+                            key={`${slot.startTime}-${slot.endTime}`}
+                            type="button"
+                            onClick={() => handleSlotSelect(slot.startTime, slot.endTime)}
+                            className={`px-3 py-2 rounded-lg border text-xs font-bold transition-colors ${isSelected ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-blue-500/50'}`}
+                          >
+                            {slot.startTime} - {slot.endTime}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">
+                    Reason (Optional)
+                  </label>
+                  <textarea
+                    value={rescheduleForm.reason}
+                    onChange={(e) => setRescheduleForm({ ...rescheduleForm, reason: e.target.value })}
+                    placeholder="Why do you need to reschedule?"
+                    className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors resize-none h-20"
+                  />
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 flex gap-2">
+                  <Warning size={16} className="text-blue-400 shrink-0 mt-0.5" weight="duotone" />
+                  <p className="text-xs text-blue-200">Doctor will review your request. No additional payment needed.</p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-950/50 border-t border-white/10 px-6 py-4 flex gap-3">
+                <button
+                  onClick={() => {
+                    setRescheduleModal({ isOpen: false, appointmentId: null, doctorId: null });
+                    setAvailableSlots([]);
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-slate-800/50 text-slate-300 rounded-xl font-semibold hover:bg-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRescheduleSubmit}
+                  disabled={isSubmittingReschedule}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {isSubmittingReschedule ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <CalendarPlus size={16} weight="bold" />
+                      Request Change
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageTransition>
   );
 }

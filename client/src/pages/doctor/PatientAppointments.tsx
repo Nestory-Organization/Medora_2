@@ -265,9 +265,17 @@ export default function PatientAppointments() {
   const handleStatusUpdate = async (appointmentId: string, newStatus: string) => {
     try {
       const token = localStorage.getItem('authToken');
+      const declineReason =
+        newStatus === 'CANCELLED'
+          ? window.prompt('Optional: add a reason for declining this appointment')?.trim() || ''
+          : '';
+
       const response = await axios.put(
-        `http://localhost:4000/api/doctors/appointment/${appointmentId}/status`,
-        { status: newStatus },
+        `http://localhost:4000/api/appointments/${appointmentId}/doctor-status`,
+        {
+          status: newStatus,
+          declineReason: declineReason || undefined
+        },
         {
           headers: { Authorization: `Bearer ${token}` }
         }

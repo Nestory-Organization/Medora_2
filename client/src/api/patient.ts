@@ -164,8 +164,47 @@ export const searchDoctors = async (specialty: string, date?: string) => {
     return response.data;
 };
 
+export const getDoctorAvailabilitySlots = async (doctorId: string, date: string) => {
+  const response = await patientApi.get('/doctors/availability', {
+    params: { doctorId, date }
+  });
+
+  const availabilities = Array.isArray(response.data?.data) ? response.data.data : [];
+  const slots = availabilities.flatMap((item: any) => Array.isArray(item?.slots) ? item.slots : []);
+  return slots.filter((slot: any) => slot?.isBooked === false);
+};
+
 export const cancelAppointment = async (id: string) => {
     const response = await patientApi.put(`/appointments/cancel/${id}`);
+    return response.data;
+};
+
+export const rescheduleAppointment = async (id: string, newDate: string, newStartTime: string, newEndTime: string) => {
+    const response = await patientApi.put(`/appointments/${id}`, {
+        appointmentDate: newDate,
+        startTime: newStartTime,
+        endTime: newEndTime
+    });
+    return response.data;
+};
+
+export const requestReschedule = async (appointmentId: string, requestedDate: string, requestedStartTime: string, requestedEndTime: string, reason?: string) => {
+    const response = await patientApi.post(`/appointments/${appointmentId}/reschedule-request`, {
+        requestedDate,
+        requestedStartTime,
+        requestedEndTime,
+        reason: reason || 'Patient requested to reschedule'
+    });
+    return response.data;
+};
+
+export const getTelemedicineSession = async (appointmentId: string) => {
+    const response = await patientApi.get(`/appointments/${appointmentId}/telemedicine`);
+    return response.data;
+};
+
+export const joinMeeting = async (appointmentId: string) => {
+    const response = await patientApi.post(`/appointments/${appointmentId}/telemedicine`);
     return response.data;
 };
 

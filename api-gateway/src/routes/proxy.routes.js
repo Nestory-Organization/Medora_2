@@ -68,8 +68,8 @@ router.use(
   createProxyMiddleware({
     ...proxyOptions(env.doctorServiceUrl, "doctors"),
     pathRewrite: (path) => {
-      // Remove the "/doctors" prefix since it's already been matched by the router
-      const newPath = path.startsWith('/doctors') ? path.slice(8) : path;
+      // Support both path formats from proxy middleware (with or without matched prefix).
+      const newPath = path.startsWith('/doctors') ? path.slice('/doctors'.length) : path;
       console.log(`[DOCTORS PROXY] Original: ${path}, Rewritten: /doctor${newPath}`);
       return `/doctor${newPath}`;
     },
@@ -80,7 +80,11 @@ router.use(
   "/appointments",
   createProxyMiddleware({
     ...proxyOptions(env.appointmentServiceUrl, "appointments"),
-    pathRewrite: (path) => `/appointments${path}`,
+    pathRewrite: (path) => {
+      // Support both path formats from proxy middleware (with or without matched prefix).
+      const newPath = path.startsWith('/appointments') ? path.slice('/appointments'.length) : path;
+      return `/appointments${newPath}`;
+    },
   }),
 );
 router.use(

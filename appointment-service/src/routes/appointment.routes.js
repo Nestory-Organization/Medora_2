@@ -11,8 +11,10 @@ const {
 } = require('../controllers/appointmentManagement.controller');
 const {
 	getAppointmentStatusById,
+  getAppointmentPaymentEligibility,
 	getAppointmentById,
-	getDoctorAppointmentsById
+  getDoctorAppointmentsById,
+  updateDoctorAppointmentStatus
 } = require('../controllers/appointmentTracking.controller');
 const {
 	getOrCreateTelemedicineSession,
@@ -23,7 +25,13 @@ const {
 	addSessionNotes,
 	getSessionByRoomId
 } = require('../controllers/telemedicine.controller');
-const { authenticate } = require('../middleware/auth.middleware');
+const {
+	requestReschedule,
+	approveReschedule,
+	rejectReschedule,
+	getDoctorRescheduleRequests
+} = require('../controllers/rescheduleRequest.controller');
+const { authenticate, authorize } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
@@ -46,6 +54,12 @@ router.get('/my-appointments', getPatientAppointments);
 
 // GET /doctor/:doctorId - specific route for doctor's appointments
 router.get('/doctor/:doctorId', getDoctorAppointmentsById);
+
+// PUT /:id/doctor-status - doctor accepts/declines appointment
+router.put('/:id/doctor-status', authenticate, authorize('doctor'), updateDoctorAppointmentStatus);
+
+// GET /:id/payment-eligibility - payment-service checks if patient can pay
+router.get('/:id/payment-eligibility', getAppointmentPaymentEligibility);
 
 // GET /patient/:patientId/prescriptions - get prescriptions from appointments for a patient
 router.get('/patient/:patientId/prescriptions', async (req, res) => {
@@ -96,6 +110,12 @@ router.get('/patient/:patientId/prescriptions', async (req, res) => {
 // Telemedicine routes - must come before :id routes
 // Public route for patient to access session by roomId
 router.get('/telemedicine/room/:roomId', getSessionByRoomId);
+
+// Reschedule request routes - must come before :id routes
+router.post('/:appointmentId/reschedule-request', requestReschedule);
+router.put('/:appointmentId/reschedule-request/approve', approveReschedule);
+router.put('/:appointmentId/reschedule-request/reject', rejectReschedule);
+router.get('/doctor/:doctorId/reschedule-requests', getDoctorRescheduleRequests);
 
 router.get('/:appointmentId/telemedicine', authenticate, getOrCreateTelemedicineSession);
 router.post('/:appointmentId/telemedicine', authenticate, initiateTelemedicineCall);

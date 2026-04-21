@@ -22,6 +22,11 @@ const {
   completeAppointment,
   addPatientReport
 } = require('../controllers/prescriptionAndSession.controller');
+const {
+  getPendingRescheduleRequests,
+  approveRescheduleRequest,
+  rejectRescheduleRequest
+} = require('../controllers/rescheduleRequest.controller');
 const { 
   authenticate, 
   authorizeDoctor, 
@@ -63,6 +68,11 @@ router.patch('/appointment/:appointmentId/complete', completeAppointment);
 
 // Patient report/documentation
 router.post('/appointment/:appointmentId/report', addPatientReport);
+
+// Reschedule request endpoints
+router.get('/reschedule-requests/:doctorId', getPendingRescheduleRequests);
+router.put('/appointment/:appointmentId/reschedule-request/approve', approveRescheduleRequest);
+router.put('/appointment/:appointmentId/reschedule-request/reject', rejectRescheduleRequest);
 
 // --- PUBLIC ENDPOINTS (No middleware applied individually) ---
 // These are currently under router.use(authenticate, ...)

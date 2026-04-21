@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, PhoneX, Microphone, MicrophoneSlash, Camera, CameraSlash, Copy, Check, Warning } from '@phosphor-icons/react';
+import { ArrowLeft, PhoneX, Camera, Copy, Check, Warning } from '@phosphor-icons/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
@@ -16,6 +16,17 @@ interface TelemedicineSession {
   createdAt: string;
 }
 
+interface JitsiApi {
+  addEventListener: (event: string, listener: () => void) => void;
+  dispose: () => void;
+}
+
+declare global {
+  interface Window {
+    JitsiMeetExternalAPI?: new (domain: string, options: any) => JitsiApi;
+  }
+}
+
 export default function DoctorTelemedicine() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const navigate = useNavigate();
@@ -23,18 +34,75 @@ export default function DoctorTelemedicine() {
   const [loading, setLoading] = useState(true);
   const [initiating, setInitiating] = useState(false);
   const [callActive, setCallActive] = useState(false);
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
   const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [paymentRequired, setPaymentRequired] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
+  const jitsiContainerRef = useRef<HTMLDivElement>(null);
+  const jitsiApiRef = useRef<JitsiApi | null>(null);
 
   useEffect(() => {
     fetchSession();
-    return () => stopLocalStream();
+    return () => {
+      jitsiApiRef.current?.dispose();
+      jitsiApiRef.current = null;
+    };
   }, [appointmentId]);
+
+  const loadJitsiApiScript = () =>
+    new Promise<void>((resolve, reject) => {
+      if (window.JitsiMeetExternalAPI) {
+        resolve();
+        return;
+      }
+
+      const existingScript = document.querySelector('script[data-jitsi="external-api"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => resolve(), { once: true });
+        existingScript.addEventListener('error', () => reject(new Error('Failed to load Jitsi API')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://meet.jit.si/external_api.js';
+      script.async = true;
+      script.setAttribute('data-jitsi', 'external-api');
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Jitsi API'));
+      document.body.appendChild(script);
+    });
+
+  const initializeJitsiMeeting = async (roomName: string) => {
+    await loadJitsiApiScript();
+
+    if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) {
+      throw new Error('Jitsi API not available');
+    }
+
+    jitsiApiRef.current?.dispose();
+
+    const user = localStorage.getItem('user');
+    const parsedUser = user ? JSON.parse(user) : null;
+
+    const api = new window.JitsiMeetExternalAPI('meet.jit.si', {
+      roomName,
+      parentNode: jitsiContainerRef.current,
+      width: '100%',
+      height: '100%',
+      userInfo: {
+        displayName: parsedUser?.name || parsedUser?.fullName || 'Doctor',
+        email: parsedUser?.email || undefined
+      },
+      configOverwrite: {
+        prejoinPageEnabled: true
+      }
+    });
+
+    api.addEventListener('videoConferenceLeft', () => {
+      setCallActive(false);
+    });
+
+    jitsiApiRef.current = api;
+  };
 
   const fetchSession = async () => {
     setLoading(true);
@@ -69,7 +137,7 @@ export default function DoctorTelemedicine() {
       if (response.data.success) {
         setSession(response.data.data);
         setMessage({ type: 'success', text: 'Video session initiated' });
-        setTimeout(() => startCall(), 1000);
+        await startCall(response.data.data.sessionId);
       }
     } catch (error: any) {
       if (error.response?.status === 402) {
@@ -82,49 +150,22 @@ export default function DoctorTelemedicine() {
     }
   };
 
-  const startCall = async () => {
+  const startCall = async (sessionId?: string) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true
-      });
-      localStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      const roomName = sessionId || session?.sessionId;
+      if (!roomName) {
+        throw new Error('Session ID unavailable');
       }
+      await initializeJitsiMeeting(roomName);
       setCallActive(true);
     } catch (error: any) {
-      setMessage({ type: 'error', text: 'Failed to access camera/microphone' });
-    }
-  };
-
-  const stopLocalStream = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
-    }
-  };
-
-  const toggleMic = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setMicEnabled(!micEnabled);
-    }
-  };
-
-  const toggleVideo = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setVideoEnabled(!videoEnabled);
+      setMessage({ type: 'error', text: error?.message || 'Failed to start Jitsi meeting' });
     }
   };
 
   const endCall = async () => {
-    stopLocalStream();
+    jitsiApiRef.current?.dispose();
+    jitsiApiRef.current = null;
     setCallActive(false);
     try {
       const token = localStorage.getItem('authToken');
@@ -235,16 +276,10 @@ export default function DoctorTelemedicine() {
 
         {!loading && !paymentRequired && callActive && (
           <div className="space-y-6">
-            <div className="bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center border-4 border-pink-500/30">
-              <video ref={videoRef} autoPlay muted className="w-full h-full object-cover" />
+            <div className="bg-black rounded-lg overflow-hidden aspect-video border-4 border-pink-500/30 min-h-140">
+              <div ref={jitsiContainerRef} className="w-full h-full" />
             </div>
             <div className="bg-slate-900/60 border border-white/10 rounded-lg p-6 flex justify-center gap-4">
-              <button onClick={toggleMic} className={`p-4 rounded-full ${micEnabled ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500/30 text-red-300'}`}>
-                {micEnabled ? <Microphone size={20} weight="bold" /> : <MicrophoneSlash size={20} weight="bold" />}
-              </button>
-              <button onClick={toggleVideo} className={`p-4 rounded-full ${videoEnabled ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500/30 text-red-300'}`}>
-                {videoEnabled ? <Camera size={20} weight="bold" /> : <CameraSlash size={20} weight="bold" />}
-              </button>
               <button onClick={endCall} className="p-4 rounded-full bg-red-500 hover:bg-red-600 text-white">
                 <PhoneX size={20} weight="bold" />
               </button>

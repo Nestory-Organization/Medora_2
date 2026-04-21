@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, PhoneX, Microphone, MicrophoneSlash, Camera, CameraSlash, Warning } from '@phosphor-icons/react';
+import { ArrowLeft, PhoneX, Camera, Warning } from '@phosphor-icons/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
@@ -17,6 +17,17 @@ interface TelemedicineSession {
   createdAt: string;
 }
 
+interface JitsiApi {
+  addEventListener: (event: string, listener: () => void) => void;
+  dispose: () => void;
+}
+
+declare global {
+  interface Window {
+    JitsiMeetExternalAPI?: new (domain: string, options: any) => JitsiApi;
+  }
+}
+
 export default function PatientTelemedicineSession() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
@@ -24,18 +35,73 @@ export default function PatientTelemedicineSession() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [callActive, setCallActive] = useState(false);
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
+  const jitsiContainerRef = useRef<HTMLDivElement>(null);
+  const jitsiApiRef = useRef<JitsiApi | null>(null);
 
   useEffect(() => {
     fetchSession();
     return () => {
-      stopLocalStream();
+      jitsiApiRef.current?.dispose();
+      jitsiApiRef.current = null;
     };
   }, [roomId]);
+
+  const loadJitsiApiScript = () =>
+    new Promise<void>((resolve, reject) => {
+      if (window.JitsiMeetExternalAPI) {
+        resolve();
+        return;
+      }
+
+      const existingScript = document.querySelector('script[data-jitsi="external-api"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => resolve(), { once: true });
+        existingScript.addEventListener('error', () => reject(new Error('Failed to load Jitsi API')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://meet.jit.si/external_api.js';
+      script.async = true;
+      script.setAttribute('data-jitsi', 'external-api');
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Jitsi API'));
+      document.body.appendChild(script);
+    });
+
+  const initializeJitsiMeeting = async (sessionId: string) => {
+    await loadJitsiApiScript();
+
+    if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) {
+      throw new Error('Jitsi API not available');
+    }
+
+    jitsiApiRef.current?.dispose();
+
+    const user = localStorage.getItem('user');
+    const parsedUser = user ? JSON.parse(user) : null;
+
+    const api = new window.JitsiMeetExternalAPI('meet.jit.si', {
+      roomName: sessionId,
+      parentNode: jitsiContainerRef.current,
+      width: '100%',
+      height: '100%',
+      userInfo: {
+        displayName: parsedUser?.name || parsedUser?.fullName || 'Patient',
+        email: parsedUser?.email || undefined
+      },
+      configOverwrite: {
+        prejoinPageEnabled: true
+      }
+    });
+
+    api.addEventListener('videoConferenceLeft', () => {
+      handleLeaveSession(false);
+    });
+
+    jitsiApiRef.current = api;
+  };
 
   const fetchSession = async () => {
     setLoading(true);
@@ -61,8 +127,12 @@ export default function PatientTelemedicineSession() {
   const joinCall = async () => {
     setJoining(true);
     try {
-      // Start local media
-      await startCall();
+      if (!session?.sessionId) {
+        throw new Error('Session not ready');
+      }
+
+      await initializeJitsiMeeting(session.sessionId);
+      setCallActive(true);
 
       // Notify backend that patient has joined
       if (session) {
@@ -83,71 +153,15 @@ export default function PatientTelemedicineSession() {
       setMessage({ type: 'success', text: 'Connected to session' });
     } catch (error: any) {
       console.error('Join call error:', error);
-      let errorMsg = 'Failed to access camera/microphone';
-      if (error.name === 'NotAllowedError') {
-        errorMsg = 'Camera/microphone permission denied. Please enable in browser settings.';
-      } else if (error.name === 'NotFoundError') {
-        errorMsg = 'No camera/microphone device found';
-      }
+      const errorMsg = error?.message || 'Failed to join Jitsi meeting';
       setMessage({ type: 'error', text: errorMsg });
     } finally {
       setJoining(false);
     }
   };
-
-  const startCall = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true
-      });
-
-      localStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setCallActive(true);
-
-      // Track media status
-      stream.getVideoTracks().forEach(track => {
-        track.onended = () => setVideoEnabled(false);
-      });
-      stream.getAudioTracks().forEach(track => {
-        track.onended = () => setMicEnabled(false);
-      });
-    } catch (error: any) {
-      console.error('Media access error:', error);
-      throw error;
-    }
-  };
-
-  const stopLocalStream = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
-    }
-  };
-
-  const toggleMic = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setMicEnabled(!micEnabled);
-    }
-  };
-
-  const toggleVideo = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setVideoEnabled(!videoEnabled);
-    }
-  };
-
-  const endCall = async () => {
-    stopLocalStream();
+  const handleLeaveSession = async (navigateAway = true) => {
+    jitsiApiRef.current?.dispose();
+    jitsiApiRef.current = null;
     setCallActive(false);
 
     try {
@@ -165,9 +179,11 @@ export default function PatientTelemedicineSession() {
       console.error('Leave session error:', error);
     }
 
-    setTimeout(() => {
-      navigate('/patient/dashboard');
-    }, 1500);
+    if (navigateAway) {
+      setTimeout(() => {
+        navigate('/patient/dashboard');
+      }, 600);
+    }
   };
 
   return (
@@ -214,7 +230,7 @@ export default function PatientTelemedicineSession() {
             ))}
           </div>
         ) : !session ? (
-          <div className="bg-gradient-to-br from-slate-900/60 to-slate-800/40 border border-red-500/30 rounded-2xl p-8">
+          <div className="bg-linear-to-br from-slate-900/60 to-slate-800/40 border border-red-500/30 rounded-2xl p-8">
             <div className="flex items-center gap-4 mb-4">
               <Warning size={32} className="text-red-400" />
               <h2 className="text-2xl font-black text-red-300 uppercase italic">Invalid Session</h2>
@@ -231,7 +247,7 @@ export default function PatientTelemedicineSession() {
           /* Waiting to Join */
           <div className="space-y-6">
             {/* Session Info Card */}
-            <div className="bg-gradient-to-br from-slate-900/60 to-slate-800/40 border border-white/10 rounded-2xl p-8 shadow-2xl">
+            <div className="bg-linear-to-br from-slate-900/60 to-slate-800/40 border border-white/10 rounded-2xl p-8 shadow-2xl">
               <h2 className="text-xl font-black text-white mb-4 uppercase italic tracking-tight">Session Details</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -264,7 +280,7 @@ export default function PatientTelemedicineSession() {
             </div>
 
             {/* Camera Preview */}
-            <div className="bg-gradient-to-br from-slate-900/60 to-slate-800/40 border border-white/10 rounded-2xl p-8 overflow-hidden">
+            <div className="bg-linear-to-br from-slate-900/60 to-slate-800/40 border border-white/10 rounded-2xl p-8 overflow-hidden">
               <h2 className="text-xl font-black text-white mb-4 uppercase italic tracking-tight">Camera Preview</h2>
               <div className="bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center mb-4 border border-white/10">
                 <div className="text-center">
@@ -308,7 +324,7 @@ export default function PatientTelemedicineSession() {
               <button
                 onClick={joinCall}
                 disabled={joining}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-white transition-all uppercase tracking-wide flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-3 bg-linear-to-r from-blue-500 to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-white transition-all uppercase tracking-wide flex items-center justify-center gap-2"
               >
                 {joining ? (
                   <>
@@ -327,45 +343,14 @@ export default function PatientTelemedicineSession() {
         ) : (
           /* During Call */
           <div className="space-y-6">
-            {/* Main Video */}
-            <div className="bg-black rounded-2xl overflow-hidden aspect-video flex items-center justify-center border-4 border-blue-500/30 shadow-2xl shadow-blue-500/20">
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                className="w-full h-full object-cover"
-              />
+            <div className="bg-black rounded-2xl overflow-hidden aspect-video border-4 border-blue-500/30 shadow-2xl shadow-blue-500/20 min-h-140">
+              <div ref={jitsiContainerRef} className="w-full h-full" />
             </div>
 
-            {/* Call Controls */}
             <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-6">
               <div className="flex justify-center gap-4">
                 <button
-                  onClick={toggleMic}
-                  className={`p-4 rounded-full transition-all ${
-                    micEnabled
-                      ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/30'
-                      : 'bg-red-500/30 border border-red-500/50 text-red-300'
-                  }`}
-                  title={micEnabled ? 'Mute' : 'Unmute'}
-                >
-                  {micEnabled ? <Microphone size={24} weight="bold" /> : <MicrophoneSlash size={24} weight="bold" />}
-                </button>
-
-                <button
-                  onClick={toggleVideo}
-                  className={`p-4 rounded-full transition-all ${
-                    videoEnabled
-                      ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/30'
-                      : 'bg-red-500/30 border border-red-500/50 text-red-300'
-                  }`}
-                  title={videoEnabled ? 'Stop Video' : 'Start Video'}
-                >
-                  {videoEnabled ? <Camera size={24} weight="bold" /> : <CameraSlash size={24} weight="bold" />}
-                </button>
-
-                <button
-                  onClick={endCall}
+                  onClick={() => handleLeaveSession(true)}
                   className="p-4 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg shadow-red-500/30"
                   title="End Call"
                 >

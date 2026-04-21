@@ -9,6 +9,8 @@ const APPOINTMENT_STATUSES = [
 
 const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'FAILED', 'REFUNDED'];
 
+const RESCHEDULE_REQUEST_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'];
+
 const appointmentSchema = new mongoose.Schema(
   {
     patientId: {
@@ -77,6 +79,41 @@ const appointmentSchema = new mongoose.Schema(
       enum: PAYMENT_STATUSES,
       default: 'UNPAID',
       index: true
+    },
+    rescheduleRequest: {
+      status: {
+        type: String,
+        enum: RESCHEDULE_REQUEST_STATUSES,
+        default: null
+      },
+      requestedDate: {
+        type: Date,
+        default: null
+      },
+      requestedStartTime: {
+        type: String,
+        default: null
+      },
+      requestedEndTime: {
+        type: String,
+        default: null
+      },
+      reason: {
+        type: String,
+        default: null
+      },
+      createdAt: {
+        type: Date,
+        default: null
+      },
+      approvedAt: {
+        type: Date,
+        default: null
+      },
+      rejectionReason: {
+        type: String,
+        default: null
+      }
     }
   },
   {
