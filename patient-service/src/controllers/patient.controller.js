@@ -762,15 +762,17 @@ const getPrescriptions = async (req, res) => {
       Prescription.countDocuments(query),
     ]);
 
-    // Fetch prescriptions from appointment-service
-    let appointmentServicePrescriptions = [];
+    // Fetch prescriptions from doctor-service (where prescriptions are actually stored)
+    let doctorServicePrescriptions = [];
     try {
-      const appointmentServiceUrl = process.env.APPOINTMENT_SERVICE_URL || "http://appointment-service:4004";
+      const doctorServiceUrl = process.env.DOCTOR_SERVICE_URL || "http://doctor-service:4003";
+      // We use patient.userId because doctor-service stores appointments using the global userId as patientId
+      const idToUse = patient.userId || patient._id;
       const response = await axios.get(
-        `${appointmentServiceUrl}/appointments/patient/${patient._id}/prescriptions`,
+        `${doctorServiceUrl}/doctor/patient/${idToUse}/prescriptions`,
         { timeout: 5000 }
       );
-      appointmentServicePrescriptions = (response.data?.data || response.data?.prescriptions || [])
+      doctorServicePrescriptions = (response.data?.data || [])
         .map((item) => ({
           ...item,
           medicine: item.medicines,
@@ -780,8 +782,8 @@ const getPrescriptions = async (req, res) => {
           doctorSpecialty: item.doctorSpecialty,
         }));
     } catch (err) {
-      console.warn("[getPrescriptions] Failed to fetch from appointment-service:", err.message);
-      // Don't fail the entire request if appointment-service is unavailable
+      console.warn("[getPrescriptions] Failed to fetch from doctor-service:", err.message);
+      // Don't fail the entire request if doctor-service is unavailable
     }
 
     // Combine prescriptions from both services
@@ -794,7 +796,7 @@ const getPrescriptions = async (req, res) => {
           specialty: item.doctorSpecialty || null,
         },
       })),
-      ...appointmentServicePrescriptions,
+      ...doctorServicePrescriptions,
     ];
 
     // Sort by date descending and apply pagination

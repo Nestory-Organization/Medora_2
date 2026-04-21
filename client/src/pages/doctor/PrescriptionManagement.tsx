@@ -48,9 +48,14 @@ export default function PrescriptionManagement() {
       );
 
       if (response.data.success && response.data.data) {
-        setPrescription(response.data.data);
-        setMedicines(response.data.data.medicines);
-        setNotes(response.data.data.notes || '');
+        const data = response.data.data;
+        setPrescription(data);
+        // The doctor-service returns the prescription object within a 'prescription' field
+        const meds = data.prescription?.medicines || data.medicines;
+        if (meds) {
+          setMedicines(meds);
+        }
+        setNotes(data.prescription?.notes || data.notes || '');
       }
     } catch (error: any) {
       if (error.response?.status !== 404) {

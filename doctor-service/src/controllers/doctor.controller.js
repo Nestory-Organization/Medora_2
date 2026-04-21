@@ -379,6 +379,14 @@ const addPrescription = async (req, res) => {
       });
     }
 
+    // Attempt to set doctorName if it's missing on the appointment
+    if (!appointment.doctorName || appointment.doctorName === 'Unknown Doctor') {
+      const profile = await DoctorProfile.findOne({ doctorId }).lean();
+      if (profile) {
+        appointment.doctorName = `${profile.firstName} ${profile.lastName}`;
+      }
+    }
+
     appointment.prescriptions.push({
       medicines,
       notes: notes || null
@@ -622,10 +630,44 @@ const getDoctorProfile = async (req, res) => {
   }
 };
 
+const getDoctorProfileById = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid doctor identifier'
+      });
+    }
+
+    const profile = await DoctorProfile.findOne({ doctorId }).lean();
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor profile not found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: profile
+    });
+  } catch (error) {
+    console.error('Get profile by ID error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch doctor profile'
+    });
+  }
+};
+
 module.exports = {
   createDoctorProfile,
   updateDoctorProfile,
   getDoctorProfile,
+  getDoctorProfileById,
   setAvailability,
   getDoctorAvailability,
   markSlotBooked,

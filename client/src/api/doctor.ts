@@ -75,6 +75,12 @@ export const getDoctorProfile = async () => {
   return response.data;
 };
 
+// Get doctor profile by public ID
+export const getDoctorProfileById = async (doctorId: string) => {
+  const response = await api.get(`/profile/${doctorId}`);
+  return response.data;
+};
+
 // Update doctor profile
 export const updateDoctorProfile = async (data: Partial<DoctorProfile>) => {
   const response = await api.put('/profile', data);

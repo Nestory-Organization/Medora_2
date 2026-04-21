@@ -16,6 +16,7 @@ const {
   markSlotBooked,
   releaseSlot
 } = require('./controllers/doctor.controller');
+const { getPatientPrescriptions } = require('./controllers/prescriptionAndSession.controller');
 
 const app = express();
 
@@ -50,8 +51,10 @@ app.get('/doctor/availability', getDoctorAvailability);
 app.patch('/doctor/availability/mark-booked', markSlotBooked);
 app.patch('/doctor/availability/release-slot', releaseSlot);
 
+// PUBLIC PATIENT PRESCRIPTION ENDPOINT (patient service uses this)
+app.get('/doctor/patient/:patientId/prescriptions', getPatientPrescriptions);
+
 // Protected doctor routes (auth required)
-// This includes the /:doctorId GET route which requires authentication
 app.use('/doctor', doctorRoutes);
 
 app.use((req, res) => {
