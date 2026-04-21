@@ -223,7 +223,7 @@ export default function DoctorDashboard() {
             </button>
           </div>
           
-          <div className="space-y-3">
+          {/* <div className="space-y-3">
             {loading ? (
               <div className="text-center py-8">
                 <p className="text-slate-400 font-bold">Loading appointments...</p>
@@ -247,7 +247,7 @@ export default function DoctorDashboard() {
                 <p className="text-slate-400 font-bold">No appointments scheduled for today</p>
               </div>
             )}
-          </div>
+          </div> */}
         </div>
 
         {/* Shortcuts/Action Center */}

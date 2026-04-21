@@ -34,46 +34,6 @@ const BookingPage: React.FC = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const fetchAllDoctors = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('authToken');
-      const headers = { ...(token && { Authorization: `Bearer ${token}` }) };
-
-      const allDoctors: Doctor[] = [];
-      let page = 1;
-      let totalPages = 1;
-
-      while (page <= totalPages) {
-        const response = await axios.get(`${API_BASE_URL}/doctors/verified`, {
-          params: { page, limit: 100 },
-          headers
-        });
-
-        const payload = response.data?.data || [];
-        const pagination = response.data?.pagination || {};
-
-        allDoctors.push(...payload);
-        totalPages = Number(pagination.totalPages) || 1;
-        page += 1;
-      }
-
-      setDoctors(allDoctors);
-    } catch (err) {
-      console.error('Fetch all doctors error:', err);
-      const errorMessage = axios.isAxiosError(err)
-        ? err.response?.data?.message
-        : 'Failed to load doctors list.';
-      setMessage({ type: 'error', text: errorMessage || 'Failed to load doctors list.' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAllDoctors();
-  }, []);
-
   useEffect(() => {
     const specialtyParam = searchParams.get('specialty');
     if (specialtyParam && specialtyParam.trim()) {
@@ -127,11 +87,7 @@ const BookingPage: React.FC = () => {
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-
-    if (!searchTerm.trim()) {
-      fetchAllDoctors();
-      return;
-    }
+    if (!searchTerm.trim()) return;
 
     setLoading(true);
     try {
@@ -179,9 +135,6 @@ const BookingPage: React.FC = () => {
 
       const appointmentData = {
         patientId: user._id,
-        patientName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.name || 'Patient',
-        patientEmail: user.email || null,
-        patientPhone: user.phone || null,
         doctorId: selectedDoctor.doctorId,
         specialty: selectedDoctor.specialization,
         appointmentDate: selectedDate,
@@ -241,7 +194,7 @@ const BookingPage: React.FC = () => {
           </div>
           <input 
             type="text" 
-            placeholder="Search by specialty (e.g. Cardiology, Pediatrics) or leave blank to see all doctors..."
+            placeholder="Search by specialty (e.g. Cardiology, Pediatrics)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl py-6 pl-16 pr-6 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500/50 focus:ring-4 focus:ring-teal-500/10 transition-all text-lg shadow-2xl"
@@ -264,10 +217,7 @@ const BookingPage: React.FC = () => {
               <motion.div 
                 key={doctor.doctorId}
                 layoutId={doctor.doctorId}
-                onClick={() => {
-                  setSelectedDoctor(doctor);
-                  fetchSlotsForDate(doctor, selectedDate);
-                }}
+                onClick={() => setSelectedDoctor(doctor)}
                 className="bg-slate-900/40 backdrop-blur-xl border border-white/5 p-8 rounded-[2.5rem] hover:border-teal-500/30 transition-all group cursor-pointer relative overflow-hidden"
               >
                 <div className="flex items-start gap-6 relative z-10">
@@ -289,12 +239,6 @@ const BookingPage: React.FC = () => {
                 </div>
               </motion.div>
             ))}
-          </div>
-        )}
-
-        {!loading && doctors.length === 0 && (
-          <div className="text-center py-16 bg-slate-900/30 border border-white/5 rounded-3xl">
-            <p className="text-slate-400 font-medium">No doctors found. Try another specialty or clear search.</p>
           </div>
         )}
 
@@ -339,7 +283,6 @@ const BookingPage: React.FC = () => {
                           type="date" 
                           value={selectedDate}
                           onChange={(e) => handleDateChange(e.target.value)}
-                          aria-label="Select appointment date"
                           className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm"
                         />
                       </div>

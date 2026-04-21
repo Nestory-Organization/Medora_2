@@ -12,6 +12,9 @@ import {
   Clock
 } from '@phosphor-icons/react';
 import { usePatient } from '../../api/PatientContext';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
+import PageTransition from '../../components/PageTransition';
+import { TableSkeleton } from '../../components/Skeleton';
 
 const PrescriptionCard = ({ prescription }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -106,6 +109,9 @@ const PrescriptionCard = ({ prescription }: any) => {
 export default function Prescriptions() {
   const { prescriptions, loading, refreshPrescriptions } = usePatient();
 
+  // Refresh prescriptions when navigating to this page
+  useRefreshOnNavigate(refreshPrescriptions);
+
   useEffect(() => {
     refreshPrescriptions();
     // Intentionally run once when page mounts.
@@ -140,9 +146,9 @@ export default function Prescriptions() {
         <p className="text-base font-medium text-slate-500 max-w-lg leading-relaxed">View and download your prescribed medications directly from your doctors.</p>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-24">
-          <div className="w-10 h-10 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      {loading && prescriptions.length === 0 ? (
+        <div className="py-12">
+          <TableSkeleton rows={4} />
         </div>
       ) : (
         <div className="space-y-6">

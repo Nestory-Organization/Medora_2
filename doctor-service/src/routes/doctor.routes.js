@@ -28,14 +28,9 @@ const {
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-  console.log(`[DOCTOR ROUTER] ${req.method} ${req.path} - Body:`, req.body);
-  next();
-});
-
 router.use(authenticate, authorizeDoctor);
 
-// Allow creating a profile even if not verified
+// Allow creating and getting profile even if not verified
 router.post('/profile', createDoctorProfile);
 router.get('/profile', getDoctorProfile);
 
@@ -50,7 +45,7 @@ router.use(checkDoctorVerified);
 
 router.put('/profile', updateDoctorProfile);
 router.get('/appointments', getAssignedAppointments);
-router.put('/appointment/:appointmentId/status', updateAppointmentStatus);
+router.put('/appointment/:id/status', updateAppointmentStatus);
 
 // Prescription endpoints
 router.post('/appointment/:appointmentId/prescription', addPrescriptionToAppointment);

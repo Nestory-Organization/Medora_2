@@ -99,39 +99,6 @@ const createDoctorProfile = async (req, res) => {
   }
 };
 
-const getDoctorProfile = async (req, res) => {
-  try {
-    const doctorId = getDoctorObjectId(req);
-
-    if (!doctorId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid doctor identifier'
-      });
-    }
-
-    const profile = await DoctorProfile.findOne({ doctorId });
-
-    if (!profile) {
-      return res.status(404).json({
-        success: false,
-        message: 'Doctor profile not found'
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: profile
-    });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve doctor profile'
-    });
-  }
-};
-
 const updateDoctorProfile = async (req, res) => {
   try {
     const doctorId = getDoctorObjectId(req);
@@ -299,7 +266,6 @@ const getAssignedAppointments = async (req, res) => {
 
 const updateAppointmentStatus = async (req, res) => {
   try {
-    console.log('[UPDATE APPOINTMENT STATUS] Called with:', { appointmentId: req.params.appointmentId, status: req.body.status });
     const doctorId = getDoctorObjectId(req);
 
     if (!doctorId) {
@@ -309,26 +275,36 @@ const updateAppointmentStatus = async (req, res) => {
       });
     }
 
-    const { appointmentId } = req.params;
+    const { id } = req.params;
     const { status } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid appointment identifier'
       });
     }
 
-    if (!['CONFIRMED', 'CANCELLED'].includes(status)) {
+    // Map status values to what the appointment model accepts
+    const statusMap = {
+      'ACCEPTED': 'CONFIRMED',
+      'CONFIRMED': 'CONFIRMED',
+      'REJECTED': 'CANCELLED',
+      'CANCELLED': 'CANCELLED'
+    };
+
+    const mappedStatus = statusMap[status] || status;
+
+    if (!['PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(mappedStatus)) {
       return res.status(400).json({
         success: false,
-        message: 'Status must be either CONFIRMED or CANCELLED'
+        message: 'Invalid status provided'
       });
     }
 
     const appointment = await Appointment.findOneAndUpdate(
-      { _id: appointmentId, doctorId },
-      { $set: { status } },
+      { _id: id, doctorId },
+      { $set: { status: mappedStatus } },
       { new: true }
     );
 
@@ -613,10 +589,43 @@ const releaseSlot = async (req, res) => {
   }
 };
 
+const getDoctorProfile = async (req, res) => {
+  try {
+    const doctorId = getDoctorObjectId(req);
+
+    if (!doctorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid doctor identifier'
+      });
+    }
+
+    const profile = await DoctorProfile.findOne({ doctorId });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor profile not found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: profile
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch doctor profile'
+    });
+  }
+};
+
 module.exports = {
   createDoctorProfile,
-  getDoctorProfile,
   updateDoctorProfile,
+  getDoctorProfile,
   setAvailability,
   getDoctorAvailability,
   markSlotBooked,

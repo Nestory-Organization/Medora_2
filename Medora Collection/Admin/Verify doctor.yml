@@ -5,7 +5,7 @@ info:
 
 http:
   method: PATCH
-  url: http://localhost:4000/api/admin/doctor/69e0c1296774a634ffaa6fd4/verify
+  url: http://localhost:4000/api/admin/doctor/69e27fc6c502acadc519e1c4/verify
   body:
     type: json
     data: |-
@@ -14,7 +14,7 @@ http:
       }
   auth:
     type: bearer
-    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZGZmZmZmNDFjZmYzZjVlMWYxZjQ5ZCIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzc2MzM1Mzk2LCJleHAiOjE3NzY5NDAxOTZ9.CTdxV3cFs_6LpF1bHIdE9iscg896M2PCZ9FJHvlhBUA
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZTA3MjVkNDBiMDk5ODZhOGZjNmVlMCIsImVtYWlsIjoiYWRtaW5AbWVkb3JhLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3NjQ1MjE5MywiZXhwIjoxNzc3MDU2OTkzfQ.kyEqSum--ZT6--Mzvs8AQLZCQHjfwqUL35xBshxQfno
 
 settings:
   encodeUrl: true

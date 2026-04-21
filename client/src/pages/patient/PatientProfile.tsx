@@ -13,6 +13,9 @@ import {
 } from '@phosphor-icons/react';
 import { usePatient } from '../../api/PatientContext';
 import { updatePatientProfile } from '../../api/patient';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
+import { ProfileSkeleton } from '../../components/Skeleton';
+import PageTransition from '../../components/PageTransition';
 
 const InputField = ({ label, name, value, onChange, disabled, icon: Icon, type = "text" }: any) => (
   <div className="space-y-2">
@@ -40,6 +43,9 @@ export default function PatientProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<any>({});
+
+  // Refresh profile data when navigating to this page
+  useRefreshOnNavigate(refreshProfile);
 
   useEffect(() => {
     if (profile) setFormData(profile);
@@ -69,7 +75,15 @@ export default function PatientProfile() {
     }
   };
 
-  if (!profile && !formData.email) return <div className="p-8 text-center text-slate-500">Loading profile...</div>;
+  if (!profile && !formData.email) {
+    return (
+      <PageTransition>
+        <div className="max-w-4xl mx-auto">
+          <ProfileSkeleton />
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

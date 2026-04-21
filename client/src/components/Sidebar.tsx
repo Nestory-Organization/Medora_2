@@ -12,8 +12,10 @@ import {
   CirclesFour,
   Clock,
   CaretDown,
-  ChartLine,
+  FileText,
+  VideoCamera,
   Stethoscope,
+  ChartLine,
   type IconProps
 } from '@phosphor-icons/react';
 
@@ -110,10 +112,9 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
     navigate('/login');
   };
 
-  const navItems: SidebarItemProps[] = role === 'patient' 
+  const navItems = role === 'patient' 
     ? [
         { to: '/patient/dashboard', icon: CirclesFour, label: 'Dashboard' },
-      { to: '/patient/book', icon: Stethoscope, label: 'Find Your Specialist' },
         { to: '/patient/appointments', icon: CalendarCheck, label: 'My Appointments' },
         { to: '/patient/history', icon: Files, label: 'Medical History' },
         { to: '/patient/prescriptions', icon: Pill, label: 'Prescriptions' },
@@ -144,7 +145,18 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
             { to: '/doctor/profile', icon: User, label: 'Edit Profile' },
             { to: '/doctor/availability', icon: Clock, label: 'Set Availability' },
           ]
-        }
+        },
+        { 
+          to: '#consultation', 
+          icon: Stethoscope, 
+          label: 'Consultation Tools',
+          submenu: [
+            { to: '/doctor/appointments', icon: CalendarCheck, label: 'All Appointments' },
+            { to: '/doctor/appointments?tab=notes', icon: FileText, label: 'Add Notes' },
+            { to: '/doctor/appointments?tab=prescription', icon: Pill, label: 'Add Prescription' },
+            { to: '/doctor/appointments?tab=telemedicine', icon: VideoCamera, label: 'Start Telemedicine' },
+          ]
+        },
       ]
     : [
         { to: '/admin/dashboard', icon: CirclesFour, label: 'Dashboard' },

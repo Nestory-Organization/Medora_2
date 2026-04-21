@@ -13,7 +13,8 @@ const fetchDoctorDetails = async (doctorId) => {
 
     const baseUrl =
       env.doctorServiceUrl?.replace(/\/+$/, "") || "http://doctor-service:4003";
-    const url = `${baseUrl}/doctor/public-profile/${String(doctorId).trim()}`;
+    // Use the public /doctor/search/ endpoint instead of /doctor/public-profile/
+    const url = `${baseUrl}/doctor/search/${String(doctorId).trim()}`;
 
     console.log(`[fetchDoctorDetails] Fetching from: ${url}`);
 

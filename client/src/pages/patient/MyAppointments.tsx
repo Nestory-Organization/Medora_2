@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { 
   CalendarCheck, 
@@ -15,16 +15,14 @@ import { getMyAppointments, cancelAppointment } from '../../api/patient';
 import PageTransition from '../../components/PageTransition';
 import EmptyState from '../../components/EmptyState';
 import { TableSkeleton } from '../../components/Skeleton';
-import { CalendarPlus, VideoCamera } from 'phosphor-react';
 
-const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) => {
+const AppointmentRow = ({ appointment, onCancel, navigate }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Map API response to component format
   const mapped = {
     id: appointment._id,
     doctorName: appointment.doctorName || `Doctor ${appointment.doctorId?.substring(0, 8)}`,
-    doctorId: appointment.doctorId,
     date: new Date(appointment.appointmentDate).toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric', 
@@ -35,13 +33,7 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
     status: appointment.status === 'PENDING_PAYMENT' ? 'pending' : appointment.status?.toLowerCase(),
     specialty: appointment.specialty || 'General',
     paymentStatus: appointment.paymentStatus,
-    telemedicineRoomId: appointment.telemedicineRoomId,
-    telemedicineJoinPath: appointment.telemedicineJoinPath,
-    telemedicineStatus: appointment.telemedicineStatus,
-    consultationFee: appointment.consultationFee,
-    reason: appointment.reason,
-    rawDate: appointment.appointmentDate,
-    endTime: appointment.endTime
+    consultationFee: appointment.consultationFee
   };
   
   const statusColors = {
@@ -56,28 +48,6 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
     navigate(`/patient/payment?appointmentId=${mapped.id}`);
   };
 
-  const handleReschedule = (e: any) => {
-    e.stopPropagation();
-    onReschedule({
-      id: mapped.id,
-      doctorId: mapped.doctorId,
-      specialty: mapped.specialty,
-      currentDate: mapped.rawDate,
-      currentTime: mapped.time,
-      endTime: mapped.endTime,
-      consultationFee: mapped.consultationFee,
-      reason: mapped.reason
-    });
-  };
-
-  const handleJoinTelemedicine = (e: any) => {
-    e.stopPropagation();
-
-    if (mapped.telemedicineRoomId) {
-      navigate(`/patient-telemedicine/${mapped.telemedicineRoomId}`);
-    }
-  };
-
   return (
     <motion.div 
       layout
@@ -90,7 +60,9 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
               <Users size={32} weight="duotone" />
             </div>
             <div>
-              <p className="font-bold text-white text-xl tracking-tight leading-tight mb-1">Dr. {mapped.doctorName}</p>
+              <p className="font-bold text-white text-xl tracking-tight leading-tight mb-1">
+                {mapped.doctorName.startsWith('Dr. ') ? mapped.doctorName : `Dr. ${mapped.doctorName}`}
+              </p>
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-2">
                 <CalendarCheck size={14} weight="duotone" /> {mapped.date}
                 <span className="w-1 h-1 rounded-full bg-slate-700" />
@@ -114,24 +86,6 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
                 >
                   <CreditCard size={14} />
                   Pay Now
-                </button>
-              )}
-              {mapped.status === 'confirmed' && (
-                <button 
-                  onClick={handleReschedule}
-                  className="px-4 py-2.5 bg-blue-500/10 text-blue-400 rounded-xl font-bold uppercase text-[10px] hover:bg-blue-500 hover:text-white transition-all shadow-lg active:scale-95 border border-blue-500/20 flex items-center gap-2 whitespace-nowrap"
-                >
-                  <CalendarPlus size={14} />
-                  Reschedule
-                </button>
-              )}
-              {mapped.paymentStatus === 'PAID' && mapped.telemedicineRoomId && (
-                <button
-                  onClick={handleJoinTelemedicine}
-                  className="px-4 py-2.5 bg-purple-500/10 text-purple-300 rounded-xl font-bold uppercase text-[10px] hover:bg-purple-500 hover:text-white transition-all shadow-lg active:scale-95 border border-purple-500/30 flex items-center gap-2 whitespace-nowrap"
-                >
-                  <VideoCamera size={14} />
-                  Join Call
                 </button>
               )}
               {mapped.status !== 'cancelled' && mapped.status !== 'completed' && (
@@ -183,23 +137,6 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
                     </p>
                     <p className="text-slate-300 font-semibold">${mapped.consultationFee}</p>
                 </div>
-                <div className="p-4 bg-slate-900/40 rounded-2xl border border-white/5 space-y-2 md:col-span-2 lg:col-span-4">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                        <VideoCamera size={14} weight="duotone" className="text-purple-300" /> Telemedicine Link
-                    </p>
-                    {mapped.telemedicineRoomId ? (
-                      <button
-                        onClick={handleJoinTelemedicine}
-                        className="px-4 py-2 bg-purple-500/10 text-purple-300 rounded-lg font-bold uppercase text-[10px] hover:bg-purple-500 hover:text-white transition-all border border-purple-500/30"
-                      >
-                        Open Video Call Link
-                      </button>
-                    ) : (
-                      <p className="text-slate-500 text-xs">
-                        Link will appear automatically after payment is processed.
-                      </p>
-                    )}
-                </div>
             </div>
           </motion.div>
         )}
@@ -210,6 +147,7 @@ const AppointmentRow = ({ appointment, onCancel, onReschedule, navigate }: any) 
 
 export default function MyAppointments() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'history'>('all');
@@ -218,7 +156,8 @@ export default function MyAppointments() {
     setLoading(true);
     try {
       const res = await getMyAppointments();
-      setAppointments(res.data || []);
+      // res is the full API response object (success: true, data: [...])
+      setAppointments(res?.data || []);
     } catch (err) {
       console.error("Failed to load appointments", err);
       setAppointments([]);

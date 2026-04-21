@@ -10,8 +10,7 @@ import {
   Hourglass,
   MagnifyingGlass,
   FunnelSimple,
-  Check,
-  FileText
+  Check
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
@@ -41,7 +40,7 @@ const statusConfig = {
   'COMPLETED': { icon: CheckCircle, color: 'bg-blue-500/20 text-blue-300', label: 'Completed', border: 'border-blue-500/30' }
 };
 
-const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete, onViewReports, navigate }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void; onViewReports?: (patientId: string) => void; navigate: (path: string) => void }) => {
+const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void }) => {
   const statusInfo = statusConfig[appointment.status];
   const StatusIcon = statusInfo.icon;
   
@@ -63,7 +62,7 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
       <div className="flex items-start justify-between">
         <div className="flex-1 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => onViewDetail?.(appointment.patientId)}>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
               {appointment.patientName ? appointment.patientName[0] : 'P'}
             </div>
             <div>
@@ -156,34 +155,24 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
         {appointment.status !== 'CANCELLED' && (
           <div className="grid grid-cols-3 gap-2">
             <button
-              onClick={() => navigate(`/doctor/appointment/${appointment._id}/prescription`)}
+              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/prescription`}
               className="px-3 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg font-semibold text-xs transition-all border border-green-500/30 uppercase"
             >
-              Prescription
+              Rx
             </button>
             <button
-              onClick={() => navigate(`/doctor/appointment/${appointment._id}/notes`)}
+              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/notes`}
               className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg font-semibold text-xs transition-all border border-purple-500/30 uppercase"
             >
               Notes
             </button>
             <button
-              onClick={() => navigate(`/doctor/appointment/${appointment._id}/telemedicine`)}
+              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/telemedicine`}
               className="px-3 py-2 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-lg font-semibold text-xs transition-all border border-pink-500/30 uppercase"
             >
               Call
             </button>
           </div>
-        )}
-
-        {appointment.status === 'CONFIRMED' && onViewReports && (
-          <button
-            onClick={() => onViewReports(appointment.patientId)}
-            className="w-full px-3 py-2.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-lg font-semibold text-sm transition-all border border-cyan-500/30 flex items-center justify-center gap-2 uppercase"
-          >
-            <FileText size={16} weight="bold" />
-            Patient Reports
-          </button>
         )}
 
         {appointment.status === 'CONFIRMED' && onComplete && (
@@ -231,41 +220,7 @@ export default function PatientAppointments() {
       );
 
       if (response.data.success) {
-        const rawAppointments: Appointment[] = response.data.data || [];
-
-        const enrichedAppointments = await Promise.all(
-          rawAppointments.map(async (appointment) => {
-            if (appointment.patientName && appointment.patientName.trim().length > 0) {
-              return appointment;
-            }
-
-            try {
-              const patientRes = await axios.get(
-                `http://localhost:4000/api/patients/${appointment.patientId}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` }
-                }
-              );
-
-              const patient = patientRes.data?.data?.patient || patientRes.data?.data || {};
-              const firstName = patient.firstName || '';
-              const lastName = patient.lastName || '';
-              const fullName = `${firstName} ${lastName}`.trim();
-
-              return {
-                ...appointment,
-                patientName: fullName || appointment.patientName || 'Patient'
-              };
-            } catch {
-              return {
-                ...appointment,
-                patientName: appointment.patientName || 'Patient'
-              };
-            }
-          })
-        );
-
-        setAppointments(enrichedAppointments);
+        setAppointments(response.data.data || []);
       }
     } catch (error: any) {
       console.error('Fetch appointments error:', error);
@@ -365,7 +320,6 @@ export default function PatientAppointments() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/doctor/dashboard')}
-              title="Go back to dashboard"
               className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
             >
               <ArrowLeft size={20} className="text-slate-400" />
@@ -471,9 +425,7 @@ export default function PatientAppointments() {
                 appointment={appointment}
                 onStatusUpdate={handleStatusUpdate}
                 onViewDetail={(patientId) => navigate(`/doctor/patient/${patientId}`)}
-                onViewReports={(patientId) => navigate(`/doctor/patient/${patientId}?tab=reports`)}
                 onComplete={handleCompleteAppointment}
-                navigate={navigate}
               />
             ))
           )}

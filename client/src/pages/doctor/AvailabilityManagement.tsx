@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 
 interface TimeSlot {
   startTime: string;
@@ -38,10 +39,6 @@ export default function AvailabilityManagement() {
   const [fetching, setFetching] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  useEffect(() => {
-    fetchAvailability();
-  }, []);
-
   const fetchAvailability = async () => {
     setFetching(true);
     try {
@@ -61,6 +58,13 @@ export default function AvailabilityManagement() {
       setFetching(false);
     }
   };
+
+  // Refresh availability data when navigating to this page
+  useRefreshOnNavigate(fetchAvailability);
+
+  useEffect(() => {
+    fetchAvailability();
+  }, []);
 
   const handleAddSlot = () => {
     setSlots([...slots, { startTime: '', endTime: '' }]);

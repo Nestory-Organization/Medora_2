@@ -165,7 +165,7 @@ export const searchDoctors = async (specialty: string, date?: string) => {
 };
 
 export const cancelAppointment = async (id: string) => {
-    const response = await patientApi.delete(`/appointments/${id}`);
+    const response = await patientApi.put(`/appointments/cancel/${id}`);
     return response.data;
 };
 

@@ -160,10 +160,9 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     const user = getStoredUser();
-    const normalizedRole = String(user?.role || '').toLowerCase();
     
     // Check if user is actually a patient before fetching
-    if (token && normalizedRole === 'patient') {
+    if (token && user?.role === 'patient') {
       const loadPatientData = async () => {
         await refreshProfile();
         await Promise.all([

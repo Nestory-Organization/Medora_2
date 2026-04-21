@@ -91,29 +91,42 @@ const getDoctorProfile = async (req, res) => {
   try {
     const { doctorId } = req.params;
 
-    // Try lookup by ObjectId when possible, otherwise fall back to raw string match.
+    // Try lookup by ObjectId first (when doctorId field is ObjectId)
     let doctor = null;
 
     if (doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
-      doctor = await DoctorProfile.findOne({ doctorId: new mongoose.Types.ObjectId(doctorId) }).lean();
+      doctor = await DoctorProfile.findOne({ 
+        doctorId: new mongoose.Types.ObjectId(doctorId) 
+      }).lean();
+    }
+
+    // Try searching by _id if doctorid is an ObjectId (when profile's _id is passed)
+    if (!doctor && doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
+      doctor = await DoctorProfile.findById(doctorId).lean();
+    }
+
+    // Fallback: try as string comparison (legacy data)
+    if (!doctor && doctorId) {
+      doctor = await DoctorProfile.findOne({ 
+        doctorId: doctorId 
+      }).lean();
     }
 
     if (!doctor) {
-      // Some records or legacy data may store doctorId as a plain string.
-      doctor = await DoctorProfile.findOne({ doctorId: doctorId }).lean();
-    }
-
-    if (!doctor) {
+      console.log(`[DOCTOR_SEARCH] Profile not found for doctorId: ${doctorId}`);
       return res.status(404).json({
         success: false,
         message: 'Doctor profile not found'
       });
     }
 
+    console.log(`[DOCTOR_SEARCH] Found profile for ${doctorId}: ${doctor.firstName} ${doctor.lastName}`);
+    
     return res.status(200).json({
       success: true,
       data: {
-        doctorId: doctor.doctorId,
+        doctorId: doctor.doctorId?.toString() || doctor._id?.toString(),
+        _id: doctor._id?.toString(),
         name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
         firstName: doctor.firstName,
         lastName: doctor.lastName,

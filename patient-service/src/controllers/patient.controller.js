@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
+const axios = require("axios");
 const {
   Patient,
   MedicalDocument,
@@ -47,13 +48,7 @@ const resolvePatientForRequest = async (req, source = "query") => {
     return null;
   }
 
-  // Support both patient document id and auth user id.
-  const byPatientId = await Patient.findById(patientId);
-  if (byPatientId) {
-    return byPatientId;
-  }
-
-  return Patient.findOne({ userId: patientId });
+  return Patient.findById(patientId);
 };
 
 const registerPatient = async (req, res) => {
@@ -767,26 +762,55 @@ const getPrescriptions = async (req, res) => {
       Prescription.countDocuments(query),
     ]);
 
-    const mappedPrescriptions = prescriptions.map((item) => ({
-      ...item,
-      medicines: Array.isArray(item.medications) ? item.medications : [],
-      date: item.prescriptionDate,
-      doctor: {
-        id: item.doctorId || null,
-        name: item.doctorName || "Unknown Doctor",
-        specialty: item.doctorSpecialty || null,
-      },
-    }));
+    // Fetch prescriptions from appointment-service
+    let appointmentServicePrescriptions = [];
+    try {
+      const appointmentServiceUrl = process.env.APPOINTMENT_SERVICE_URL || "http://appointment-service:4004";
+      const response = await axios.get(
+        `${appointmentServiceUrl}/appointments/patient/${patient._id}/prescriptions`,
+        { timeout: 5000 }
+      );
+      appointmentServicePrescriptions = (response.data?.data || response.data?.prescriptions || [])
+        .map((item) => ({
+          ...item,
+          medicine: item.medicines,
+          notes: item.notes,
+          date: item.prescriptionDate || item.createdAt,
+          doctorName: item.doctorName || "Unknown Doctor",
+          doctorSpecialty: item.doctorSpecialty,
+        }));
+    } catch (err) {
+      console.warn("[getPrescriptions] Failed to fetch from appointment-service:", err.message);
+      // Don't fail the entire request if appointment-service is unavailable
+    }
+
+    // Combine prescriptions from both services
+    const combinedPrescriptions = [
+      ...prescriptions.map((item) => ({
+        ...item,
+        doctor: {
+          id: item.doctorId || null,
+          name: item.doctorName || "Unknown Doctor",
+          specialty: item.doctorSpecialty || null,
+        },
+      })),
+      ...appointmentServicePrescriptions,
+    ];
+
+    // Sort by date descending and apply pagination
+    const sortedPrescriptions = combinedPrescriptions
+      .sort((a, b) => new Date(b.date || b.prescriptionDate) - new Date(a.date || a.prescriptionDate))
+      .slice(skip, skip + limit);
 
     return res.status(200).json({
       success: true,
       data: {
-        prescriptions: mappedPrescriptions,
+        prescriptions: sortedPrescriptions,
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: combinedPrescriptions.length,
+          totalPages: Math.ceil(combinedPrescriptions.length / limit),
         },
       },
     });
@@ -869,15 +893,7 @@ const getPrescription = async (req, res) => {
 
 const createPrescription = async (req, res) => {
   try {
-    const {
-      patientId,
-      doctorId,
-      doctorName,
-      doctorSpecialty,
-      medicines,
-      notes,
-      prescriptionDate,
-    } = req.body;
+    const { patientId, doctorId, doctorName, doctorSpecialty, medicines, notes, prescriptionDate } = req.body;
 
     if (!patientId || !isValidObjectId(patientId)) {
       return res.status(400).json({
@@ -894,15 +910,14 @@ const createPrescription = async (req, res) => {
     }
 
     // Validate medicine format
-    const invalidMedicine = medicines.find((med) => {
+    const invalidMedicine = medicines.find(med => {
       return !med.name || !med.dosage || !med.frequency || !med.duration;
     });
 
     if (invalidMedicine) {
       return res.status(400).json({
         success: false,
-        message:
-          "Each medicine must have: name, dosage, frequency, and duration",
+        message: "Each medicine must have: name, dosage, frequency, and duration",
       });
     }
 
@@ -919,7 +934,7 @@ const createPrescription = async (req, res) => {
       doctorId: doctorId || null,
       doctorName: doctorName || "Unknown Doctor",
       doctorSpecialty: doctorSpecialty || null,
-      medications: medicines.map((med) => ({
+      medications: medicines.map(med => ({
         name: med.name,
         dosage: med.dosage,
         frequency: med.frequency,
@@ -927,9 +942,7 @@ const createPrescription = async (req, res) => {
         instructions: med.instructions || null,
       })),
       notes: notes || null,
-      prescriptionDate: prescriptionDate
-        ? new Date(prescriptionDate)
-        : new Date(),
+      prescriptionDate: prescriptionDate ? new Date(prescriptionDate) : new Date(),
       status: "active",
     });
 

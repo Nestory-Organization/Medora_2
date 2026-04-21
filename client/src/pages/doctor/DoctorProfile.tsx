@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Check, Warning } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 
 interface DoctorProfileData {
   firstName: string;
@@ -49,6 +50,9 @@ export default function DoctorProfile() {
     bio: '',
     clinicAddress: ''
   });
+
+  // Refresh profile data when navigating to this page
+  useRefreshOnNavigate(fetchProfile);
 
   useEffect(() => {
     fetchProfile();
