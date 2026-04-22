@@ -1,6 +1,5 @@
 import { 
   Users, 
-  Clock, 
   VideoCamera,
   ArrowRight,
   ClipboardText,
@@ -32,41 +31,16 @@ const StatCard = ({ icon: Icon, label, value, trend, color, trendColor }: any) =
   </div>
 );
 
-const PatientProgressRow = ({ name, status, time, condition }: any) => (
-  <div className="px-4 py-3 bg-slate-800/20 hover:bg-slate-800/40 border border-white/5 rounded-xl group transition-all duration-300 flex items-center justify-between shadow-lg">
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-slate-700/50 border-2 border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:border-blue-500/50 group-hover:bg-blue-500/10 group-hover:text-blue-400 transition-all duration-300 uppercase">
-        {name[0]}
-      </div>
-      <div>
-        <h4 className="font-bold text-sm text-white group-hover:text-blue-400/90 transition-colors">{name}</h4>
-        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">{condition}</p>
-      </div>
-    </div>
-    
-    <div className="flex items-center gap-4">
-      <div className="text-right">
-        <p className="text-[11px] font-bold text-white flex items-center gap-1.5 justify-end">
-          <Clock size={12} /> {time}
-        </p>
-        <p className="text-[9px] font-bold text-slate-500 mt-0.5 uppercase tracking-tight">{status}</p>
-      </div>
-      <button className="p-2 bg-slate-900 border border-white/5 rounded-lg text-slate-500 hover:bg-blue-500 hover:text-white transition-all hover:scale-110 active:scale-95 shadow-xl group/btn overflow-hidden relative">
-        <div className="absolute inset-0 bg-white/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300" />
-        <ArrowRight size={14} weight="bold" className="relative group-hover/btn:translate-x-1 transition-transform" />
-      </button>
-    </div>
-  </div>
-);
-
 export default function DoctorDashboard() {
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : null;
   const navigate = useNavigate();
   
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_loading, setLoading] = useState<boolean>(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_error, setError] = useState<string | null>(null);
 
   const fetchAppointments = async () => {
     try {
@@ -131,33 +105,7 @@ export default function DoctorDashboard() {
   const completedAppointments = appointments.filter(apt => apt.status === 'completed').length;
   const activeAppointments = appointments.filter(apt => apt.status === 'accepted' || apt.status === 'pending').length;
 
-  // Format time from HH:MM format
-  const formatTime = (timeStr: string) => {
-    if (!timeStr) return '';
-    const [hours, minutes] = timeStr.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'PENDING';
-      case 'accepted':
-        return 'ACTIVE';
-      case 'completed':
-        return 'COMPLETED';
-      case 'rejected':
-        return 'REJECTED';
-      case 'cancelled':
-        return 'CANCELLED';
-      default:
-        return status.toUpperCase();
-    }
-  };
+  
 
   return (
     <div className="space-y-6">

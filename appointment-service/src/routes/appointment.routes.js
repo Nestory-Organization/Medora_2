@@ -1,4 +1,6 @@
 const express = require('express');
+const mongoose = require('mongoose');
+const Appointment = require('../models/appointment.model');
 const {
   bookAppointment,
 	modifyAppointment,
@@ -130,5 +132,76 @@ router.get('/:id/status', authenticate, getAppointmentStatusById);
 router.put('/:id', modifyAppointment);
 router.delete('/:id', cancelAppointmentById);
 router.patch('/:id/payment-status', updateAppointmentPaymentStatusById);
+
+// POST /:id/confirm-from-payment - called by frontend after returning from Stripe
+// This is a client-side fallback when Stripe webhook doesn't fire
+router.post('/:id/confirm-from-payment', async (req, res) => {
+  try {
+    const appointmentId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid appointment ID'
+      });
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    const status = String(appointment.status || '').toUpperCase();
+    const paymentStatus = String(appointment.paymentStatus || '').toUpperCase();
+
+    if (status === 'PENDING_PAYMENT' && paymentStatus === 'UNPAID') {
+      appointment.status = 'CONFIRMED';
+      appointment.paymentStatus = 'PAID';
+      await appointment.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Appointment confirmed after payment',
+        data: {
+          appointmentId: appointment._id,
+          status: appointment.status,
+          paymentStatus: appointment.paymentStatus
+        }
+      });
+    }
+
+    if (paymentStatus === 'PAID' && status === 'CONFIRMED') {
+      return res.status(200).json({
+        success: true,
+        message: 'Appointment already confirmed',
+        data: {
+          appointmentId: appointment._id,
+          status: appointment.status,
+          paymentStatus: appointment.paymentStatus
+        }
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Appointment status unchanged',
+      data: {
+        appointmentId: appointment._id,
+        status: appointment.status,
+        paymentStatus: appointment.paymentStatus
+      }
+    });
+  } catch (error) {
+    console.error('Confirm from payment error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to confirm appointment'
+    });
+  }
+});
 
 module.exports = router;

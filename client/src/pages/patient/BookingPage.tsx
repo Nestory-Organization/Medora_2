@@ -118,6 +118,7 @@ const BookingPage: React.FC = () => {
   const handleBook = async () => {
     if (!selectedDoctor || !selectedSlot) return;
     setMessage(null);
+    setBookingLoading(true);
 
     try {
       const user = getStoredUser();
@@ -151,15 +152,9 @@ const BookingPage: React.FC = () => {
       });
 
       if (response.data.success) {
-        setMessage({ type: 'success', text: 'Appointment booked successfully! Redirecting to payment...' });
+        setMessage({ type: 'success', text: 'Appointment booked. Waiting for doctor approval before payment.' });
         setTimeout(() => {
-          // Redirect to payment page with appointment details
-          const appointmentId = response.data.data?.appointmentId;
-          if (appointmentId) {
-            navigate(`/patient/payment?appointmentId=${appointmentId}`);
-          } else {
-            navigate('/patient/appointments');
-          }
+          navigate('/patient/appointments');
         }, 1500);
       } else {
         setMessage({ type: 'error', text: response.data.message || 'Failed to book appointment' });

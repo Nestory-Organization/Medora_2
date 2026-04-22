@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { 
   CalendarCheck, 
@@ -35,7 +36,7 @@ const AppointmentRow = ({ appointment, onCancel, navigate, onReschedule, onJoinM
     }),
     time: appointment.startTime,
     duration: `${appointment.startTime} - ${appointment.endTime}`,
-    status: appointment.status === 'PENDING_PAYMENT' ? 'pending' : appointment.status?.toLowerCase(),
+    status: appointment.status === 'PENDING_DOCTOR_APPROVAL' ? 'pending_approval' : appointment.status === 'PENDING_PAYMENT' ? 'pending' : appointment.status?.toLowerCase(),
     specialty: appointment.specialty || 'General',
     paymentStatus: appointment.paymentStatus,
     consultationFee: appointment.consultationFee,
@@ -54,11 +55,23 @@ const AppointmentRow = ({ appointment, onCancel, navigate, onReschedule, onJoinM
   const canJoinMeeting = timeDiffMinutes <= 60 && timeDiffMinutes >= -15 && mapped.status === 'confirmed';
   
   const statusColors = {
+    pending_approval: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     pending: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
     confirmed: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
     completed: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
     cancelled: 'bg-rose-500/10 text-rose-500 border-rose-500/20'
   };
+
+  const statusLabels: Record<string, string> = {
+    pending_approval: 'Awaiting Approval',
+    pending: 'Pending Payment',
+    confirmed: 'Confirmed',
+    completed: 'Completed',
+    cancelled: 'Cancelled'
+  };
+
+  const isConfirmed = mapped.status === 'confirmed';
+  const canJoin = isConfirmed && mapped.paymentStatus === 'PAID';
 
   const handlePayment = (e: any) => {
     e.stopPropagation();
@@ -124,11 +137,17 @@ const AppointmentRow = ({ appointment, onCancel, navigate, onReschedule, onJoinM
           <div className="flex items-center gap-4 w-full lg:w-auto overflow-hidden">
             <div className="flex flex-col items-end gap-2">
               <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${statusColors[mapped.status as keyof typeof statusColors]}`}>
-                {mapped.status}
+                {statusLabels[mapped.status] || mapped.status}
               </span>
-              {mapped.paymentStatus && <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">{mapped.paymentStatus}</p>}
+              {mapped.paymentStatus && mapped.status !== 'pending_approval' && <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">{mapped.paymentStatus}</p>}
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
+              {mapped.status === 'pending_approval' && (
+                <div className="px-3 py-2 bg-blue-500/10 text-blue-400 rounded-xl font-bold uppercase text-[10px] border border-blue-500/20 flex items-center gap-1.5 whitespace-nowrap">
+                  <Clock size={13} />
+                  Wait for Doctor
+                </div>
+              )}
               {mapped.status === 'pending' && (
                 <button 
                   onClick={handlePayment}
@@ -136,6 +155,16 @@ const AppointmentRow = ({ appointment, onCancel, navigate, onReschedule, onJoinM
                 >
                   <CreditCard size={13} />
                   Pay
+                </button>
+              )}
+              {canJoin && !canJoinMeeting && (
+                <button 
+                  onClick={handleJoinMeeting}
+                  disabled={isLoading}
+                  className="px-3 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl font-bold uppercase text-[10px] hover:bg-emerald-500 hover:text-white transition-all shadow-lg active:scale-95 border border-emerald-500/20 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <VideoCamera size={13} weight="fill" />
+                  {isLoading ? 'Loading...' : 'Join Meeting'}
                 </button>
               )}
               {canJoinMeeting && (
@@ -253,6 +282,57 @@ export default function MyAppointments() {
 
   useEffect(() => {
     fetchAppointments();
+  }, []);
+
+  // Refresh when page becomes visible (e.g., returning from payment)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAppointments();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Auto-confirm PENDING_PAYMENT appointments on page load (fallback when Stripe webhook didn't fire)
+  // Only runs once using a ref to avoid re-running on filter changes
+  const hasConfirmedRef = useRef(false);
+  useEffect(() => {
+    if (hasConfirmedRef.current || appointments.length === 0) return;
+    hasConfirmedRef.current = true;
+
+    const confirmPendingPayment = async () => {
+      const pending = appointments.filter(
+        (a) => a.status === 'PENDING_PAYMENT' && a.paymentStatus === 'UNPAID'
+      );
+
+      for (const apt of pending) {
+        try {
+          const token = localStorage.getItem('authToken');
+          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+          const res = await axios.post(
+            `${API_BASE_URL}/appointments/${apt._id}/confirm-from-payment`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (res.data?.success) {
+            setAppointments((prev) =>
+              prev.map((a) =>
+                a._id === apt._id
+                  ? { ...a, status: 'CONFIRMED', paymentStatus: 'PAID' }
+                  : a
+              )
+            );
+          }
+        } catch (_) {
+          // Silent - just skip if it fails
+        }
+      }
+    };
+
+    confirmPendingPayment();
   }, []);
 
   const handleCancel = async (id: string) => {
@@ -376,22 +456,31 @@ export default function MyAppointments() {
             <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1 leading-tight">My Appointments</h1>
             <p className="text-base font-medium text-slate-500 max-w-lg leading-relaxed">View all your upcoming and past consultations in one place.</p>
           </div>
-          <div className="flex bg-slate-900/50 backdrop-blur-xl border border-white/5 p-1.5 rounded-2xl shadow-xl">
+          <div className="flex flex-col md:flex-row gap-3">
             <button 
-              onClick={() => setFilter('all')}
-              className={`px-6 py-2.5 rounded-xl font-bold text-[10px] uppercase shadow-lg active:scale-95 transition-all ${filter === 'all' ? 'bg-teal-500 text-white shadow-teal-500/20' : 'text-slate-400 hover:text-white'}`}>
-              All
+              onClick={() => navigate('/patient/book')}
+              className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-bold text-sm uppercase shadow-lg active:scale-95 transition-all flex items-center gap-2"
+            >
+              <CalendarPlus size={18} weight="bold" />
+              New Appointment
             </button>
-            <button 
-              onClick={() => setFilter('upcoming')}
-              className={`px-6 py-2.5 rounded-xl font-bold text-[10px] uppercase transition-colors ${filter === 'upcoming' ? 'bg-teal-500 text-white' : 'text-slate-400 hover:text-white'}`}>
-              Upcoming
-            </button>
-            <button 
-              onClick={() => setFilter('history')}
-              className={`px-6 py-2.5 rounded-xl font-bold text-[10px] uppercase transition-colors ${filter === 'history' ? 'bg-teal-500 text-white' : 'text-slate-400 hover:text-white'}`}>
-              History
-            </button>
+            <div className="flex bg-slate-900/50 backdrop-blur-xl border border-white/5 p-1.5 rounded-2xl shadow-xl">
+              <button 
+                onClick={() => setFilter('all')}
+                className={`px-6 py-2.5 rounded-xl font-bold text-[10px] uppercase shadow-lg active:scale-95 transition-all ${filter === 'all' ? 'bg-teal-500 text-white shadow-teal-500/20' : 'text-slate-400 hover:text-white'}`}>
+                All
+              </button>
+              <button 
+                onClick={() => setFilter('upcoming')}
+                className={`px-6 py-2.5 rounded-xl font-bold text-[10px] uppercase transition-colors ${filter === 'upcoming' ? 'bg-teal-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+                Upcoming
+              </button>
+              <button 
+                onClick={() => setFilter('history')}
+                className={`px-6 py-2.5 rounded-xl font-bold text-[10px] uppercase transition-colors ${filter === 'history' ? 'bg-teal-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+                History
+              </button>
+            </div>
           </div>
         </div>
 

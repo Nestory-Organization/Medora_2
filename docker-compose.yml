@@ -135,6 +135,8 @@ services:
       MONGO_URI: mongodb://appointment-mongodb:27017/appointment_db
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_this_auth_jwt_secret_in_production}
       SERVICE_NAME: appointment-service
+      DOCTOR_SERVICE_URL: http://doctor-service:4003
+      PATIENT_SERVICE_URL: http://patient-service:4002
       NOTIFICATION_SERVICE_URL: http://notification-service:4006
       SERVICE_REQUEST_TIMEOUT_MS: 5000
     ports:

@@ -108,7 +108,7 @@ const bookAppointmentWithValidation = async (req, res) => {
       throw error;
     }
 
-    // Create appointment
+    // Create appointment - starts as PENDING_DOCTOR_APPROVAL
     const appointment = await Appointment.create({
       patientId: patientId.trim(),
       doctorId: doctorId.trim(),
@@ -118,12 +118,12 @@ const bookAppointmentWithValidation = async (req, res) => {
       endTime: endTime.trim(),
       consultationFee: parseFloat(consultationFee),
       reason: reason.trim(),
-      status: 'PENDING_PAYMENT',
+      status: 'PENDING_DOCTOR_APPROVAL',
       paymentStatus: 'UNPAID'
     });
 
-    // Mark slot as booked in doctor-service
-    await markSlotAsBooked(doctorId.trim(), appointmentDateObj, startTime.trim());
+    // DO NOT mark slot as booked yet - only book when doctor accepts
+    // Slot is just validated as available at this point
 
     return res.status(201).json({
       success: true,
@@ -181,84 +181,62 @@ const getPatientAppointments = async (req, res) => {
       Appointment.countDocuments(query)
     ]);
 
-    // Enriched doctors logic
-    let enrichedAppointments = appointments;
+    if (appointments.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        pagination: {
+          page: Math.max(1, parseInt(page)),
+          limit: Math.min(100, parseInt(limit)),
+          total,
+          totalPages: Math.ceil(total / Math.min(100, parseInt(limit)))
+        }
+      });
+    }
 
-    try {
-      const doctorIds = [...new Set(appointments.map(a => a.doctorId.toString()))];
-      console.log(`[ENRICH] Found unique doctorIds: ${doctorIds.join(', ')}`);
-      
-      if (doctorIds.length > 0) {
-        const baseUrl = (process.env.DOCTOR_SERVICE_URL || 'http://localhost:4003').replace(/\/+$/, '');
-        
-        // Fetch doctor profiles in parallel
-        const doctorProfiles = await Promise.all(
-          doctorIds.map(async (id) => {
-            try {
-              const url = `${baseUrl}/doctor/search/${id}`;
-              console.log(`[ENRICH] Fetching profile from: ${url}`);
-              
-              const response = await fetch(url, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' },
-                signal: AbortSignal.timeout(2000)
-              });
-              
-              if (response.ok) {
-                const payload = await response.json();
-                console.log(`[ENRICH] Success for ${id}: ${payload.data?.firstName || 'No name'}`);
-                return payload.data || null;
-              }
-              console.error(`[ENRICH] Failed for ${id}: Status ${response.status}`);
-              return null;
-            } catch (err) {
-              console.error(`[ENRICH] Error fetching doctor ${id}:`, err.message);
-              return null;
-            }
-          })
-        );
+    const uniqueDoctorIds = [...new Set(
+      appointments.map(a => String(a.doctorId || '').trim()).filter(Boolean)
+    )];
 
-        // Create a map of doctor details - match by doctorId (the key from appointments)
-        const doctorMap = {};
-        doctorProfiles.forEach((profile, index) => {
-          if (profile) {
-            // The key should match the doctorId from the appointment
-            const docId = (profile.doctorId || '').toString();
-            const fallbackId = (profile._id || '').toString();
-            
-            console.log(`[ENRICH] Profile ${index}: doctorId=${docId}, _id=${fallbackId}, name=${profile.firstName} ${profile.lastName}`);
-            
-            if (docId) {
-              doctorMap[docId] = {
-                name: profile.name || `${profile.firstName} ${profile.lastName}`,
-                specialization: profile.specialization
-              };
-              console.log(`[ENRICH] Stored mapping: ${docId} => ${profile.name || profile.firstName} ${profile.lastName}`);
+    const doctorNames = {};
+    if (uniqueDoctorIds.length > 0) {
+      const baseUrl = (process.env.DOCTOR_SERVICE_URL || 'http://localhost:4003').replace(/\/+$/, '');
+
+      const doctorFetchPromises = uniqueDoctorIds.map(async (doctorId) => {
+        try {
+          const url = `${baseUrl}/doctor/search/${doctorId}`;
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            signal: AbortSignal.timeout(3000)
+          });
+          if (response.ok) {
+            const payload = await response.json();
+            if (payload.data) {
+              const name = payload.data.name ||
+                `${payload.data.firstName} ${payload.data.lastName}`;
+              return { doctorId, name };
             }
           }
-        });
+        } catch (_) {}
+        return { doctorId, name: null };
+      });
 
-        console.log(`[ENRICH] Doctor map keys: ${Object.keys(doctorMap).join(', ')}`);
-
-        // Enrich appointments with doctor names
-        enrichedAppointments = appointments.map(app => {
-          const docId = app.doctorId?.toString?.() || String(app.doctorId);
-          const doctorInfo = doctorMap[docId];
-          
-          console.log(`[ENRICH] Looking up appointment doctor: ${docId}, found: ${doctorInfo ? 'YES' : 'NO'}`);
-          
-          return {
-            ...app,
-            doctorName: doctorInfo?.name || `Doctor ${docId.substring(0, 8)}`,
-            specialty: app.specialty || doctorInfo?.specialization
-          };
-        });
-      }
-    } catch (enrichError) {
-      console.error('[ENRICH] Error enriching appointments:', enrichError.message);
-      console.error('[ENRICH] Error stack:', enrichError.stack);
-      // Fallback to original appointments if enrichment fails
+      const results = await Promise.all(doctorFetchPromises);
+      results.forEach(({ doctorId, name }) => {
+        if (name) {
+          doctorNames[doctorId] = name;
+        }
+      });
     }
+
+    const enrichedAppointments = appointments.map(app => {
+      const docId = String(app.doctorId || '').trim();
+      return {
+        ...app,
+        doctorName: doctorNames[docId] || `Dr. ${docId.substring(0, 8)}`
+      };
+    });
 
     return res.status(200).json({
       success: true,

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const APPOINTMENT_STATUSES = [
+  'PENDING_DOCTOR_APPROVAL',
   'PENDING_PAYMENT',
   'CONFIRMED',
   'CANCELLED',
@@ -71,7 +72,7 @@ const appointmentSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: APPOINTMENT_STATUSES,
-      default: 'PENDING_PAYMENT',
+      default: 'PENDING_DOCTOR_APPROVAL',
       index: true
     },
     paymentStatus: {
@@ -114,6 +115,14 @@ const appointmentSchema = new mongoose.Schema(
         type: String,
         default: null
       }
+    },
+    doctorNote: {
+      type: String,
+      default: null
+    },
+    declineReason: {
+      type: String,
+      default: null
     }
   },
   {

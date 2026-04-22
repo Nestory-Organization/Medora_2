@@ -177,26 +177,68 @@ const getMyAppointments = async (patientId) => {
     })
     .lean();
 
-  // Fetch doctor details for each appointment
-  const enrichedAppointments = await Promise.all(
-    appointments.map(async (apt) => {
-      const doctorName = await fetchDoctorDetails(apt.doctorId);
-      const telemedicineSession =
-        await ensureTelemedicineSessionForAppointment(apt);
+  if (appointments.length === 0) {
+    return [];
+  }
 
-      return {
-        ...apt,
-        doctorName:
-          doctorName || `Doctor ${String(apt.doctorId || "").substring(0, 8)}`,
-        telemedicineSessionId: telemedicineSession?.sessionId || null,
-        telemedicineRoomId: telemedicineSession?.roomId || null,
-        telemedicineStatus: telemedicineSession?.status || null,
-        telemedicineJoinPath: telemedicineSession?.roomId
-          ? `/patient-telemedicine/${telemedicineSession.roomId}`
-          : null,
-      };
-    }),
-  );
+  // Batch fetch doctor details - group by unique doctor IDs
+  const uniqueDoctorIds = [...new Set(
+    appointments
+      .map((apt) => String(apt.doctorId || "").trim())
+      .filter(Boolean)
+  )];
+
+  const doctorNames = {};
+  if (uniqueDoctorIds.length > 0) {
+    const baseUrl =
+      env.doctorServiceUrl?.replace(/\/+$/, "") || "http://localhost:4003";
+
+    const doctorFetchPromises = uniqueDoctorIds.map(async (doctorId) => {
+      try {
+        const url = `${baseUrl}/doctor/search/${doctorId.trim()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (response.ok) {
+          const payload = await response.json();
+          if (payload.data) {
+            const name =
+              payload.data.name ||
+              `${payload.data.firstName} ${payload.data.lastName}`;
+            return { doctorId, name };
+          }
+        }
+      } catch (_) {
+        // Fall through
+      }
+      return { doctorId, name: null };
+    });
+
+    const results = await Promise.all(doctorFetchPromises);
+    results.forEach(({ doctorId, name }) => {
+      if (name) {
+        doctorNames[doctorId] = name;
+      }
+    });
+  }
+
+  const enrichedAppointments = appointments.map((apt) => {
+    const docId = String(apt.doctorId || "").trim();
+    const doctorName =
+      doctorNames[docId] ||
+      `Dr. ${docId.substring(0, 8)}`;
+
+    return {
+      ...apt,
+      doctorName,
+      telemedicineSessionId: null,
+      telemedicineRoomId: null,
+      telemedicineStatus: null,
+      telemedicineJoinPath: null,
+    };
+  });
 
   return enrichedAppointments.map(mapAppointmentDetails);
 };

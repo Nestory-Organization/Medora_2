@@ -1,4 +1,4 @@
-﻿const dotenv = require("dotenv");
+const dotenv = require("dotenv");
 
 dotenv.config();
 
@@ -6,6 +6,16 @@ const defaultNotificationServiceUrl =
   process.env.NODE_ENV === "production"
     ? "http://notification-service:4006"
     : "http://localhost:4006";
+
+const defaultDoctorServiceUrl =
+  process.env.NODE_ENV === "production"
+    ? "http://doctor-service:4003"
+    : "http://localhost:4003";
+
+const defaultPatientServiceUrl =
+  process.env.NODE_ENV === "production"
+    ? "http://patient-service:4002"
+    : "http://localhost:4002";
 
 const requiredVars = ["PORT", "MONGO_URI"];
 
@@ -22,9 +32,13 @@ module.exports = {
   serviceName: process.env.SERVICE_NAME || "appointment-service",
   doctorSearchSource: process.env.DOCTOR_SEARCH_SOURCE || "http",
   doctorServiceUrl:
-    process.env.DOCTOR_SERVICE_URL || "http://doctor-service:4003",
+    process.env.DOCTOR_SERVICE_URL || defaultDoctorServiceUrl,
   patientServiceUrl:
-    process.env.PATIENT_SERVICE_URL || "http://patient-service:4002",
+    process.env.PATIENT_SERVICE_URL || defaultPatientServiceUrl,
+  notificationServiceUrl:
+    process.env.NOTIFICATION_SERVICE_URL || defaultNotificationServiceUrl,
   jwtSecret:
     process.env.JWT_SECRET || "change_this_auth_jwt_secret_in_production",
+  serviceRequestTimeoutMs:
+    Number(process.env.SERVICE_REQUEST_TIMEOUT_MS) || 10000,
 };

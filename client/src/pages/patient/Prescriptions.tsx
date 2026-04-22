@@ -17,7 +17,6 @@ import autoTable from 'jspdf-autotable';
 import { usePatient } from '../../api/PatientContext';
 import { getDoctorProfileById } from '../../api/doctor';
 import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
-import PageTransition from '../../components/PageTransition';
 import { TableSkeleton } from '../../components/Skeleton';
 
 const PrescriptionCard = ({ prescription }: any) => {

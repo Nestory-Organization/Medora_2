@@ -4,6 +4,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+
+import type { JitsiApi } from '../../types/jitsi';
+
 interface TelemedicineSession {
   _id: string;
   appointmentId: string;
@@ -17,17 +21,6 @@ interface TelemedicineSession {
   createdAt: string;
 }
 
-interface JitsiApi {
-  addEventListener: (event: string, listener: () => void) => void;
-  dispose: () => void;
-}
-
-declare global {
-  interface Window {
-    JitsiMeetExternalAPI?: new (domain: string, options: any) => JitsiApi;
-  }
-}
-
 export default function PatientTelemedicineSession() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
@@ -36,6 +29,7 @@ export default function PatientTelemedicineSession() {
   const [joining, setJoining] = useState(false);
   const [callActive, setCallActive] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [_notEligible, setNotEligible] = useState(false);
   const jitsiContainerRef = useRef<HTMLDivElement>(null);
   const jitsiApiRef = useRef<JitsiApi | null>(null);
 
@@ -49,25 +43,30 @@ export default function PatientTelemedicineSession() {
 
   const loadJitsiApiScript = () =>
     new Promise<void>((resolve, reject) => {
-      if (window.JitsiMeetExternalAPI) {
-        resolve();
-        return;
-      }
-
-      const existingScript = document.querySelector('script[data-jitsi="external-api"]');
-      if (existingScript) {
-        existingScript.addEventListener('load', () => resolve(), { once: true });
-        existingScript.addEventListener('error', () => reject(new Error('Failed to load Jitsi API')), { once: true });
-        return;
+      if (window.JitsiMeetExternalAPI) { 
+        resolve(); 
+        return; 
       }
 
       const script = document.createElement('script');
       script.src = 'https://meet.jit.si/external_api.js';
       script.async = true;
-      script.setAttribute('data-jitsi', 'external-api');
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Failed to load Jitsi API'));
-      document.body.appendChild(script);
+      
+      script.onload = () => {
+        setTimeout(() => {
+          if (window.JitsiMeetExternalAPI) {
+            resolve();
+          } else {
+            reject(new Error('Jitsi API not available'));
+          }
+        }, 500);
+      };
+      
+      script.onerror = () => {
+        reject(new Error('Failed to load Jitsi API'));
+      };
+      
+      document.head.appendChild(script);
     });
 
   const initializeJitsiMeeting = async (sessionId: string) => {
@@ -107,18 +106,29 @@ export default function PatientTelemedicineSession() {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:4000/api/appointments/telemedicine/room/${roomId}`
+        `${API_BASE_URL}/appointments/telemedicine/room/${roomId}`
       );
 
       if (response.data.success && response.data.data) {
         setSession(response.data.data);
+      } else {
+        setNotEligible(true);
+        setMessage({
+          type: 'error',
+          text: response.data.message || 'Session is not available'
+        });
       }
     } catch (error: any) {
       console.error('Fetch session error:', error);
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Failed to load telemedicine session'
-      });
+      if (error.response?.status === 410) {
+        setNotEligible(true);
+        setMessage({ type: 'error', text: 'This session is no longer available' });
+      } else {
+        setMessage({
+          type: 'error',
+          text: error.response?.data?.message || 'Failed to load telemedicine session'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -134,12 +144,11 @@ export default function PatientTelemedicineSession() {
       await initializeJitsiMeeting(session.sessionId);
       setCallActive(true);
 
-      // Notify backend that patient has joined
       if (session) {
         const token = localStorage.getItem('authToken');
         try {
           await axios.patch(
-            `http://localhost:4000/api/appointments/${session.appointmentId}/telemedicine/participant`,
+            `${API_BASE_URL}/appointments/${session.appointmentId}/telemedicine/participant`,
             { participantType: 'patient', joined: true },
             {
               headers: { Authorization: `Bearer ${token}` }
@@ -168,7 +177,7 @@ export default function PatientTelemedicineSession() {
       const token = localStorage.getItem('authToken');
       if (session) {
         await axios.patch(
-          `http://localhost:4000/api/appointments/${session.appointmentId}/telemedicine/participant`,
+          `${API_BASE_URL}/appointments/${session.appointmentId}/telemedicine/participant`,
           { participantType: 'patient', joined: false },
           {
             headers: { Authorization: `Bearer ${token}` }

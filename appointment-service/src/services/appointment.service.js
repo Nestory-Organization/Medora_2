@@ -44,6 +44,7 @@ const requiredFields = [
 
 const blockedUpdateStatuses = ["CANCELLED", "COMPLETED"];
 const APPOINTMENT_STATUSES = [
+  "PENDING_DOCTOR_APPROVAL",
   "PENDING_PAYMENT",
   "CONFIRMED",
   "CANCELLED",
@@ -106,7 +107,6 @@ const publishNotificationEvent = async (eventType, payload) => {
       }
     } catch (error) {
       console.error('[Notification] Error fetching doctor details:', error.message);
-      // Continue without doctor name
     }
   }
 
@@ -123,7 +123,7 @@ const publishNotificationEvent = async (eventType, payload) => {
       },
       body: JSON.stringify({
         eventType,
-        ...payload,
+        ...enrichedPayload,
       }),
       signal: controller.signal,
     });
@@ -525,6 +525,15 @@ const updateAppointmentPaymentState = async (appointmentId, payload) => {
   ) {
     throw new AppointmentValidationError(
       "Cannot confirm appointment when status is " + existingAppointment.status,
+    );
+  }
+
+  if (
+    nextStatus === "CONFIRMED" &&
+    existingAppointment.status === "PENDING_DOCTOR_APPROVAL"
+  ) {
+    throw new AppointmentValidationError(
+      "Cannot confirm appointment that is still pending doctor approval",
     );
   }
 

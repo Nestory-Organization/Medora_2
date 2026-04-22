@@ -29,11 +29,12 @@ interface Appointment {
   endTime: string;
   consultationFee: number;
   reason: string;
-  status: 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status: 'PENDING_DOCTOR_APPROVAL' | 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   paymentStatus: 'UNPAID' | 'PAID' | 'FAILED' | 'REFUNDED';
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { icon: any; color: string; label: string; border: string }> = {
+  'PENDING_DOCTOR_APPROVAL': { icon: Hourglass, color: 'bg-blue-500/20 text-blue-300', label: 'Awaiting Approval', border: 'border-blue-500/30' },
   'PENDING_PAYMENT': { icon: Hourglass, color: 'bg-yellow-500/20 text-yellow-300', label: 'Pending Payment', border: 'border-yellow-500/30' },
   'CONFIRMED': { icon: CheckCircle, color: 'bg-green-500/20 text-green-300', label: 'Confirmed', border: 'border-green-500/30' },
   'CANCELLED': { icon: XCircle, color: 'bg-red-500/20 text-red-300', label: 'Cancelled', border: 'border-red-500/30' },
@@ -41,7 +42,7 @@ const statusConfig = {
 };
 
 const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void }) => {
-  const statusInfo = statusConfig[appointment.status];
+  const statusInfo = statusConfig[appointment.status] || statusConfig['PENDING_DOCTOR_APPROVAL'];
   const StatusIcon = statusInfo.icon;
   
   const formatDate = (dateString: string) => {
@@ -54,7 +55,7 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
     });
   };
 
-  const isPending = appointment.status === 'PENDING_PAYMENT';
+  const isAwaitingDoctorDecision = appointment.status === 'PENDING_DOCTOR_APPROVAL';
 
   return (
     <div className={`bg-slate-800/30 border-2 ${statusInfo.border} rounded-xl p-5 space-y-4 hover:bg-slate-800/50 transition-all duration-300 shadow-lg`}>
@@ -135,16 +136,16 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
 
       {/* Actions */}
       <div className="space-y-2 pt-2">
-        {isPending && onStatusUpdate && (
+        {isAwaitingDoctorDecision && onStatusUpdate && (
           <div className="flex gap-2">
             <button
-              onClick={() => onStatusUpdate(appointment._id, 'CONFIRMED')}
+              onClick={() => onStatusUpdate(appointment._id, 'ACCEPTED')}
               className="flex-1 px-3 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg font-semibold text-sm transition-all border border-green-500/30"
             >
               Accept
             </button>
             <button
-              onClick={() => onStatusUpdate(appointment._id, 'CANCELLED')}
+              onClick={() => onStatusUpdate(appointment._id, 'REJECTED')}
               className="flex-1 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg font-semibold text-sm transition-all border border-red-500/30"
             >
               Decline
@@ -266,7 +267,7 @@ export default function PatientAppointments() {
     try {
       const token = localStorage.getItem('authToken');
       const declineReason =
-        newStatus === 'CANCELLED'
+        newStatus === 'REJECTED'
           ? window.prompt('Optional: add a reason for declining this appointment')?.trim() || ''
           : '';
 
@@ -282,11 +283,13 @@ export default function PatientAppointments() {
       );
 
       if (response.data.success) {
-        setMessage({ type: 'success', text: `Appointment ${newStatus.toLowerCase()}` });
+        const action = newStatus === 'ACCEPTED' ? 'accepted' : 'declined';
+        setMessage({ type: 'success', text: `Appointment ${action}. Patient has been notified.` });
         fetchAppointments();
       }
     } catch (error: any) {
-      setMessage({ type: 'error', text: 'Failed to update appointment status' });
+      const errorMsg = error.response?.data?.message || 'Failed to update appointment status';
+      setMessage({ type: 'error', text: errorMsg });
       console.error('Update status error:', error);
     }
   };
@@ -316,7 +319,7 @@ export default function PatientAppointments() {
   const stats = {
     total: appointments.length,
     confirmed: appointments.filter(a => a.status === 'CONFIRMED').length,
-    pending: appointments.filter(a => a.status === 'PENDING_PAYMENT').length,
+    pending: appointments.filter(a => ['PENDING_DOCTOR_APPROVAL', 'PENDING_PAYMENT'].includes(a.status)).length,
     completed: appointments.filter(a => a.status === 'COMPLETED').length
   };
 
@@ -392,7 +395,7 @@ export default function PatientAppointments() {
 
           <div className="flex items-center gap-2 flex-wrap">
             <FunnelSimple size={18} className="text-slate-400" />
-            {['ALL', 'PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'].map(status => (
+            {['ALL', 'PENDING_DOCTOR_APPROVAL', 'PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'].map(status => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}

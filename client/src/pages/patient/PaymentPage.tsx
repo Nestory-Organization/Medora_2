@@ -82,6 +82,8 @@ const PaymentPage: React.FC = () => {
       });
 
       if (response.data.success && response.data.data?.checkoutUrl) {
+        // Store appointment ID for payment confirmation on return
+        sessionStorage.setItem('lastAppointmentIdForPayment', appointment._id);
         // Redirect to Stripe checkout
         window.location.href = response.data.data.checkoutUrl;
       } else {

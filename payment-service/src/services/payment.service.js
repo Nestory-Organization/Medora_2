@@ -174,24 +174,50 @@ const ensureAppointmentEligibleForPayment = async (appointmentId) => {
 
 const createPaymentSession = async (payload) => {
   validateCreateSessionPayload(payload);
-  await ensureAppointmentEligibleForPayment(payload.appointmentId);
 
+  if (process.env.MOCK_PAYMENTS !== 'true') {
+    await ensureAppointmentEligibleForPayment(payload.appointmentId);
+  }
+
+  const mockPayments = process.env.MOCK_PAYMENTS === 'true';
   const created = await Payment.create({
     appointmentId: payload.appointmentId.trim(),
     patientId: payload.patientId.trim(),
     amount: payload.amount,
     currency: payload.currency.trim().toUpperCase(),
-    gateway: gatewayName,
+    gateway: mockPayments ? 'MOCK' : gatewayName,
     status: 'PENDING'
   });
 
-  console.log('Created', gatewayName, 'payment:', created._id);
+  console.log('Created', mockPayments ? 'MOCK' : gatewayName, 'payment:', created._id);
+
+  if (mockPayments) {
+    console.log('[Mock Payment] Simulating successful payment for appointment:', payload.appointmentId);
+
+    created.status = 'SUCCESS';
+    created.transactionId = `mock_session_${Date.now()}`;
+    await created.save();
+
+    const syncResult = await updateAppointmentFromPayment({
+      appointmentId: payload.appointmentId,
+      paymentStatus: 'SUCCESS'
+    });
+    console.log('[Mock Payment] Appointment sync result:', JSON.stringify(syncResult));
+
+    return {
+      paymentId: created._id,
+      sessionId: created.transactionId,
+      checkoutUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/patient/payment-success?session_id=${created.transactionId}`,
+      status: 'SUCCESS',
+      amount: created.amount,
+      currency: created.currency,
+      gateway: 'MOCK',
+      isMock: true
+    };
+  }
 
   try {
-    // Convert amount to cents for Stripe
     const amountInCents = Math.round(payload.amount * 100);
-
-    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -218,7 +244,6 @@ const createPaymentSession = async (payload) => {
       client_reference_id: created._id.toString()
     });
 
-    // Update payment with Stripe session ID
     created.transactionId = session.id;
     await created.save();
 

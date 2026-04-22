@@ -7,6 +7,7 @@ const patientApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 15000,
 });
 
 export const getUserId = (user: any) => user?.id || user?._id || user?.userId || null;
@@ -175,7 +176,7 @@ export const getDoctorAvailabilitySlots = async (doctorId: string, date: string)
 };
 
 export const cancelAppointment = async (id: string) => {
-    const response = await patientApi.put(`/appointments/cancel/${id}`);
+    const response = await patientApi.delete(`/appointments/${id}`);
     return response.data;
 };
 
