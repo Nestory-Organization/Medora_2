@@ -423,12 +423,12 @@ export default function MyAppointments() {
   const handleJoinMeeting = async (appointmentId: string) => {
     try {
       const response = await joinMeeting(appointmentId);
-      const roomId = response?.data?.roomId;
-      if (roomId) {
-        // Navigate to telemedicine room
-        navigate(`/patient-telemedicine/${roomId}`);
+      const sessionId = response?.data?.sessionId;
+      if (sessionId) {
+        // Navigate to telemedicine room page
+        navigate(`/patient-telemedicine/${sessionId}`);
       } else {
-        console.error("No room ID received");
+        console.error("No session ID received");
       }
     } catch (err) {
       console.error("Failed to join meeting", err);
