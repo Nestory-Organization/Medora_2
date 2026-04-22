@@ -16,7 +16,9 @@ const {
   getAppointmentPaymentEligibility,
 	getAppointmentById,
   getDoctorAppointmentsById,
-  updateDoctorAppointmentStatus
+  updateDoctorAppointmentStatus,
+  addAppointmentPrescription,
+  getAppointmentPrescription
 } = require('../controllers/appointmentTracking.controller');
 const {
 	getOrCreateTelemedicineSession,
@@ -62,6 +64,10 @@ router.put('/:id/doctor-status', authenticate, authorize('doctor'), updateDoctor
 
 // GET /:id/payment-eligibility - payment-service checks if patient can pay
 router.get('/:id/payment-eligibility', getAppointmentPaymentEligibility);
+
+// Prescription endpoints on appointment source-of-truth
+router.post('/:id/prescription', authenticate, authorize('doctor'), addAppointmentPrescription);
+router.get('/:id/prescription', authenticate, getAppointmentPrescription);
 
 // GET /patient/:patientId/prescriptions - get prescriptions from appointments for a patient
 router.get('/patient/:patientId/prescriptions', async (req, res) => {

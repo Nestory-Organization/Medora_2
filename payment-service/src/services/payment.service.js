@@ -376,45 +376,33 @@ const findPaymentForWebhook = async (payload) => {
   return null;
 };
 
+// Get doctor earnings from completed appointments
 const getDoctorEarnings = async (doctorId, options = {}) => {
   const { startDate, endDate, period = 'day' } = options;
   
-  // Build date filter
-  const dateFilter = {};
+  // Build date filter for payments
+  const matchFilter = { status: 'SUCCESS' };
+  
   if (startDate) {
-    dateFilter.$gte = new Date(startDate);
+    matchFilter.createdAt = { $gte: new Date(startDate) };
   }
   if (endDate) {
-    dateFilter.$lte = new Date(endDate);
+    matchFilter.createdAt = { ...matchFilter.createdAt, $lte: new Date(endDate + 'T23:59:59') };
   }
 
-  // Get payments for the doctor (successful payments only)
+  // Get payments for this doctor - query appointments collection to get doctorId
   const earnings = await Payment.aggregate([
-    {
-      $match: {
-        status: 'SUCCESS',
-        createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined
-      }
-    },
+    { $match: matchFilter },
     {
       $lookup: {
-        from: 'transactions',
-        let: { appointmentId: '$appointmentId' },
-        pipeline: [
-          {
-            $match: {
-              $expr: { $eq: ['$appointmentId', '$$appointmentId'] },
-              doctorId: doctorId,
-              status: 'completed'
-            }
-          }
-        ],
-        as: 'transaction'
+        from: 'appointments',
+        localField: 'appointmentId',
+        foreignField: '_id',
+        as: 'appointment'
       }
     },
-    {
-      $match: { transaction: { $ne: [] } }
-    },
+    { $unwind: '$appointment' },
+    { $match: { 'appointment.doctorId': doctorId } },
     {
       $group: {
         _id: {
@@ -429,10 +417,48 @@ const getDoctorEarnings = async (doctorId, options = {}) => {
         appointmentIds: { $push: '$appointmentId' }
       }
     },
-    {
-      $sort: { _id: -1 }
+    { $sort: { _id: -1 } }
+]);
+
+  // If no earnings data, try getting from appointments directly
+  if (earnings.length === 0) {
+    const Appointment = require('../models/appointment.model');
+    const appointmentFilter = { 
+      doctorId: doctorId,
+      paymentStatus: 'PAID',
+      status: { $in: ['CONFIRMED', 'COMPLETED'] }
+    };
+    
+    if (startDate || endDate) {
+      appointmentFilter.appointmentDate = {};
+      if (startDate) appointmentFilter.appointmentDate.$gte = new Date(startDate);
+      if (endDate) appointmentFilter.appointmentDate.$lte = new Date(endDate);
     }
-  ]);
+    
+    const completedAppts = await Appointment.find(appointmentFilter).lean();
+    
+    // Group by date
+    const byDate = {};
+    for (const apt of completedAppts) {
+      const dateKey = new Date(apt.appointmentDate).toISOString().split('T')[0];
+      if (!byDate[dateKey]) {
+        byDate[dateKey] = { earnings: 0, appointments: 0, ids: [] };
+      }
+      byDate[dateKey].earnings += apt.consultationFee || 0;
+      byDate[dateKey].appointments += 1;
+      byDate[dateKey].ids.push(apt._id);
+    }
+    
+    for (const [date, data] of Object.entries(byDate)) {
+      earnings.push({
+        _id: date,
+        totalEarnings: data.earnings,
+        totalTransactions: data.appointments,
+        appointmentIds: data.ids
+      });
+    }
+    earnings.sort((a, b) => b._id.localeCompare(a._id));
+  }
 
   const totalEarnings = earnings.reduce((sum, day) => sum + day.totalEarnings, 0);
   const totalAppointments = earnings.reduce((sum, day) => sum + day.totalTransactions, 0);

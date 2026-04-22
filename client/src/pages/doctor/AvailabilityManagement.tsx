@@ -62,8 +62,40 @@ export default function AvailabilityManagement() {
   // Refresh availability data when navigating to this page
   useRefreshOnNavigate(fetchAvailability);
 
+  // Fetch existing slots when date changes
+  const fetchSlotsForDate = async (selectedDate: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get(
+        `http://localhost:4000/api/doctors/availability?date=${selectedDate}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (response.data.success && response.data.data.length > 0) {
+        const existingSlots = response.data.data[0].slots.map((slot: { startTime: string; endTime: string }) => ({
+          startTime: slot.startTime,
+          endTime: slot.endTime
+        }));
+        setSlots(existingSlots);
+      } else {
+        setSlots([{ startTime: '09:00', endTime: '10:00' }]);
+      }
+    } catch (error) {
+      console.error('Fetch slots for date error:', error);
+      setSlots([{ startTime: '09:00', endTime: '10:00' }]);
+    }
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value;
+    setDate(newDate);
+    fetchSlotsForDate(newDate);
+  };
+
   useEffect(() => {
     fetchAvailability();
+    fetchSlotsForDate(date);
   }, []);
 
   const handleAddSlot = () => {
@@ -151,7 +183,7 @@ export default function AvailabilityManagement() {
                 <input
                   type="date"
                   value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                  onChange={handleDateChange}
                   className="w-full bg-slate-800/50 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all uppercase tracking-tighter"
                   required
                 />

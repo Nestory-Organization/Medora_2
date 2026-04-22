@@ -214,7 +214,7 @@ export default function PatientAppointments() {
       }
 
       const response = await axios.get(
-        `http://localhost:4000/api/appointments/doctor/${doctorId}`,
+        `http://localhost:4000/api/doctors/appointments`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -271,8 +271,8 @@ export default function PatientAppointments() {
           ? window.prompt('Optional: add a reason for declining this appointment')?.trim() || ''
           : '';
 
-      const response = await axios.put(
-        `http://localhost:4000/api/appointments/${appointmentId}/doctor-status`,
+      const response = await axios.patch(
+        `http://localhost:4000/api/doctors/appointment/${appointmentId}/status`,
         {
           status: newStatus,
           declineReason: declineReason || undefined

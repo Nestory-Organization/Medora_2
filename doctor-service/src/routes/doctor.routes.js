@@ -49,11 +49,13 @@ router.get('/profile/:doctorId', getDoctorProfileById);
 // Allow posting availability without verification
 router.post('/availability', setAvailability);
 
+// Allow fetching appointments without verification (doctors need to see new requests)
+router.get('/appointments', getAssignedAppointments);
+router.put('/appointment/:id/status', updateAppointmentStatus);
+
 router.use(checkDoctorVerified);
 
 router.put('/profile', updateDoctorProfile);
-router.get('/appointments', getAssignedAppointments);
-router.put('/appointment/:id/status', updateAppointmentStatus);
 
 // Prescription endpoints
 router.post('/appointment/:appointmentId/prescription', addPrescriptionToAppointment);

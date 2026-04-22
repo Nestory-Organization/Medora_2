@@ -211,6 +211,30 @@ export default function DoctorEarnings() {
             </div>
           </div>
 
+          {/* Simple Bar Chart */}
+          <div className="chart-section">
+            <h2 className="section-title">Earnings Overview</h2>
+            <div className="bar-chart">
+              {earnings.dailyEarnings.slice(0, 14).map((day, index) => {
+                const maxEarnings = Math.max(...earnings.dailyEarnings.map(d => d.earnings));
+                const height = maxEarnings > 0 ? (day.earnings / maxEarnings) * 100 : 0;
+                return (
+                  <div key={index} className="bar-container">
+                    <div 
+                      className="bar" 
+                      style={{ height: `${height}%` }}
+                      title={`${formatDate(day.date)}: ${formatCurrency(day.earnings)}`}
+                    />
+                    <span className="bar-label">{new Date(day.date).getDate()}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="chart-legend">
+              <span>Last {Math.min(14, earnings.dailyEarnings.length)} days</span>
+            </div>
+          </div>
+
           {/* Date Range Filter */}
           <div className="filter-section">
             <div className="date-range-selector">

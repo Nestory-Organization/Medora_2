@@ -248,6 +248,29 @@ export default function MyAppointments() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'history'>('all');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING_DOCTOR_APPROVAL' | 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'>('ALL');
+  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH'>('ALL');
+
+  const isInDateRange = (appointmentDate: string, filter: string) => {
+    if (filter === 'ALL') return true;
+    const aptDate = new Date(appointmentDate);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    if (filter === 'TODAY') {
+      return aptDate.toDateString() === today.toDateString();
+    }
+    if (filter === 'THIS_WEEK') {
+      return aptDate >= weekStart && aptDate <= today;
+    }
+    if (filter === 'THIS_MONTH') {
+      return aptDate >= monthStart && aptDate <= today;
+    }
+    return true;
+  };
   const [rescheduleModal, setRescheduleModal] = useState<{ isOpen: boolean; appointmentId: string | null; doctorId: string | null }>({
     isOpen: false,
     appointmentId: null,
@@ -336,6 +359,16 @@ export default function MyAppointments() {
   }, []);
 
   const handleCancel = async (id: string) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this appointment?\n\nThis action CANNOT be undone. The appointment will be removed from your list and you will need to book again if needed."
+    );
+    if (!confirmed) return;
+    
+    const retryConfirmed = window.confirm(
+      "This is FINAL - the appointment will be permanently cancelled and cannot be recovered.\n\nClick OK to cancel, or Cancel to keep your appointment."
+    );
+    if (!retryConfirmed) return;
+    
     try {
       await cancelAppointment(id);
       setAppointments(prev => prev.map(a => a._id === id ? { ...a, status: 'CANCELLED' } : a));
@@ -445,6 +478,17 @@ export default function MyAppointments() {
     } else if (filter === 'history') {
       return aptDate < today || apt.status === 'CANCELLED';
     }
+    
+    // Status filter
+    if (statusFilter !== 'ALL' && apt.status !== statusFilter) {
+      return false;
+    }
+    
+    // Date filter
+    if (dateFilter !== 'ALL' && !isInDateRange(apt.appointmentDate, dateFilter)) {
+      return false;
+    }
+    
     return true;
   });
 
@@ -482,6 +526,34 @@ export default function MyAppointments() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Additional Filters */}
+        <div className="flex gap-2 flex-wrap">
+          <span className="text-xs font-bold text-slate-500 uppercase mt-2 mr-2">Date:</span>
+          {['ALL', 'TODAY', 'THIS_WEEK', 'THIS_MONTH'].map(date => (
+            <button
+              key={date}
+              onClick={() => setDateFilter(date as any)}
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs uppercase ${
+                dateFilter === date ? 'bg-green-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              {date.replace(/_/g, ' ')}
+            </button>
+          ))}
+          <span className="text-xs font-bold text-slate-500 uppercase mt-2 mr-2 ml-4">Status:</span>
+          {['ALL', 'CONFIRMED', 'PENDING_PAYMENT', 'PENDING_DOCTOR_APPROVAL', 'COMPLETED'].map(status => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status as any)}
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs uppercase ${
+                statusFilter === status ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              {status === 'ALL' ? 'All' : status.replace(/_/g, ' ')}
+            </button>
+          ))}
         </div>
 
         <div className="space-y-6">

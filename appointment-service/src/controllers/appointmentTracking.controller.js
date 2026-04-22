@@ -312,6 +312,185 @@ const getAppointmentPaymentEligibility = async (req, res) => {
   }
 };
 
+const addAppointmentPrescription = async (req, res) => {
+  try {
+    const appointmentId = req.params.id;
+    const { medicines, notes } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid appointment ID",
+        data: null,
+      });
+    }
+
+    if (!Array.isArray(medicines) || medicines.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one medicine is required",
+        data: null,
+      });
+    }
+
+    const normalizedMedicines = medicines.map((item) => ({
+      name: String(item?.name || "").trim(),
+      dosage: String(item?.dosage || "").trim(),
+      frequency: String(item?.frequency || "").trim(),
+      duration: String(item?.duration || "").trim(),
+      instructions: item?.instructions ? String(item.instructions).trim() : null,
+    }));
+
+    const hasInvalidMedicine = normalizedMedicines.some(
+      (item) => !item.name || !item.dosage || !item.frequency || !item.duration,
+    );
+
+    if (hasInvalidMedicine) {
+      return res.status(400).json({
+        success: false,
+        message: "Each medicine must include name, dosage, frequency, and duration",
+        data: null,
+      });
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+        data: null,
+      });
+    }
+
+    const authUserId = String(req.user?.id || "").trim();
+    const appointmentDoctorId = String(appointment.doctorId || "").trim();
+
+    if (req.user?.role !== "doctor" || !authUserId || authUserId !== appointmentDoctorId) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to add a prescription to this appointment",
+        data: null,
+      });
+    }
+
+    const status = String(appointment.status || "").toUpperCase();
+    if (!["CONFIRMED", "COMPLETED"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Prescription can be added only for confirmed or completed appointments. Current status: ${status}`,
+        data: null,
+      });
+    }
+
+    if (!Array.isArray(appointment.prescriptions)) {
+      appointment.prescriptions = [];
+    }
+
+    const prescription = {
+      medicines: normalizedMedicines,
+      notes: notes ? String(notes).trim() : null,
+      createdAt: new Date(),
+    };
+
+    appointment.prescriptions.push(prescription);
+    await appointment.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Prescription added successfully",
+      data: {
+        appointmentId: appointment._id,
+        prescription: {
+          medicines: prescription.medicines,
+          notes: prescription.notes,
+          prescribedAt: prescription.createdAt,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Add appointment prescription error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to add prescription",
+      data: null,
+      error: error.message,
+    });
+  }
+};
+
+const getAppointmentPrescription = async (req, res) => {
+  try {
+    const appointmentId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid appointment ID",
+        data: null,
+      });
+    }
+
+    const appointment = await Appointment.findById(appointmentId).lean();
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+        data: null,
+      });
+    }
+
+    const authUserId = String(req.user?.id || "").trim();
+    const appointmentDoctorId = String(appointment.doctorId || "").trim();
+    const appointmentPatientId = String(appointment.patientId || "").trim();
+
+    const canRead =
+      (req.user?.role === "doctor" && authUserId === appointmentDoctorId) ||
+      (req.user?.role === "patient" && authUserId === appointmentPatientId);
+
+    if (!canRead) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to view this prescription",
+        data: null,
+      });
+    }
+
+    if (!Array.isArray(appointment.prescriptions) || appointment.prescriptions.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No prescriptions found for this appointment",
+        data: null,
+      });
+    }
+
+    const latestPrescription = appointment.prescriptions[appointment.prescriptions.length - 1];
+
+    return res.status(200).json({
+      success: true,
+      message: "Prescription fetched successfully",
+      data: {
+        appointmentId: appointment._id,
+        appointmentDate: appointment.appointmentDate,
+        doctorId: appointment.doctorId,
+        patientId: appointment.patientId,
+        prescription: {
+          medicines: latestPrescription.medicines || [],
+          notes: latestPrescription.notes || null,
+          prescribedAt: latestPrescription.createdAt || null,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get appointment prescription error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch prescription",
+      data: null,
+      error: error.message,
+    });
+  }
+};
+
 const updateDoctorAppointmentStatus = async (req, res) => {
   try {
     const appointmentId = req.params.id;
@@ -458,5 +637,7 @@ module.exports = {
   getDoctorAppointmentsById,
   updateDoctorAppointmentStatus,
   getAppointmentPaymentEligibility,
+  addAppointmentPrescription,
+  getAppointmentPrescription,
 };
 
