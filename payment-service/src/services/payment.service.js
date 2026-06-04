@@ -119,25 +119,105 @@ const validateWebhookPayload = (payload) => {
   }
 };
 
+const ensureAppointmentEligibleForPayment = async (appointmentId) => {
+  const baseUrl = String(env.appointmentServiceUrl || '').replace(/\/$/, '');
+  if (!baseUrl) {
+    throw new PaymentValidationError('Appointment service URL is not configured');
+  }
+
+  const targetUrl =
+    baseUrl +
+    '/appointments/' +
+    encodeURIComponent(String(appointmentId).trim()) +
+    '/payment-eligibility';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, env.serviceRequestTimeoutMs);
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json'
+      },
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new PaymentValidationError('Unable to verify appointment status for payment');
+    }
+
+    const payload = await response.json();
+    const eligible = payload?.data?.eligible === true;
+
+    if (!eligible) {
+      throw new PaymentValidationError(
+        payload?.data?.reason || 'Payment is allowed only after appointment acceptance'
+      );
+    }
+  } catch (error) {
+    if (error instanceof PaymentValidationError) {
+      throw error;
+    }
+
+    throw new PaymentValidationError(
+      error.name === 'AbortError'
+        ? 'Timed out while verifying appointment payment eligibility'
+        : 'Unable to verify appointment eligibility for payment'
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const createPaymentSession = async (payload) => {
   validateCreateSessionPayload(payload);
 
+  if (process.env.MOCK_PAYMENTS !== 'true') {
+    await ensureAppointmentEligibleForPayment(payload.appointmentId);
+  }
+
+  const mockPayments = process.env.MOCK_PAYMENTS === 'true';
   const created = await Payment.create({
     appointmentId: payload.appointmentId.trim(),
     patientId: payload.patientId.trim(),
     amount: payload.amount,
     currency: payload.currency.trim().toUpperCase(),
-    gateway: gatewayName,
+    gateway: mockPayments ? 'MOCK' : gatewayName,
     status: 'PENDING'
   });
 
-  console.log('Created', gatewayName, 'payment:', created._id);
+  console.log('Created', mockPayments ? 'MOCK' : gatewayName, 'payment:', created._id);
+
+  if (mockPayments) {
+    console.log('[Mock Payment] Simulating successful payment for appointment:', payload.appointmentId);
+
+    created.status = 'SUCCESS';
+    created.transactionId = `mock_session_${Date.now()}`;
+    await created.save();
+
+    const syncResult = await updateAppointmentFromPayment({
+      appointmentId: payload.appointmentId,
+      paymentStatus: 'SUCCESS'
+    });
+    console.log('[Mock Payment] Appointment sync result:', JSON.stringify(syncResult));
+
+    return {
+      paymentId: created._id,
+      sessionId: created.transactionId,
+      checkoutUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/patient/payment-success?session_id=${created.transactionId}`,
+      status: 'SUCCESS',
+      amount: created.amount,
+      currency: created.currency,
+      gateway: 'MOCK',
+      isMock: true
+    };
+  }
 
   try {
-    // Convert amount to cents for Stripe
     const amountInCents = Math.round(payload.amount * 100);
-
-    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -164,7 +244,6 @@ const createPaymentSession = async (payload) => {
       client_reference_id: created._id.toString()
     });
 
-    // Update payment with Stripe session ID
     created.transactionId = session.id;
     await created.save();
 
@@ -297,45 +376,33 @@ const findPaymentForWebhook = async (payload) => {
   return null;
 };
 
+// Get doctor earnings from completed appointments
 const getDoctorEarnings = async (doctorId, options = {}) => {
   const { startDate, endDate, period = 'day' } = options;
   
-  // Build date filter
-  const dateFilter = {};
+  // Build date filter for payments
+  const matchFilter = { status: 'SUCCESS' };
+  
   if (startDate) {
-    dateFilter.$gte = new Date(startDate);
+    matchFilter.createdAt = { $gte: new Date(startDate) };
   }
   if (endDate) {
-    dateFilter.$lte = new Date(endDate);
+    matchFilter.createdAt = { ...matchFilter.createdAt, $lte: new Date(endDate + 'T23:59:59') };
   }
 
-  // Get payments for the doctor (successful payments only)
+  // Get payments for this doctor - query appointments collection to get doctorId
   const earnings = await Payment.aggregate([
-    {
-      $match: {
-        status: 'SUCCESS',
-        createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined
-      }
-    },
+    { $match: matchFilter },
     {
       $lookup: {
-        from: 'transactions',
-        let: { appointmentId: '$appointmentId' },
-        pipeline: [
-          {
-            $match: {
-              $expr: { $eq: ['$appointmentId', '$$appointmentId'] },
-              doctorId: doctorId,
-              status: 'completed'
-            }
-          }
-        ],
-        as: 'transaction'
+        from: 'appointments',
+        localField: 'appointmentId',
+        foreignField: '_id',
+        as: 'appointment'
       }
     },
-    {
-      $match: { transaction: { $ne: [] } }
-    },
+    { $unwind: '$appointment' },
+    { $match: { 'appointment.doctorId': doctorId } },
     {
       $group: {
         _id: {
@@ -350,10 +417,48 @@ const getDoctorEarnings = async (doctorId, options = {}) => {
         appointmentIds: { $push: '$appointmentId' }
       }
     },
-    {
-      $sort: { _id: -1 }
+    { $sort: { _id: -1 } }
+]);
+
+  // If no earnings data, try getting from appointments directly
+  if (earnings.length === 0) {
+    const Appointment = require('../models/appointment.model');
+    const appointmentFilter = { 
+      doctorId: doctorId,
+      paymentStatus: 'PAID',
+      status: { $in: ['CONFIRMED', 'COMPLETED'] }
+    };
+    
+    if (startDate || endDate) {
+      appointmentFilter.appointmentDate = {};
+      if (startDate) appointmentFilter.appointmentDate.$gte = new Date(startDate);
+      if (endDate) appointmentFilter.appointmentDate.$lte = new Date(endDate);
     }
-  ]);
+    
+    const completedAppts = await Appointment.find(appointmentFilter).lean();
+    
+    // Group by date
+    const byDate = {};
+    for (const apt of completedAppts) {
+      const dateKey = new Date(apt.appointmentDate).toISOString().split('T')[0];
+      if (!byDate[dateKey]) {
+        byDate[dateKey] = { earnings: 0, appointments: 0, ids: [] };
+      }
+      byDate[dateKey].earnings += apt.consultationFee || 0;
+      byDate[dateKey].appointments += 1;
+      byDate[dateKey].ids.push(apt._id);
+    }
+    
+    for (const [date, data] of Object.entries(byDate)) {
+      earnings.push({
+        _id: date,
+        totalEarnings: data.earnings,
+        totalTransactions: data.appointments,
+        appointmentIds: data.ids
+      });
+    }
+    earnings.sort((a, b) => b._id.localeCompare(a._id));
+  }
 
   const totalEarnings = earnings.reduce((sum, day) => sum + day.totalEarnings, 0);
   const totalAppointments = earnings.reduce((sum, day) => sum + day.totalTransactions, 0);

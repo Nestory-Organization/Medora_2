@@ -1,4 +1,4 @@
-﻿const dotenv = require('dotenv');
+const dotenv = require('dotenv');
 
 dotenv.config();
 
@@ -17,6 +17,8 @@ module.exports = {
   jwtSecret: process.env.JWT_SECRET,
   serviceName: process.env.SERVICE_NAME || 'doctor-service',
   patientServiceUrl: process.env.PATIENT_SERVICE_URL || 'http://localhost:4002',
+  appointmentServiceUrl: process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:4004',
+  notificationServiceUrl: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:4006',
   serviceRequestTimeoutMs: Number(process.env.SERVICE_REQUEST_TIMEOUT_MS || 8000)
 };
 

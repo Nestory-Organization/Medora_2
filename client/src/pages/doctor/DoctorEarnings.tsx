@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { CaretLeft, CaretRight, ChartLine, Calendar, CurrencyDollar, FileText } from '@phosphor-icons/react';
 import './DoctorEarnings.css';
 
@@ -40,10 +41,6 @@ export default function DoctorEarnings() {
   const user = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
   const token = localStorage.getItem('authToken');
 
-  useEffect(() => {
-    fetchEarnings();
-  }, [dateRange]);
-
   const fetchEarnings = async () => {
     if (!user?._id || !token) {
       setError('User not authenticated');
@@ -84,6 +81,13 @@ export default function DoctorEarnings() {
       setLoading(false);
     }
   };
+
+  // Refresh earnings data when navigating to this page
+  useRefreshOnNavigate(fetchEarnings);
+
+  useEffect(() => {
+    fetchEarnings();
+  }, [dateRange]);
 
   const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
     setDateRange(prev => ({
@@ -204,6 +208,30 @@ export default function DoctorEarnings() {
                 <p className="card-label">Average per Appointment</p>
                 <h3 className="card-value">{formatCurrency(parseFloat(String(earnings.summary.averagePerAppointment)))}</h3>
               </div>
+            </div>
+          </div>
+
+          {/* Simple Bar Chart */}
+          <div className="chart-section">
+            <h2 className="section-title">Earnings Overview</h2>
+            <div className="bar-chart">
+              {earnings.dailyEarnings.slice(0, 14).map((day, index) => {
+                const maxEarnings = Math.max(...earnings.dailyEarnings.map(d => d.earnings));
+                const height = maxEarnings > 0 ? (day.earnings / maxEarnings) * 100 : 0;
+                return (
+                  <div key={index} className="bar-container">
+                    <div 
+                      className="bar" 
+                      style={{ height: `${height}%` }}
+                      title={`${formatDate(day.date)}: ${formatCurrency(day.earnings)}`}
+                    />
+                    <span className="bar-label">{new Date(day.date).getDate()}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="chart-legend">
+              <span>Last {Math.min(14, earnings.dailyEarnings.length)} days</span>
             </div>
           </div>
 

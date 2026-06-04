@@ -65,7 +65,39 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
     console.log('[Appointment Sync] Response status:', response.status, 'Body:', JSON.stringify(responseBody));
 
     if (!response.ok) {
-      console.error('[Appointment Sync] Error response from appointment-service:', responseBody);
+      console.error('[Appointment Sync] Error response from appointment-service:', JSON.stringify(responseBody));
+
+      if (normalizedPaymentStatus === 'SUCCESS') {
+        console.log('[Appointment Sync] Trying fallback: update paymentStatus only');
+        const fallbackUrl =
+          env.appointmentServiceUrl.replace(/\/$/, '') +
+          '/appointments/' +
+          encodeURIComponent(String(appointmentId)) +
+          '/payment-status';
+
+        const fallbackResponse = await fetch(fallbackUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ paymentStatus: 'PAID' }),
+          signal: controller.signal
+        });
+
+        console.log('[Appointment Sync] Fallback response status:', fallbackResponse.status);
+
+        if (fallbackResponse.ok) {
+          console.log('[Appointment Sync] Fallback succeeded - payment marked as PAID');
+          return {
+            skipped: false,
+            success: true,
+            statusCode: fallbackResponse.status,
+            targetUrl: fallbackUrl,
+            data: null
+          };
+        }
+      }
+
       return {
         skipped: false,
         success: false,
@@ -74,7 +106,7 @@ const updateAppointmentFromPayment = async ({ appointmentId, paymentStatus }) =>
         responseBody,
         error:
           (typeof responseBody === 'object' && responseBody?.message) ||
-          'Appointment-service returned a non-success response'
+          `Appointment-service returned ${response.status}`
       };
     }
 

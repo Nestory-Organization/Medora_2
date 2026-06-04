@@ -38,7 +38,7 @@ const getAllDoctors = async (req, res) => {
 const verifyDoctor = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  console.log(`[System] PATCH /doctors/${id}/verify - status=${status}`);
+  console.log(`[System] PATCH verify - id=${id}, status=${status}, params=`, req.params);
 
   try {
     const profile = await DoctorProfile.findOneAndUpdate(
@@ -48,6 +48,8 @@ const verifyDoctor = async (req, res) => {
     );
 
     if (!profile) {
+      const allProfiles = await DoctorProfile.find({});
+      console.log(`[System] Doctor profile not found for id: ${id}. Available IDs:`, allProfiles.map(p => ({_id: p._id, doctorId: p.doctorId})));
       return res.status(404).json({
         success: false,
         message: 'Doctor profile not found'

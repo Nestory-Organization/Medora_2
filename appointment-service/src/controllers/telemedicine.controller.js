@@ -102,6 +102,7 @@ const getOrCreateTelemedicineSession = async (req, res) => {
 const initiateTelemedicineCall = async (req, res) => {
   try {
     const { appointmentId } = req.params;
+    const { sessionId: customSessionId } = req.body || {};
     const doctorId = req.user?.id;
 
     // Verify payment first
@@ -121,13 +122,15 @@ const initiateTelemedicineCall = async (req, res) => {
     let session = await Telemedicine.findOne({ appointmentId });
 
     if (!session) {
-      const { sessionId, roomId } = generateSessionIds();
+      // Use custom sessionId if provided, otherwise generate
+      const sessionId = customSessionId || generateSessionIds().sessionId;
+      // Use same ID for both sessionId and roomId for easy sharing
       session = new Telemedicine({
         appointmentId,
         patientId: paymentCheck.appointment.patientId,
         doctorId,
         sessionId,
-        roomId,
+        roomId: sessionId,
         status: 'ACTIVE',
         doctorJoined: true,
         startTime: new Date(),

@@ -121,7 +121,7 @@ const fetchDoctorById = async (doctorId) => {
   }
 
   const baseUrl = env.doctorServiceUrl.replace(/\/+$/, '');
-  const url = baseUrl + '/doctor/' + encodeURIComponent(String(doctorId).trim());
+  const url = baseUrl + '/doctor/search/' + encodeURIComponent(String(doctorId).trim());
 
   console.log(`[Doctor Fetch] Fetching doctor from: ${url}`);
 

@@ -16,6 +16,7 @@ import {
   VideoCamera,
   Stethoscope,
   ChartLine,
+  ArrowsClockwise,
   type IconProps
 } from '@phosphor-icons/react';
 
@@ -115,7 +116,6 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
   const navItems = role === 'patient' 
     ? [
         { to: '/patient/dashboard', icon: CirclesFour, label: 'Dashboard' },
-      { to: '/patient/book', icon: Stethoscope, label: 'Find Your Specialist' },
         { to: '/patient/appointments', icon: CalendarCheck, label: 'My Appointments' },
         { to: '/patient/history', icon: Files, label: 'Medical History' },
         { to: '/patient/prescriptions', icon: Pill, label: 'Prescriptions' },
@@ -137,6 +137,11 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
           to: '/doctor/earnings', 
           icon: ChartLine, 
           label: 'My Earnings'
+        },
+        {
+          to: '/doctor/reschedule-requests',
+          icon: ArrowsClockwise,
+          label: 'Reschedule Requests'
         },
         { 
           to: '/doctor/profile', 

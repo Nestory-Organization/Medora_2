@@ -8,6 +8,8 @@ import {
   type UiCondition
 } from '../../api/ai';
 import PageTransition from '../../components/PageTransition';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
+import { TableSkeleton } from '../../components/Skeleton';
 
 const asStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -264,6 +266,11 @@ export default function AiHistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
 
+  // Refresh history when navigating to this page
+  useRefreshOnNavigate(async () => {
+    await fetchHistory();
+  });
+
   useEffect(() => {
     void fetchHistory();
   }, []);
@@ -327,11 +334,9 @@ export default function AiHistoryPage() {
           </div>
         )}
 
-        {loading ? (
-          <div className="grid gap-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-24 bg-slate-900/40 border border-white/5 rounded-2xl animate-pulse" />
-            ))}
+        {loading && history.length === 0 ? (
+          <div className="grid gap-4 max-w-4xl">
+            <TableSkeleton rows={3} />
           </div>
         ) : history.length > 0 ? (
           <div className="grid gap-4 max-w-4xl">

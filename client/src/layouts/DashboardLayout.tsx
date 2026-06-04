@@ -1,4 +1,5 @@
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -26,7 +27,12 @@ export default function DashboardLayout() {
     normalizedRole = '';
   }
 
-  if (!token || !user || !normalizedRole) {
+  // Route change detection is handled by the key={location.pathname} in AnimatePresence below
+  useEffect(() => {
+    console.log('Navigation detected:', location.pathname);
+  }, [location.pathname]);
+
+  if (!token || !user) {
     console.warn("DashboardLayout - Redirecting to login: Access Denied", { token: !!token, user: !!user });
     return <Navigate to="/login" replace />;
   }

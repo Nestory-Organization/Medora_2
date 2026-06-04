@@ -276,7 +276,7 @@ const updateAppointmentStatus = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, declineReason, doctorNote } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -287,7 +287,7 @@ const updateAppointmentStatus = async (req, res) => {
 
     // Map status values to what the appointment model accepts
     const statusMap = {
-      'ACCEPTED': 'CONFIRMED',
+      'ACCEPTED': 'PENDING_PAYMENT',
       'CONFIRMED': 'CONFIRMED',
       'REJECTED': 'CANCELLED',
       'CANCELLED': 'CANCELLED'
@@ -295,18 +295,14 @@ const updateAppointmentStatus = async (req, res) => {
 
     const mappedStatus = statusMap[status] || status;
 
-    if (!['PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(mappedStatus)) {
+    if (!['PENDING_DOCTOR_APPROVAL', 'PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(mappedStatus)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid status provided'
       });
     }
 
-    const appointment = await Appointment.findOneAndUpdate(
-      { _id: id, doctorId },
-      { $set: { status: mappedStatus } },
-      { new: true }
-    );
+    const appointment = await Appointment.findOne({ _id: id, doctorId });
 
     if (!appointment) {
       return res.status(404).json({
@@ -314,6 +310,31 @@ const updateAppointmentStatus = async (req, res) => {
         message: 'Appointment not found for this doctor'
       });
     }
+
+    if (appointment.status !== 'PENDING_DOCTOR_APPROVAL') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot update appointment with status ${appointment.status}. Only PENDING_DOCTOR_APPROVAL can be accepted or rejected.`
+      });
+    }
+
+    appointment.status = mappedStatus;
+
+    if (mappedStatus === 'PENDING_PAYMENT') {
+      appointment.paymentStatus = 'UNPAID';
+    } else if (mappedStatus === 'CANCELLED') {
+      appointment.paymentStatus = 'CANCELLED';
+    }
+
+    if (doctorNote) {
+      appointment.doctorNote = doctorNote.trim();
+    }
+
+    if (declineReason) {
+      appointment.declineReason = declineReason.trim();
+    }
+
+    await appointment.save();
 
     return res.status(200).json({
       success: true,
@@ -377,6 +398,14 @@ const addPrescription = async (req, res) => {
         success: false,
         message: 'Appointment not found for this doctor'
       });
+    }
+
+    // Attempt to set doctorName if it's missing on the appointment
+    if (!appointment.doctorName || appointment.doctorName === 'Unknown Doctor') {
+      const profile = await DoctorProfile.findOne({ doctorId }).lean();
+      if (profile) {
+        appointment.doctorName = `${profile.firstName} ${profile.lastName}`;
+      }
     }
 
     appointment.prescriptions.push({
@@ -622,10 +651,44 @@ const getDoctorProfile = async (req, res) => {
   }
 };
 
+const getDoctorProfileById = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid doctor identifier'
+      });
+    }
+
+    const profile = await DoctorProfile.findOne({ doctorId }).lean();
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor profile not found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: profile
+    });
+  } catch (error) {
+    console.error('Get profile by ID error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch doctor profile'
+    });
+  }
+};
+
 module.exports = {
   createDoctorProfile,
   updateDoctorProfile,
   getDoctorProfile,
+  getDoctorProfileById,
   setAvailability,
   getDoctorAvailability,
   markSlotBooked,

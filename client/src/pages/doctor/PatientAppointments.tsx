@@ -10,10 +10,10 @@ import {
   Hourglass,
   MagnifyingGlass,
   FunnelSimple,
-  Check,
-  FileText
+  Check
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
 
@@ -29,19 +29,20 @@ interface Appointment {
   endTime: string;
   consultationFee: number;
   reason: string;
-  status: 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status: 'PENDING_DOCTOR_APPROVAL' | 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   paymentStatus: 'UNPAID' | 'PAID' | 'FAILED' | 'REFUNDED';
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { icon: any; color: string; label: string; border: string }> = {
+  'PENDING_DOCTOR_APPROVAL': { icon: Hourglass, color: 'bg-blue-500/20 text-blue-300', label: 'Awaiting Approval', border: 'border-blue-500/30' },
   'PENDING_PAYMENT': { icon: Hourglass, color: 'bg-yellow-500/20 text-yellow-300', label: 'Pending Payment', border: 'border-yellow-500/30' },
   'CONFIRMED': { icon: CheckCircle, color: 'bg-green-500/20 text-green-300', label: 'Confirmed', border: 'border-green-500/30' },
   'CANCELLED': { icon: XCircle, color: 'bg-red-500/20 text-red-300', label: 'Cancelled', border: 'border-red-500/30' },
   'COMPLETED': { icon: CheckCircle, color: 'bg-blue-500/20 text-blue-300', label: 'Completed', border: 'border-blue-500/30' }
 };
 
-const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete, onViewReports, navigate }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void; onViewReports?: (patientId: string) => void; navigate: (path: string) => void }) => {
-  const statusInfo = statusConfig[appointment.status];
+const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete }: { appointment: Appointment; onStatusUpdate?: (id: string, status: string) => void; onViewDetail?: (patientId: string) => void; onComplete?: (id: string) => void }) => {
+  const statusInfo = statusConfig[appointment.status] || statusConfig['PENDING_DOCTOR_APPROVAL'];
   const StatusIcon = statusInfo.icon;
   
   const formatDate = (dateString: string) => {
@@ -54,7 +55,7 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
     });
   };
 
-  const isPending = appointment.status === 'PENDING_PAYMENT';
+  const isAwaitingDoctorDecision = appointment.status === 'PENDING_DOCTOR_APPROVAL';
 
   return (
     <div className={`bg-slate-800/30 border-2 ${statusInfo.border} rounded-xl p-5 space-y-4 hover:bg-slate-800/50 transition-all duration-300 shadow-lg`}>
@@ -62,7 +63,7 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
       <div className="flex items-start justify-between">
         <div className="flex-1 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => onViewDetail?.(appointment.patientId)}>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
               {appointment.patientName ? appointment.patientName[0] : 'P'}
             </div>
             <div>
@@ -135,16 +136,16 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
 
       {/* Actions */}
       <div className="space-y-2 pt-2">
-        {isPending && onStatusUpdate && (
+        {isAwaitingDoctorDecision && onStatusUpdate && (
           <div className="flex gap-2">
             <button
-              onClick={() => onStatusUpdate(appointment._id, 'CONFIRMED')}
+              onClick={() => onStatusUpdate(appointment._id, 'ACCEPTED')}
               className="flex-1 px-3 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg font-semibold text-sm transition-all border border-green-500/30"
             >
               Accept
             </button>
             <button
-              onClick={() => onStatusUpdate(appointment._id, 'CANCELLED')}
+              onClick={() => onStatusUpdate(appointment._id, 'REJECTED')}
               className="flex-1 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg font-semibold text-sm transition-all border border-red-500/30"
             >
               Decline
@@ -155,34 +156,24 @@ const AppointmentCard = ({ appointment, onStatusUpdate, onViewDetail, onComplete
         {appointment.status !== 'CANCELLED' && (
           <div className="grid grid-cols-3 gap-2">
             <button
-              onClick={() => navigate(`/doctor/appointment/${appointment._id}/prescription`)}
+              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/prescription`}
               className="px-3 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg font-semibold text-xs transition-all border border-green-500/30 uppercase"
             >
-              Prescription
+              Rx
             </button>
             <button
-              onClick={() => navigate(`/doctor/appointment/${appointment._id}/notes`)}
+              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/notes`}
               className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg font-semibold text-xs transition-all border border-purple-500/30 uppercase"
             >
               Notes
             </button>
             <button
-              onClick={() => navigate(`/doctor/appointment/${appointment._id}/telemedicine`)}
+              onClick={() => window.location.href = `/doctor/appointment/${appointment._id}/telemedicine`}
               className="px-3 py-2 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-lg font-semibold text-xs transition-all border border-pink-500/30 uppercase"
             >
               Call
             </button>
           </div>
-        )}
-
-        {appointment.status === 'CONFIRMED' && onViewReports && (
-          <button
-            onClick={() => onViewReports(appointment.patientId)}
-            className="w-full px-3 py-2.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-lg font-semibold text-sm transition-all border border-cyan-500/30 flex items-center justify-center gap-2 uppercase"
-          >
-            <FileText size={16} weight="bold" />
-            Patient Reports
-          </button>
         )}
 
         {appointment.status === 'CONFIRMED' && onComplete && (
@@ -208,14 +199,6 @@ export default function PatientAppointments() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
-
-  useEffect(() => {
-    filterAppointments();
-  }, [appointments, searchTerm, statusFilter]);
-
   const fetchAppointments = async () => {
     setLoading(true);
     try {
@@ -231,48 +214,14 @@ export default function PatientAppointments() {
       }
 
       const response = await axios.get(
-        `http://localhost:4000/api/appointments/doctor/${doctorId}`,
+        `http://localhost:4000/api/doctors/appointments`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
       );
 
       if (response.data.success) {
-        const rawAppointments: Appointment[] = response.data.data || [];
-
-        const enrichedAppointments = await Promise.all(
-          rawAppointments.map(async (appointment) => {
-            if (appointment.patientName && appointment.patientName.trim().length > 0) {
-              return appointment;
-            }
-
-            try {
-              const patientRes = await axios.get(
-                `http://localhost:4000/api/patients/${appointment.patientId}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` }
-                }
-              );
-
-              const patient = patientRes.data?.data?.patient || patientRes.data?.data || {};
-              const firstName = patient.firstName || '';
-              const lastName = patient.lastName || '';
-              const fullName = `${firstName} ${lastName}`.trim();
-
-              return {
-                ...appointment,
-                patientName: fullName || appointment.patientName || 'Patient'
-              };
-            } catch {
-              return {
-                ...appointment,
-                patientName: appointment.patientName || 'Patient'
-              };
-            }
-          })
-        );
-
-        setAppointments(enrichedAppointments);
+        setAppointments(response.data.data || []);
       }
     } catch (error: any) {
       console.error('Fetch appointments error:', error);
@@ -281,6 +230,17 @@ export default function PatientAppointments() {
       setLoading(false);
     }
   };
+
+  // Refresh appointments when navigating to this page
+  useRefreshOnNavigate(fetchAppointments);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  useEffect(() => {
+    filterAppointments();
+  }, [appointments, searchTerm, statusFilter]);
 
   const filterAppointments = () => {
     let filtered = [...appointments];
@@ -306,20 +266,30 @@ export default function PatientAppointments() {
   const handleStatusUpdate = async (appointmentId: string, newStatus: string) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.put(
-        `http://localhost:4000/api/appointments/${appointmentId}`,
-        { status: newStatus },
+      const declineReason =
+        newStatus === 'REJECTED'
+          ? window.prompt('Optional: add a reason for declining this appointment')?.trim() || ''
+          : '';
+
+      const response = await axios.patch(
+        `http://localhost:4000/api/doctors/appointment/${appointmentId}/status`,
+        {
+          status: newStatus,
+          declineReason: declineReason || undefined
+        },
         {
           headers: { Authorization: `Bearer ${token}` }
         }
       );
 
       if (response.data.success) {
-        setMessage({ type: 'success', text: `Appointment ${newStatus.toLowerCase()}` });
+        const action = newStatus === 'ACCEPTED' ? 'accepted' : 'declined';
+        setMessage({ type: 'success', text: `Appointment ${action}. Patient has been notified.` });
         fetchAppointments();
       }
     } catch (error: any) {
-      setMessage({ type: 'error', text: 'Failed to update appointment status' });
+      const errorMsg = error.response?.data?.message || 'Failed to update appointment status';
+      setMessage({ type: 'error', text: errorMsg });
       console.error('Update status error:', error);
     }
   };
@@ -349,7 +319,7 @@ export default function PatientAppointments() {
   const stats = {
     total: appointments.length,
     confirmed: appointments.filter(a => a.status === 'CONFIRMED').length,
-    pending: appointments.filter(a => a.status === 'PENDING_PAYMENT').length,
+    pending: appointments.filter(a => ['PENDING_DOCTOR_APPROVAL', 'PENDING_PAYMENT'].includes(a.status)).length,
     completed: appointments.filter(a => a.status === 'COMPLETED').length
   };
 
@@ -361,7 +331,6 @@ export default function PatientAppointments() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/doctor/dashboard')}
-              title="Go back to dashboard"
               className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
             >
               <ArrowLeft size={20} className="text-slate-400" />
@@ -426,7 +395,7 @@ export default function PatientAppointments() {
 
           <div className="flex items-center gap-2 flex-wrap">
             <FunnelSimple size={18} className="text-slate-400" />
-            {['ALL', 'PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'].map(status => (
+            {['ALL', 'PENDING_DOCTOR_APPROVAL', 'PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'COMPLETED'].map(status => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
@@ -467,9 +436,7 @@ export default function PatientAppointments() {
                 appointment={appointment}
                 onStatusUpdate={handleStatusUpdate}
                 onViewDetail={(patientId) => navigate(`/doctor/patient/${patientId}`)}
-                onViewReports={(patientId) => navigate(`/doctor/patient/${patientId}?tab=reports`)}
                 onComplete={handleCompleteAppointment}
-                navigate={navigate}
               />
             ))
           )}

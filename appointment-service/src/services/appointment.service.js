@@ -44,6 +44,7 @@ const requiredFields = [
 
 const blockedUpdateStatuses = ["CANCELLED", "COMPLETED"];
 const APPOINTMENT_STATUSES = [
+  "PENDING_DOCTOR_APPROVAL",
   "PENDING_PAYMENT",
   "CONFIRMED",
   "CANCELLED",
@@ -90,7 +91,23 @@ const publishNotificationEvent = async (eventType, payload) => {
   const baseUrl = String(env.notificationServiceUrl || "").replace(/\/$/, "");
 
   if (!baseUrl) {
+    console.warn('[Notification] Service URL not configured, skipping event publish');
     return;
+  }
+
+  // Enrich payload with doctor details if doctorId is present
+  let enrichedPayload = { ...payload };
+  if (payload.doctorId && !payload.doctorName) {
+    try {
+      const doctorProfile = await fetchDoctorById(payload.doctorId);
+      if (doctorProfile) {
+        enrichedPayload.doctorName = doctorProfile.name ||
+          `Dr. ${doctorProfile.firstName} ${doctorProfile.lastName}` ||
+          'Doctor';
+      }
+    } catch (error) {
+      console.error('[Notification] Error fetching doctor details:', error.message);
+    }
   }
 
   const controller = new AbortController();
@@ -106,7 +123,7 @@ const publishNotificationEvent = async (eventType, payload) => {
       },
       body: JSON.stringify({
         eventType,
-        ...payload,
+        ...enrichedPayload,
       }),
       signal: controller.signal,
     });
@@ -297,7 +314,7 @@ const createAppointment = async (payload) => {
       reason: payload.reason.trim(),
     });
   } catch (error) {
-    if (error?.code === 11000) {
+    if (error?.code === 11000 || error?.name === 'MongoServerError' && error?.message?.includes('E11000')) {
       throw new AppointmentConflictError("Appointment slot is already booked");
     }
 
@@ -508,6 +525,15 @@ const updateAppointmentPaymentState = async (appointmentId, payload) => {
   ) {
     throw new AppointmentValidationError(
       "Cannot confirm appointment when status is " + existingAppointment.status,
+    );
+  }
+
+  if (
+    nextStatus === "CONFIRMED" &&
+    existingAppointment.status === "PENDING_DOCTOR_APPROVAL"
+  ) {
+    throw new AppointmentValidationError(
+      "Cannot confirm appointment that is still pending doctor approval",
     );
   }
 

@@ -1,0 +1,29 @@
+info:
+  name: Notification
+  type: http
+  seq: 9
+
+http:
+  method: post
+  url: http://localhost:4006/notify/event
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \  \"eventType\": \"APPOINTMENT_BOOKED\",\r
+
+      \  \"email\": \"patient@example.com\",\r
+
+      \  \"phone\": \"+1234567890\"\r
+
+      }"
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

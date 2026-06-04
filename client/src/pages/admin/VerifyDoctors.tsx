@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { 
   ShieldCheck, 
   Stethoscope, 
@@ -146,10 +147,6 @@ const VerifyDoctors: React.FC = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    fetchDoctors();
-  }, []);
-
   const fetchDoctors = async () => {
     setLoading(true);
     const token = localStorage.getItem('authToken');
@@ -167,6 +164,13 @@ const VerifyDoctors: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Refresh doctors list when navigating to this page
+  useRefreshOnNavigate(fetchDoctors);
+
+  useEffect(() => {
+    fetchDoctors();
+  }, []);
 
   const handleAction = async (doctor: any, status: boolean) => {
     setActionLoading(true);

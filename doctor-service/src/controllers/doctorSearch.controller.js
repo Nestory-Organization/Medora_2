@@ -91,42 +91,42 @@ const getDoctorProfile = async (req, res) => {
   try {
     const { doctorId } = req.params;
 
-    if (!doctorId || doctorId.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Doctor ID is required'
-      });
-    }
-
+    // Try lookup by ObjectId first (when doctorId field is ObjectId)
     let doctor = null;
-    const trimmedId = doctorId.trim();
 
-    // Try to find by ObjectId first (if it's a valid ObjectId format)
-    if (mongoose.Types.ObjectId.isValid(trimmedId)) {
+    if (doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
       doctor = await DoctorProfile.findOne({ 
-        doctorId: new mongoose.Types.ObjectId(trimmedId) 
+        doctorId: new mongoose.Types.ObjectId(doctorId) 
       }).lean();
     }
 
-    // If not found and it looks like an ObjectId string, try direct comparison
-    if (!doctor) {
+    // Try searching by _id if doctorid is an ObjectId (when profile's _id is passed)
+    if (!doctor && doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
+      doctor = await DoctorProfile.findById(doctorId).lean();
+    }
+
+    // Fallback: try as string comparison (legacy data)
+    if (!doctor && doctorId) {
       doctor = await DoctorProfile.findOne({ 
-        doctorId: trimmedId 
+        doctorId: doctorId 
       }).lean();
     }
 
     if (!doctor) {
-      console.warn(`[getDoctorProfile] Doctor not found for ID: ${trimmedId}`);
+      console.log(`[DOCTOR_SEARCH] Profile not found for doctorId: ${doctorId}`);
       return res.status(404).json({
         success: false,
         message: 'Doctor profile not found'
       });
     }
 
+    console.log(`[DOCTOR_SEARCH] Found profile for ${doctorId}: ${doctor.firstName} ${doctor.lastName}`);
+    
     return res.status(200).json({
       success: true,
       data: {
-        doctorId: doctor.doctorId,
+        doctorId: doctor.doctorId?.toString() || doctor._id?.toString(),
+        _id: doctor._id?.toString(),
         name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
         firstName: doctor.firstName,
         lastName: doctor.lastName,
@@ -146,8 +146,7 @@ const getDoctorProfile = async (req, res) => {
     console.error('Get doctor profile error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch doctor profile',
-      error: error.message
+      message: 'Failed to fetch doctor profile'
     });
   }
 };

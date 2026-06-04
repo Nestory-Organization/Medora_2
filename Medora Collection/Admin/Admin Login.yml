@@ -10,11 +10,9 @@ http:
     type: json
     data: |-
       {
-        "email": "admin@gmail.com",
+        "email": "admin@medora.com",
         "password": "admin123"
       }
-  auth:
-    type: none
 
 settings:
   encodeUrl: true

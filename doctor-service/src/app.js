@@ -16,6 +16,7 @@ const {
   markSlotBooked,
   releaseSlot
 } = require('./controllers/doctor.controller');
+const { getPatientPrescriptions } = require('./controllers/prescriptionAndSession.controller');
 
 const app = express();
 
@@ -26,8 +27,15 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.url}`);
+  next();
+});
+
 // System endpoints - DIRECT HANDLERS (no middleware interference)
 app.get('/system/doctors', getAllDoctors);
+
 app.patch('/system/doctors/:id/verify', verifyDoctor);
 
 // Legacy system routes for health/status
@@ -36,17 +44,17 @@ app.use('/system', systemRoutes);
 // PUBLIC SEARCH ENDPOINTS (no auth required - must be BEFORE protected routes)
 app.get('/doctor/search', searchDoctorsBySpecialty);
 app.get('/doctor/verified', getVerifiedDoctors);
+app.get('/doctor/search/:doctorId', getDoctorProfile);
 
 // PUBLIC AVAILABILITY ENDPOINTS (appointment service uses these for inter-service communication)
 app.get('/doctor/availability', getDoctorAvailability);
 app.patch('/doctor/availability/mark-booked', markSlotBooked);
 app.patch('/doctor/availability/release-slot', releaseSlot);
 
-// PUBLIC DOCTOR PROFILE ENDPOINT FOR INTER-SERVICE COMMUNICATION (no auth required)
-app.get('/doctor/public-profile/:doctorId', getDoctorProfile);
+// PUBLIC PATIENT PRESCRIPTION ENDPOINT (patient service uses this)
+app.get('/doctor/patient/:patientId/prescriptions', getPatientPrescriptions);
 
 // Protected doctor routes (auth required)
-// This includes the /:doctorId GET route which requires authentication
 app.use('/doctor', doctorRoutes);
 
 app.use((req, res) => {

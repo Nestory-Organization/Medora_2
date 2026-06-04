@@ -205,9 +205,40 @@ const buildEventMessage = (eventType, payload) => {
         `Your appointment has been booked for ${payload.appointmentDate || 'the selected date'} ` +
         `at ${payload.startTime || 'the selected time'}.` +
         `${payload.doctorName ? `\nDoctor: ${payload.doctorName}` : ''}` +
-        `${payload.specialty ? `\nSpecialty: ${payload.specialty}` : ''}`,
+        `${payload.specialty ? `\nSpecialty: ${payload.specialty}` : ''}` +
+        `\n\nPlease wait for the doctor to accept your appointment.`,
       smsText:
-        `Medora: Appointment booked for ${payload.appointmentDate || 'selected date'} ${payload.startTime || ''}`.trim()
+        `Medora: Appointment booked for ${payload.appointmentDate || 'selected date'} ${payload.startTime || ''}. Awaiting doctor approval.`.trim()
+    };
+  }
+
+  if (type === 'APPOINTMENT_ACCEPTED') {
+    return {
+      subject: 'Appointment Accepted - Please Proceed with Payment',
+      emailText:
+        `Great news! Your appointment has been accepted.\n\n` +
+        `Date: ${payload.appointmentDate || 'the scheduled date'}\n` +
+        `Time: ${payload.startTime || ''}\n` +
+        `${payload.specialty ? `Specialty: ${payload.specialty}\n` : ''}` +
+        `${payload.doctorNote ? `\nNote from doctor: ${payload.doctorNote}\n` : ''}` +
+        `\nPlease proceed with payment to confirm your appointment.`,
+      smsText:
+        `Medora: Your appointment on ${payload.appointmentDate || 'scheduled date'} was accepted. Please pay to confirm.`.trim()
+    };
+  }
+
+  if (type === 'APPOINTMENT_REJECTED') {
+    return {
+      subject: 'Appointment Declined',
+      emailText:
+        `Unfortunately, your appointment request has been declined.\n\n` +
+        `Date: ${payload.appointmentDate || 'the scheduled date'}\n` +
+        `Time: ${payload.startTime || ''}\n` +
+        `${payload.specialty ? `Specialty: ${payload.specialty}\n` : ''}` +
+        `${payload.declineReason ? `\nReason: ${payload.declineReason}\n` : ''}` +
+        `\nYou may book a new appointment at a different time.`,
+      smsText:
+        `Medora: Your appointment on ${payload.appointmentDate || 'scheduled date'} was declined. Please try another time.`.trim()
     };
   }
 

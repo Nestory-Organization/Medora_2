@@ -30,6 +30,13 @@ const proxyOptions = (target, serviceName) => ({
     console.log(
       `[Proxy] ${req.method} ${req.originalUrl} -> ${target}${req.url}`,
     );
+    console.log(`[Proxy] Authorization header:`, req.headers.authorization ? 'Present' : 'Missing');
+    
+    // Ensure Authorization header is forwarded
+    if (req.headers.authorization) {
+      proxyReq.setHeader('Authorization', req.headers.authorization);
+      console.log(`[Proxy] Set Authorization header on proxy request`);
+    }
   },
   onError: (err, req, res) => {
     console.error(`[Proxy Error] ${serviceName}:`, err.message);
@@ -60,7 +67,12 @@ router.use(
   "/doctors",
   createProxyMiddleware({
     ...proxyOptions(env.doctorServiceUrl, "doctors"),
-    pathRewrite: (path) => `/doctor${path}`,
+    pathRewrite: (path) => {
+      // Support both path formats from proxy middleware (with or without matched prefix).
+      const newPath = path.startsWith('/doctors') ? path.slice('/doctors'.length) : path;
+      console.log(`[DOCTORS PROXY] Original: ${path}, Rewritten: /doctor${newPath}`);
+      return `/doctor${newPath}`;
+    },
   }),
 );
 
@@ -68,14 +80,23 @@ router.use(
   "/appointments",
   createProxyMiddleware({
     ...proxyOptions(env.appointmentServiceUrl, "appointments"),
-    pathRewrite: (path) => `/appointments${path}`,
+    pathRewrite: (path) => {
+      // Support both path formats from proxy middleware (with or without matched prefix).
+      const newPath = path.startsWith('/appointments') ? path.slice('/appointments'.length) : path;
+      return `/appointments${newPath}`;
+    },
   }),
 );
 router.use(
   "/payments",
   createProxyMiddleware({
     ...proxyOptions(env.paymentServiceUrl, "payments"),
-    pathRewrite: (path) => `/payment${path}`,
+    pathRewrite: (path) => {
+      if (path.includes('/webhook')) {
+        return '/webhook';
+      }
+      return `/payment${path}`;
+    },
   }),
 );
 router.use(

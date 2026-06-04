@@ -1,76 +1,12 @@
-/**
+﻿/**
  * Prescription & Telemedicine Session Management Controller
  * Handles post-appointment care and virtual consultations
  */
 
-const mongoose = require("mongoose");
-const axios = require("axios");
-const env = require("../config/env");
-const Appointment = require("../models/appointment.model");
-const DoctorProfile = require("../models/doctorProfile.model");
-
-// Create service clients
-const patientServiceClient = axios.create({
-  baseURL:
-    env.patientServiceUrl?.replace(/\/$/, "") || "http://patient-service:4002",
-  timeout: 8000,
-});
-
-const appointmentServiceClient = axios.create({
-  baseURL:
-    env.appointmentServiceUrl?.replace(/\/$/, "") ||
-    "http://appointment-service:4004",
-  timeout: 8000,
-});
-
-/**
- * Map appointment-service status to doctor-service status
- */
-const mapAppointmentStatus = (externalStatus) => {
-  if (!externalStatus) return "PENDING_PAYMENT";
-
-  // Directly return if already matches enum
-  if (
-    ["PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "COMPLETED"].includes(
-      externalStatus,
-    )
-  ) {
-    return externalStatus;
-  }
-
-  const statusMap = {
-    accepted: "CONFIRMED",
-    pending: "PENDING_PAYMENT",
-    rejected: "CANCELLED",
-    completed: "COMPLETED",
-    cancelled: "CANCELLED",
-  };
-
-  return statusMap[externalStatus?.toLowerCase()] || "PENDING_PAYMENT";
-};
-
-/**
- * Fetch appointment details from appointment-service
- */
-const fetchAppointmentFromService = async (appointmentId, authToken) => {
-  try {
-    const response = await appointmentServiceClient.get(
-      `/appointments/${appointmentId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      },
-    );
-    return response.data.data;
-  } catch (error) {
-    console.error(
-      `Error fetching appointment ${appointmentId}:`,
-      error.message,
-    );
-    throw error;
-  }
-};
+const mongoose = require('mongoose');
+const axios = require('axios');
+const Appointment = require('../models/appointment.model');
+const env = require('../config/env');
 
 /**
  * Add prescription to an appointment
@@ -79,98 +15,63 @@ const addPrescriptionToAppointment = async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const { medicines, notes } = req.body;
-    const authToken = req.headers.authorization?.replace("Bearer ", "");
 
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid appointment ID",
+        message: 'Invalid appointment ID'
       });
     }
 
     if (!Array.isArray(medicines) || medicines.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "At least one medicine is required",
+        message: 'At least one medicine is required'
       });
     }
 
-    // Validate medicine format and types to avoid runtime trim errors
-    const hasText = (value) =>
-      typeof value === "string" && value.trim().length > 0;
-    const invalidMedicine = medicines.find((med) => {
-      return (
-        !hasText(med?.name) ||
-        !hasText(med?.dosage) ||
-        !hasText(med?.frequency) ||
-        !hasText(med?.duration)
-      );
+    // Validate medicine format
+    const invalidMedicine = medicines.find(med => {
+      return !med.name || !med.dosage || !med.frequency || !med.duration;
     });
 
     if (invalidMedicine) {
       return res.status(400).json({
         success: false,
-        message:
-          "Each medicine must include: name, dosage, frequency, duration",
+        message: 'Each medicine must include: name, dosage, frequency, duration'
       });
     }
 
-    // Fetch appointment details from appointment-service
-    let appointmentDetails;
-    try {
-      appointmentDetails = await fetchAppointmentFromService(
-        appointmentId,
-        authToken,
-      );
-    } catch (error) {
-      return res.status(error.response?.status || 404).json({
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return res.status(404).json({
         success: false,
-        message: error.response?.data?.message || "Appointment not found",
+        message: 'Appointment not found'
       });
     }
 
-    // Validate appointment status
-    if (!["CONFIRMED", "COMPLETED"].includes(appointmentDetails.status)) {
+    // Allow adding prescription to CONFIRMED or COMPLETED appointments
+    if (!['CONFIRMED', 'COMPLETED'].includes(appointment.status)) {
       return res.status(400).json({
         success: false,
-        message: `Prescription can only be added to confirmed or completed appointments (current status: ${appointmentDetails.status})`,
-      });
-    }
-
-    // Find or create appointment record in doctor-service for storing prescriptions
-    let appointment = await Appointment.findById(appointmentId);
-    if (!appointment) {
-      appointment = new Appointment({
-        _id: appointmentId,
-        doctorId: appointmentDetails.doctorId,
-        patientId: appointmentDetails.patientId,
-        patientName: appointmentDetails.patientName || "Patient",
-        patientEmail: appointmentDetails.patientEmail,
-        patientPhone: appointmentDetails.patientPhone,
-        appointmentDate: appointmentDetails.appointmentDate,
-        startTime: appointmentDetails.startTime,
-        endTime: appointmentDetails.endTime,
-        status: mapAppointmentStatus(appointmentDetails.status),
-        reason: appointmentDetails.reason,
-        specialty: appointmentDetails.specialty || "General",
-        prescriptions: [],
+        message: 'Prescription can only be added to confirmed or completed appointments. Current status: ${appointment.status}'
       });
     }
 
     // Create prescription object
     const prescription = {
-      medicines: medicines.map((med) => ({
+      medicines: medicines.map(med => ({
         name: med.name.trim(),
         dosage: med.dosage.trim(),
         frequency: med.frequency.trim(),
         duration: med.duration.trim(),
-        instructions: med.instructions ? med.instructions.trim() : null,
+        instructions: med.instructions ? med.instructions.trim() : null
       })),
       notes: notes ? notes.trim() : null,
-      createdAt: new Date(),
+      createdAt: new Date()
     };
 
-    // Add to prescriptions array
+    // Add to prescriptions array in doctor-service
     if (!appointment.prescriptions) {
       appointment.prescriptions = [];
     }
@@ -180,68 +81,47 @@ const addPrescriptionToAppointment = async (req, res) => {
 
     // Sync prescription to patient-service
     try {
-      // Find doctor profile to get the full name
-      const doctorProfile = await DoctorProfile.findOne({
-        doctorId: appointmentDetails.doctorId,
-      });
-      const doctorName = doctorProfile
-        ? `${doctorProfile.firstName} ${doctorProfile.lastName}`
-        : appointmentDetails.doctorName || "Unknown Doctor";
+      const patientServiceUrl = env.patientServiceUrl.replace(/\/+$/, '');
+      const syncUrl = '/api/patients//prescriptions';
 
-      await patientServiceClient.post(
-        "/prescriptions",
+      console.log('[Prescription] Syncing to patient-service: ${syncUrl}');
+
+      const syncResponse = await axios.post(
+        syncUrl,
         {
-          patientId: appointmentDetails.patientId.toString(),
-          doctorId: appointmentDetails.doctorId.toString(),
-          doctorName: doctorName,
-          doctorSpecialty:
-            doctorProfile?.specialization ||
-            appointmentDetails.specialty ||
-            "General",
-          medicines: prescription.medicines.map((med) => ({
-            name: med.name,
-            dosage: med.dosage,
-            frequency: med.frequency,
-            duration: med.duration,
-            instructions: med.instructions,
-          })),
+          medicines: prescription.medicines,
           notes: prescription.notes,
-          prescriptionDate: prescription.createdAt,
+          doctorId: appointment.doctorId,
+          doctorSpecialty: appointment.specialty,
+          prescriptionDate: prescription.createdAt
         },
         {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        },
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 5000
+        }
       );
-      console.log(
-        `[Prescription Sync] Prescription synced to patient-service for appointment ${appointmentId}`,
-      );
+
+      console.log('[Prescription] Synced successfully to patient-service');
     } catch (syncError) {
-      console.warn(
-        `[Prescription Sync] Failed to sync prescription to patient-service:`,
-        syncError.response?.data || syncError.message,
-      );
-      // Don't fail the request if sync fails - the prescription is still created in doctor-service
+      console.error('[Prescription] Warning: Failed to sync to patient-service:', syncError.message);
+      // Continue anyway - don't block the response if sync fails
     }
 
     return res.status(201).json({
       success: true,
-      message: "Prescription added successfully",
+      message: 'Prescription added successfully',
       data: {
         appointmentId: appointment._id,
-        patientId: appointment.patientId,
-        prescriptionId:
-          appointment.prescriptions[appointment.prescriptions.length - 1]._id,
+        prescriptionId: appointment.prescriptions[appointment.prescriptions.length - 1]._id,
         medicines: prescription.medicines,
-        notes: prescription.notes,
-      },
+        notes: prescription.notes
+      }
     });
   } catch (error) {
-    console.error("Add prescription error:", error);
+    console.error('Add prescription error:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to add prescription",
+      message: 'Failed to add prescription'
     });
   }
 };
@@ -252,67 +132,50 @@ const addPrescriptionToAppointment = async (req, res) => {
 const getPrescriptionDetails = async (req, res) => {
   try {
     const { appointmentId } = req.params;
-    const authToken = req.headers.authorization?.replace("Bearer ", "");
 
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid appointment ID format",
+        message: 'Invalid appointment ID'
       });
     }
 
-    // Fetch appointment details from appointment-service
-    let appointmentDetails;
-    try {
-      appointmentDetails = await fetchAppointmentFromService(
-        appointmentId,
-        authToken,
-      );
-    } catch (error) {
-      return res.status(error.response?.status || 404).json({
-        success: false,
-        message: error.response?.data?.message || "Appointment not found",
-      });
-    }
-
-    // Get prescription from doctor-service local database
     const appointment = await Appointment.findById(appointmentId).lean();
-    if (
-      !appointment ||
-      !appointment.prescriptions ||
-      appointment.prescriptions.length === 0
-    ) {
+    if (!appointment) {
       return res.status(404).json({
         success: false,
-        message:
-          "No prescriptions found for this appointment. Please add a prescription first.",
+        message: 'Appointment not found'
       });
     }
 
-    const latestPrescription =
-      appointment.prescriptions[appointment.prescriptions.length - 1];
+    if (!appointment.prescriptions || appointment.prescriptions.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No prescriptions found for this appointment'
+      });
+    }
+
+    const latestPrescription = appointment.prescriptions[appointment.prescriptions.length - 1];
 
     return res.status(200).json({
       success: true,
       data: {
-        appointmentId: appointmentDetails._id || appointmentId,
-        appointmentDate: appointmentDetails.appointmentDate,
-        doctorId: appointmentDetails.doctorId,
-        patientId: appointmentDetails.patientId,
-        patientName: appointmentDetails.patientName,
-        doctorName: appointmentDetails.doctorName,
+        appointmentId: appointment._id,
+        appointmentDate: appointment.appointmentDate,
+        doctorId: appointment.doctorId,
+        patientId: appointment.patientId,
         prescription: {
           medicines: latestPrescription.medicines,
           notes: latestPrescription.notes,
-          prescribedAt: latestPrescription.createdAt,
-        },
-      },
+          prescribedAt: latestPrescription.createdAt
+        }
+      }
     });
   } catch (error) {
-    console.error("Get prescription error:", error);
+    console.error('Get prescription error:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch prescription",
+      message: 'Failed to fetch prescription'
     });
   }
 };
@@ -324,97 +187,64 @@ const initializeTelemedicineSession = async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const { generateNewLink = false } = req.body;
-    const authToken = req.headers.authorization?.replace("Bearer ", "");
 
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid appointment ID",
+        message: 'Invalid appointment ID'
       });
     }
 
-    // Fetch appointment details from appointment-service first
-    let appointmentDetails;
-    try {
-      appointmentDetails = await fetchAppointmentFromService(
-        appointmentId,
-        authToken,
-      );
-    } catch (error) {
-      return res.status(error.response?.status || 404).json({
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return res.status(404).json({
         success: false,
-        message: error.response?.data?.message || "Appointment not found",
+        message: 'Appointment not found'
       });
     }
 
     // Check if appointment is confirmed
-    if (appointmentDetails.status !== "CONFIRMED") {
+    if (appointment.status !== 'CONFIRMED') {
       return res.status(400).json({
         success: false,
-        message: "Appointment must be confirmed to start telemedicine session",
+        message: 'Appointment must be confirmed to start telemedicine session'
       });
     }
 
     // Check if appointment is within valid time range (30 mins before to appointment end time)
     const now = new Date();
-    const appointmentDateTime = new Date(appointmentDetails.appointmentDate);
-    const [hours, minutes] = appointmentDetails.startTime.split(":");
+    const appointmentDateTime = new Date(appointment.appointmentDate);
+    const [hours, minutes] = appointment.startTime.split(':');
     appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0);
 
-    const thirtyMinutesBefore = new Date(
-      appointmentDateTime.getTime() - 30 * 60000,
-    );
+    const thirtyMinutesBefore = new Date(appointmentDateTime.getTime() - 30 * 60000);
     const endTime = new Date(appointmentDateTime.getTime() + 30 * 60000); // Assume 30-min appointment
 
     if (now < thirtyMinutesBefore) {
       return res.status(400).json({
         success: false,
-        message:
-          "Telemedicine session can be started 30 minutes before appointment",
-        availableAt: thirtyMinutesBefore.toISOString(),
+        message: 'Telemedicine session can be started 30 minutes before appointment',
+        availableAt: thirtyMinutesBefore.toISOString()
       });
     }
 
     if (now > endTime) {
       return res.status(400).json({
         success: false,
-        message: "Appointment time has passed",
-      });
-    }
-
-    // Find or create appointment record in doctor-service for storing telemedicine session
-    let appointment = await Appointment.findById(appointmentId);
-    if (!appointment) {
-      appointment = new Appointment({
-        _id: appointmentId,
-        doctorId: appointmentDetails.doctorId,
-        patientId: appointmentDetails.patientId,
-        patientName: appointmentDetails.patientName || "Patient",
-        patientEmail: appointmentDetails.patientEmail,
-        patientPhone: appointmentDetails.patientPhone,
-        appointmentDate: appointmentDetails.appointmentDate,
-        startTime: appointmentDetails.startTime,
-        endTime: appointmentDetails.endTime,
-        status: mapAppointmentStatus(appointmentDetails.status),
-        reason: appointmentDetails.reason,
-        specialty: appointmentDetails.specialty || "General",
+        message: 'Appointment time has passed'
       });
     }
 
     // Generate or reuse session
-    if (
-      !appointment.telemedicine ||
-      !appointment.telemedicine.sessionId ||
-      generateNewLink
-    ) {
-      const sessionId = `medora-${appointmentId}-${Date.now().toString(36)}`;
-      const meetingLink = `https://meet.jit.si/${sessionId}`;
+    if (!appointment.telemedicine || !appointment.telemedicine.sessionId || generateNewLink) {
+      const sessionId = 'medora--';
+      const meetingLink = 'https://meet.jit.si/';
 
       appointment.telemedicine = {
         sessionId,
         meetingLink,
         requestedAt: new Date(),
-        participantCount: 0,
+        participantCount: 0
       };
 
       await appointment.save();
@@ -422,23 +252,23 @@ const initializeTelemedicineSession = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Telemedicine session ready",
+      message: 'Telemedicine session ready',
       data: {
         appointmentId: appointment._id,
         sessionId: appointment.telemedicine.sessionId,
         meetingLink: appointment.telemedicine.meetingLink,
-        startTime: appointmentDetails.startTime,
-        endTime: appointmentDetails.endTime,
-        doctorId: appointmentDetails.doctorId,
-        patientId: appointmentDetails.patientId,
-        requestedAt: appointment.telemedicine.requestedAt,
-      },
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        doctorId: appointment.doctorId,
+        patientId: appointment.patientId,
+        requestedAt: appointment.telemedicine.requestedAt
+      }
     });
   } catch (error) {
-    console.error("Initialize telemedicine error:", error);
+    console.error('Initialize telemedicine error:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to initialize telemedicine session",
+      message: 'Failed to initialize telemedicine session'
     });
   }
 };
@@ -453,7 +283,7 @@ const getTelemedicineSession = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid appointment ID",
+        message: 'Invalid appointment ID'
       });
     }
 
@@ -461,14 +291,14 @@ const getTelemedicineSession = async (req, res) => {
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: "Appointment not found",
+        message: 'Appointment not found'
       });
     }
 
     if (!appointment.telemedicine || !appointment.telemedicine.sessionId) {
       return res.status(404).json({
         success: false,
-        message: "No telemedicine session for this appointment",
+        message: 'No telemedicine session for this appointment'
       });
     }
 
@@ -480,14 +310,14 @@ const getTelemedicineSession = async (req, res) => {
         meetingLink: appointment.telemedicine.meetingLink,
         startTime: appointment.startTime,
         endTime: appointment.endTime,
-        requestedAt: appointment.telemedicine.requestedAt,
-      },
+        requestedAt: appointment.telemedicine.requestedAt
+      }
     });
   } catch (error) {
-    console.error("Get telemedicine session error:", error);
+    console.error('Get telemedicine session error:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch telemedicine session",
+      message: 'Failed to fetch telemedicine session'
     });
   }
 };
@@ -503,7 +333,7 @@ const completeAppointment = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid appointment ID",
+        message: 'Invalid appointment ID'
       });
     }
 
@@ -511,25 +341,25 @@ const completeAppointment = async (req, res) => {
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: "Appointment not found",
+        message: 'Appointment not found'
       });
     }
 
-    if (appointment.status === "COMPLETED") {
+    if (appointment.status === 'COMPLETED') {
       return res.status(400).json({
         success: false,
-        message: "Appointment is already marked as completed",
+        message: 'Appointment is already marked as completed'
       });
     }
 
-    if (appointment.status !== "CONFIRMED") {
+    if (appointment.status !== 'CONFIRMED') {
       return res.status(400).json({
         success: false,
-        message: "Only confirmed appointments can be completed",
+        message: 'Only confirmed appointments can be completed'
       });
     }
 
-    appointment.status = "COMPLETED";
+    appointment.status = 'COMPLETED';
     appointment.completedAt = new Date();
 
     if (completionNotes) {
@@ -540,18 +370,18 @@ const completeAppointment = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Appointment marked as completed",
+      message: 'Appointment marked as completed',
       data: {
         appointmentId: appointment._id,
         status: appointment.status,
-        completedAt: appointment.completedAt,
-      },
+        completedAt: appointment.completedAt
+      }
     });
   } catch (error) {
-    console.error("Complete appointment error:", error);
+    console.error('Complete appointment error:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to complete appointment",
+      message: 'Failed to complete appointment'
     });
   }
 };
@@ -567,14 +397,14 @@ const addPatientReport = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid appointment ID",
+        message: 'Invalid appointment ID'
       });
     }
 
     if (!title || !fileUrl) {
       return res.status(400).json({
         success: false,
-        message: "Title and file URL are required",
+        message: 'Title and file URL are required'
       });
     }
 
@@ -582,14 +412,14 @@ const addPatientReport = async (req, res) => {
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: "Appointment not found",
+        message: 'Appointment not found'
       });
     }
 
     const report = {
       title: title.trim(),
       fileUrl: fileUrl.trim(),
-      uploadedAt: new Date(),
+      uploadedAt: new Date()
     };
 
     if (!appointment.patientReports) {
@@ -601,17 +431,74 @@ const addPatientReport = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Patient report added successfully",
+      message: 'Patient report added successfully',
       data: {
         appointmentId: appointment._id,
-        report,
-      },
+        report
+      }
     });
   } catch (error) {
-    console.error("Add patient report error:", error);
+    console.error('Add patient report error:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to add patient report",
+      message: 'Failed to add patient report'
+    });
+  }
+};
+
+/**
+ * Get all prescriptions for a patient
+ */
+const getPatientPrescriptions = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(patientId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid patient ID'
+      });
+    }
+
+    const appointments = await Appointment.find({
+      patientId: patientId,
+      'prescriptions.0': { $exists: true }
+    }).lean();
+
+    const prescriptions = [];
+    for (const appointment of appointments) {
+      if (appointment.prescriptions && Array.isArray(appointment.prescriptions)) {
+        for (const prescription of appointment.prescriptions) {
+          prescriptions.push({
+            _id: prescription._id,
+            appointmentId: appointment._id,
+            doctorId: appointment.doctorId,
+            doctorName: appointment.doctorName || 'Unknown Doctor',
+            doctorSpecialty: appointment.specialty,
+            patientId: appointment.patientId,
+            patientName: appointment.patientName,
+            medicines: prescription.medicines || [],
+            notes: prescription.notes,
+            prescriptionDate: prescription.createdAt,
+            createdAt: prescription.createdAt
+          });
+        }
+      }
+    }
+
+    prescriptions.sort((a, b) => new Date(b.prescriptionDate) - new Date(a.prescriptionDate));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Patient prescriptions fetched successfully',
+      data: prescriptions,
+      count: prescriptions.length
+    });
+  } catch (error) {
+    console.error('Get patient prescriptions error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch patient prescriptions'
     });
   }
 };
@@ -619,8 +506,9 @@ const addPatientReport = async (req, res) => {
 module.exports = {
   addPrescriptionToAppointment,
   getPrescriptionDetails,
+  getPatientPrescriptions,
   initializeTelemedicineSession,
   getTelemedicineSession,
   completeAppointment,
-  addPatientReport,
+  addPatientReport
 };

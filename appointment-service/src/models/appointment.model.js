@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const APPOINTMENT_STATUSES = [
+  'PENDING_DOCTOR_APPROVAL',
   'PENDING_PAYMENT',
   'CONFIRMED',
   'CANCELLED',
@@ -8,6 +9,8 @@ const APPOINTMENT_STATUSES = [
 ];
 
 const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'FAILED', 'REFUNDED'];
+
+const RESCHEDULE_REQUEST_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'];
 
 const appointmentSchema = new mongoose.Schema(
   {
@@ -69,7 +72,7 @@ const appointmentSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: APPOINTMENT_STATUSES,
-      default: 'PENDING_PAYMENT',
+      default: 'PENDING_DOCTOR_APPROVAL',
       index: true
     },
     paymentStatus: {
@@ -77,6 +80,49 @@ const appointmentSchema = new mongoose.Schema(
       enum: PAYMENT_STATUSES,
       default: 'UNPAID',
       index: true
+    },
+    rescheduleRequest: {
+      status: {
+        type: String,
+        enum: RESCHEDULE_REQUEST_STATUSES,
+        default: null
+      },
+      requestedDate: {
+        type: Date,
+        default: null
+      },
+      requestedStartTime: {
+        type: String,
+        default: null
+      },
+      requestedEndTime: {
+        type: String,
+        default: null
+      },
+      reason: {
+        type: String,
+        default: null
+      },
+      createdAt: {
+        type: Date,
+        default: null
+      },
+      approvedAt: {
+        type: Date,
+        default: null
+      },
+      rejectionReason: {
+        type: String,
+        default: null
+      }
+    },
+    doctorNote: {
+      type: String,
+      default: null
+    },
+    declineReason: {
+      type: String,
+      default: null
     }
   },
   {

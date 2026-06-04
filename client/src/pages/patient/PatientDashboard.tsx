@@ -8,6 +8,7 @@ import {
   Plus
 } from '@phosphor-icons/react';
 import { usePatient } from '../../api/PatientContext';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../../components/PageTransition';
 import { StatCardSkeleton, TableSkeleton } from '../../components/Skeleton';
@@ -65,7 +66,12 @@ const AppointmentCard = ({ doctor, date, time, status, type }: any) => {
 };
 
 export default function PatientDashboard() {
-  const { profile, appointments, loading, error, clearError } = usePatient();
+  const { profile, appointments, loading, error, clearError, refreshProfile, refreshAppointments } = usePatient();
+  
+  // Refresh patient data when navigating to this page
+  useRefreshOnNavigate(async () => {
+    await Promise.all([refreshProfile(), refreshAppointments()]);
+  });
 
   if (loading && !profile) {
     return (

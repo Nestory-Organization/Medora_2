@@ -6,6 +6,7 @@ import {
   Stethoscope
 } from '@phosphor-icons/react';
 import { usePatient } from '../../api/PatientContext';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
 import PageTransition from '../../components/PageTransition';
 import EmptyState from '../../components/EmptyState';
 // Removed unused TableSkeleton import
@@ -55,7 +56,10 @@ const HistoryCard = ({ entry }: any) => (
 );
 
 export default function MedicalHistory() {
-  const { history, loading } = usePatient();
+  const { history, loading, refreshHistory } = usePatient();
+  
+  // Refresh medical history when navigating to this page
+  useRefreshOnNavigate(refreshHistory);
 
   return (
     <PageTransition>

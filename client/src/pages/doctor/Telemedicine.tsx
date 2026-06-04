@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, PhoneX, Microphone, MicrophoneSlash, Camera, CameraSlash, Copy, Check, Warning } from '@phosphor-icons/react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, VideoCamera, Warning, CheckCircle, Clock, User, Calendar, Phone } from '@phosphor-icons/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageTransition from '../../components/PageTransition';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
 interface TelemedicineSession {
   _id: string;
@@ -12,245 +14,288 @@ interface TelemedicineSession {
   startTime: string;
   endTime?: string;
   status: 'ACTIVE' | 'SCHEDULED' | 'COMPLETED';
+  doctorJoined: boolean;
   patientJoined: boolean;
-  createdAt: string;
+}
+
+interface Appointment {
+  _id: string;
+  doctorId: string;
+  doctorName: string;
+  patientName?: string;
+  specialty: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  consultationFee: number;
+  status: string;
+  paymentStatus: string;
 }
 
 export default function DoctorTelemedicine() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const navigate = useNavigate();
   const [session, setSession] = useState<TelemedicineSession | null>(null);
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [initiating, setInitiating] = useState(false);
-  const [callActive, setCallActive] = useState(false);
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [paymentRequired, setPaymentRequired] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
+  const [notEligible, setNotEligible] = useState(false);
+  const [eligibilityReason, setEligibilityReason] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetchSession();
-    return () => stopLocalStream();
+    fetchAppointmentAndSession();
   }, [appointmentId]);
 
-  const fetchSession = async () => {
+  const fetchAppointmentAndSession = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.get(
-        `http://localhost:4000/api/appointments/${appointmentId}/telemedicine`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (response.data.success && response.data.data) {
-        setSession(response.data.data);
+      const [aptRes, sessionRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/appointments/${appointmentId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get(`${API_BASE_URL}/appointments/${appointmentId}/telemedicine`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      if (aptRes.data?.success) {
+        setAppointment(aptRes.data.data);
       }
-    } catch (error: any) {
-      if (error.response?.status === 402) {
-        setPaymentRequired(true);
-        setMessage({ type: 'error', text: 'Payment required to start telemedicine session' });
+
+      if (sessionRes.data?.success) {
+        setSession(sessionRes.data.data);
+      } else if (sessionRes.data?.data?.appointmentStatus || sessionRes.data?.data?.paymentStatus) {
+        setNotEligible(true);
+        const aptStatus = sessionRes.data.data?.appointmentStatus || '';
+        const payStatus = sessionRes.data.data?.paymentStatus || '';
+        setEligibilityReason(
+          aptStatus !== 'CONFIRMED'
+            ? `Appointment status is "${aptStatus}". Must be CONFIRMED before starting.`
+            : `Payment status is "${payStatus}". Must be PAID before starting.`
+        );
+      }
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      const reason = err.response?.data?.message || '';
+      if (reason.includes('CONFIRMED') || reason.includes('PAID')) {
+        setNotEligible(true);
+        setEligibilityReason(reason);
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const initiateSession = async () => {
-    setInitiating(true);
+  const generateMeetingCode = () => {
+    return `medora-${appointmentId?.slice(-8) || Date.now().toString(36)}`;
+  };
+
+  const createSession = async () => {
+    setCreating(true);
     try {
       const token = localStorage.getItem('authToken');
+      const meetingCode = generateMeetingCode();
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const body = { sessionId: meetingCode };
       const response = await axios.post(
-        `http://localhost:4000/api/appointments/${appointmentId}/telemedicine`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${API_BASE_URL}/appointments/${appointmentId}/telemedicine`,
+        body,
+        config
       );
       if (response.data.success) {
         setSession(response.data.data);
-        setMessage({ type: 'success', text: 'Video session initiated' });
-        setTimeout(() => startCall(), 1000);
+        setMessage({ type: 'success', text: 'Session created! Click "Join Meeting" to start.' });
       }
-    } catch (error: any) {
-      if (error.response?.status === 402) {
-        setPaymentRequired(true);
-      }
-      const errorMsg = error.response?.data?.message || 'Failed to initiate session';
-      setMessage({ type: 'error', text: errorMsg });
-    } finally {
-      setInitiating(false);
-    }
-  };
-
-  const startCall = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true
-      });
-      localStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setCallActive(true);
-    } catch (error: any) {
-      setMessage({ type: 'error', text: 'Failed to access camera/microphone' });
-    }
-  };
-
-  const stopLocalStream = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
-    }
-  };
-
-  const toggleMic = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setMicEnabled(!micEnabled);
-    }
-  };
-
-  const toggleVideo = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setVideoEnabled(!videoEnabled);
-    }
-  };
-
-  const endCall = async () => {
-    stopLocalStream();
-    setCallActive(false);
-    try {
-      const token = localStorage.getItem('authToken');
-      await axios.put(`http://localhost:4000/api/appointments/${appointmentId}/telemedicine`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      setTimeout(() => navigate('/doctor/appointments'), 1500);
     } catch (error) {
-      console.error('End call error:', error);
+      const err = error as { response?: { data?: { message?: string } } };
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to create session' });
+    } finally {
+      setCreating(false);
     }
   };
 
-  const copyRoomLink = () => {
-    if (session?.roomId) {
-      const link = `${window.location.origin}/patient-telemedicine/${session.roomId}`;
-      navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  const getJitsiLink = () => {
+    const code = session?.sessionId || generateMeetingCode();
+    return `https://meet.jit.si/${code}`;
   };
+
+  const joinMeeting = () => {
+    window.open(getJitsiLink(), '_blank');
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(getJitsiLink());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <PageTransition>
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-48 bg-slate-800/40 rounded-xl animate-pulse border border-white/5" />
+          ))}
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (notEligible) {
+    return (
+      <PageTransition>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-8 space-y-4">
+          <div className="flex items-center gap-4">
+            <Warning size={36} className="text-red-400" />
+            <div>
+              <h2 className="text-2xl font-black text-red-300 uppercase italic">Cannot Start Session</h2>
+              <p className="text-red-200 text-sm mt-1">{eligibilityReason}</p>
+            </div>
+          </div>
+          <div className="bg-slate-800/50 border border-white/5 rounded-xl p-4 text-sm text-slate-300">
+            <strong>Requirements:</strong>
+            <ul className="mt-2 space-y-1 list-disc ml-5">
+              <li>Appointment must be CONFIRMED</li>
+              <li>Patient must have PAID the consultation fee</li>
+            </ul>
+          </div>
+          <button
+            onClick={() => navigate('/doctor/appointments')}
+            className="px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-white"
+          >
+            Back to Appointments
+          </button>
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>
-      <div className="space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6">
         <header className="flex items-center gap-4">
-          <button onClick={() => navigate('/doctor/appointments')} disabled={callActive} className="p-2 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            <ArrowLeft size={20} className="text-slate-400" />
+          <button onClick={() => navigate('/doctor/appointments')} className="p-2 hover:bg-slate-800 rounded-lg">
+            <ArrowLeft size={22} className="text-slate-400" />
           </button>
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="w-6 h-1 bg-pink-500 rounded-full" />
-              <span className="text-[9px] font-black text-pink-500 tracking-[0.2em] uppercase italic">Video Consultation</span>
+              <span className="text-[9px] font-black text-pink-500 tracking-[0.2em] uppercase">Telemedicine</span>
             </div>
-            <h1 className="text-2xl font-black tracking-tighter text-white uppercase italic">Telemedicine Session</h1>
+            <h1 className="text-2xl font-black text-white uppercase italic">Video Consultation</h1>
           </div>
         </header>
 
         {message && (
-          <div className={`p-4 rounded-lg border flex items-center gap-3 ${message.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
-            {message.type === 'success' ? <Check size={20} weight="bold" /> : <Warning size={20} weight="bold" />}
-            <span className="text-sm font-semibold">{message.text}</span>
+          <div className={`p-4 rounded-xl border flex items-center gap-3 ${
+            message.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-red-500/10 border-red-500/30 text-red-300'
+          }`}>
+            {message.type === 'success' ? <CheckCircle size={18} /> : <Warning size={18} />}
+            {message.text}
           </div>
         )}
 
-        {loading && (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-40 bg-slate-800/50 rounded-xl animate-pulse border border-white/5" />
-            ))}
-          </div>
-        )}
-
-        {!loading && paymentRequired && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Warning size={32} className="text-red-400" />
-              <div>
-                <h2 className="text-xl font-black text-red-300">Payment Required</h2>
-                <p className="text-sm text-red-200">Complete payment to start telemedicine session</p>
+        <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-6">
+          <h2 className="text-lg font-black text-white mb-4 uppercase">Appointment Details</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-800/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase mb-2">
+                <Calendar size={14} className="text-pink-400" /> Date
               </div>
+              <p className="text-white font-bold">{appointment ? formatDate(appointment.appointmentDate) : '-'}</p>
             </div>
-            <button onClick={() => navigate('/doctor/appointments')} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg font-bold text-white transition-colors uppercase tracking-wide">
-              Back to Appointments
+            <div className="bg-slate-800/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase mb-2">
+                <Clock size={14} className="text-pink-400" /> Time
+              </div>
+              <p className="text-white font-bold">{appointment ? `${appointment.startTime} - ${appointment.endTime}` : '-'}</p>
+            </div>
+            <div className="bg-slate-800/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase mb-2">
+                <User size={14} className="text-pink-400" /> Patient
+              </div>
+              <p className="text-white font-bold">{appointment?.patientName || 'Patient'}</p>
+            </div>
+            <div className="bg-slate-800/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase mb-2">
+                <VideoCamera size={14} className="text-pink-400" /> Specialty
+              </div>
+              <p className="text-white font-bold">{appointment?.specialty || '-'}</p>
+            </div>
+          </div>
+        </div>
+
+        {session && (
+          <div className="bg-slate-800/50 border border-white/10 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`w-3 h-3 rounded-full ${session.status === 'ACTIVE' ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
+              <span className="text-slate-300 text-sm font-bold uppercase">Session: {session.status}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-slate-400 text-sm break-all font-mono bg-slate-900 p-2 rounded-lg">
+                {getJitsiLink()}
+              </code>
+              <button
+                onClick={copyLink}
+                className={`px-3 py-2 rounded-lg font-bold text-sm ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            {session.patientJoined && (
+              <div className="mt-3 flex items-center gap-2 text-emerald-400 text-sm font-bold">
+                <CheckCircle size={16} /> Patient is waiting
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+          <h3 className="text-base font-black text-blue-300 mb-3 uppercase">How it works</h3>
+          <ol className="text-sm text-blue-200 space-y-1 list-decimal ml-5">
+            <li>Click "Create Session" to generate a meeting link</li>
+            <li>Click "Join Meeting" to open the video call</li>
+            <li>Share the link with your patient</li>
+          </ol>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate('/doctor/appointments')}
+            className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-white"
+          >
+            Cancel
+          </button>
+          {!session ? (
+            <button
+              onClick={createSession}
+              disabled={creating}
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 disabled:opacity-50 rounded-xl font-bold text-white"
+            >
+              {creating ? 'Creating...' : 'Create Session'}
             </button>
-          </div>
-        )}
-
-        {!loading && !paymentRequired && !callActive && (
-          <div className="space-y-6">
-            <div className="bg-slate-900/60 border border-white/10 rounded-lg p-6">
-              <h2 className="text-lg font-black text-white mb-4 uppercase">Session Setup</h2>
-              {session && (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Session ID:</span>
-                    <span className="text-white font-mono">{session.sessionId?.slice(-8)}</span>
-                  </div>
-                  <div className="bg-slate-800/50 p-4 rounded">
-                    <p className="text-slate-400 text-sm mb-2">Patient Join Link:</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 text-slate-300 text-xs break-all">{window.location.origin}/patient-telemedicine/{session.roomId}</code>
-                      <button onClick={copyRoomLink} className={`p-2 rounded ${copied ? 'bg-green-500/20 text-green-300' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>
-                        {copied ? <Check size={16} /> : <Copy size={16} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => navigate('/doctor/appointments')} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg font-bold text-white transition-colors uppercase">
-                Cancel
-              </button>
-              <button onClick={initiateSession} disabled={initiating} className="flex-1 px-6 py-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 rounded-lg font-bold text-white transition-all uppercase flex items-center justify-center gap-2">
-                {initiating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Initiating...
-                  </>
-                ) : (
-                  <>
-                    <Camera size={16} weight="bold" />
-                    Start Session
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!loading && !paymentRequired && callActive && (
-          <div className="space-y-6">
-            <div className="bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center border-4 border-pink-500/30">
-              <video ref={videoRef} autoPlay muted className="w-full h-full object-cover" />
-            </div>
-            <div className="bg-slate-900/60 border border-white/10 rounded-lg p-6 flex justify-center gap-4">
-              <button onClick={toggleMic} className={`p-4 rounded-full ${micEnabled ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500/30 text-red-300'}`}>
-                {micEnabled ? <Microphone size={20} weight="bold" /> : <MicrophoneSlash size={20} weight="bold" />}
-              </button>
-              <button onClick={toggleVideo} className={`p-4 rounded-full ${videoEnabled ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500/30 text-red-300'}`}>
-                {videoEnabled ? <Camera size={20} weight="bold" /> : <CameraSlash size={20} weight="bold" />}
-              </button>
-              <button onClick={endCall} className="p-4 rounded-full bg-red-500 hover:bg-red-600 text-white">
-                <PhoneX size={20} weight="bold" />
-              </button>
-            </div>
-          </div>
-        )}
+          ) : (
+            <button
+              onClick={joinMeeting}
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 rounded-xl font-bold text-white flex items-center justify-center gap-2"
+            >
+              <Phone size={18} />
+              Join Meeting
+            </button>
+          )}
+        </div>
       </div>
     </PageTransition>
   );

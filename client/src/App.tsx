@@ -25,6 +25,7 @@ import PrescriptionManagement from './pages/doctor/PrescriptionManagement';
 import AppointmentNotes from './pages/doctor/AppointmentNotes';
 import TelemedicineSession from './pages/doctor/Telemedicine';
 import DoctorEarnings from './pages/doctor/DoctorEarnings';
+import RescheduleRequests from './pages/doctor/RescheduleRequests';
 import SymptomChecker from './pages/ai/SymptomChecker';
 import AiHistory from './pages/ai/AiHistory';
 import AdminLogin from './pages/admin/AdminLogin';
@@ -68,6 +69,7 @@ function App() {
         <Route path="/doctor/availability" element={<AvailabilityManagement />} />
         <Route path="/doctor/profile" element={<DoctorProfile />} />
         <Route path="/doctor/appointments" element={<PatientAppointments />} />
+        <Route path="/doctor/reschedule-requests" element={<RescheduleRequests />} />
         <Route path="/doctor/patient/:patientId" element={<PatientDetail />} />
         <Route path="/doctor/appointment/:appointmentId/prescription" element={<PrescriptionManagement />} />
         <Route path="/doctor/appointment/:appointmentId/notes" element={<AppointmentNotes />} />

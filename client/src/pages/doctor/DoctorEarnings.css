@@ -301,13 +301,81 @@
 
 /* Empty State */
 .empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #64748b;
+}
+
+.empty-state svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #94a3b8;
+}
+
+.empty-state p {
+  font-size: 0.875rem;
+}
+
+/* Chart Section */
+.chart-section {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.chart-section .section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-bottom: 1.5rem;
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 150px;
+  padding: 1rem 0;
+  border-bottom: 1px solid #1e293b;
+}
+
+.bar-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 3rem 1rem;
+  flex: 1;
+  height: 100%;
+}
+
+.bar-chart .bar {
+  width: 70%;
+  background: linear-gradient(to top, #14b8a6, #3b82f6);
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  transition: height 0.3s ease;
+  margin-top: auto;
+}
+
+.bar-label {
+  font-size: 0.75rem;
   color: #64748b;
+  margin-top: 0.5rem;
+}
+
+.chart-legend {
   text-align: center;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-top: 1rem;
 }
 
 .empty-state svg {

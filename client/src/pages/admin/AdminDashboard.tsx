@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
+import { useRefreshOnNavigate } from "../../hooks/useRefreshOnNavigate";
 import {
   Users,
   UserCheck,
@@ -137,6 +138,9 @@ const AdminDashboard: React.FC = () => {
       toast.error("Telemetry link failed - Retrying protocol");
     }
   }, []);
+
+  // Refresh dashboard data when navigating to this page
+  useRefreshOnNavigate(fetchDashboardData);
 
   useEffect(() => {
     let mounted = true;

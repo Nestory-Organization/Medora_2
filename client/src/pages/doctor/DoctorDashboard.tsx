@@ -1,6 +1,5 @@
 import { 
   Users, 
-  Clock, 
   VideoCamera,
   ArrowRight,
   ClipboardText,
@@ -10,6 +9,10 @@ import {
   Calendar
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { getAppointments } from '../../api/doctor';
+import { useRefreshOnNavigate } from '../../hooks/useRefreshOnNavigate';
+import type { Appointment } from '../../api/doctor';
 
 const StatCard = ({ icon: Icon, label, value, trend, color, trendColor }: any) => (
   <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 p-4 rounded-2xl flex flex-col justify-between group hover:border-blue-500/20 transition-all duration-300 shadow-2xl">
@@ -28,37 +31,81 @@ const StatCard = ({ icon: Icon, label, value, trend, color, trendColor }: any) =
   </div>
 );
 
-const PatientProgressRow = ({ name, status, time, condition }: any) => (
-  <div className="px-4 py-3 bg-slate-800/20 hover:bg-slate-800/40 border border-white/5 rounded-xl group transition-all duration-300 flex items-center justify-between shadow-lg">
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-slate-700/50 border-2 border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:border-blue-500/50 group-hover:bg-blue-500/10 group-hover:text-blue-400 transition-all duration-300 uppercase">
-        {name[0]}
-      </div>
-      <div>
-        <h4 className="font-bold text-sm text-white group-hover:text-blue-400/90 transition-colors">{name}</h4>
-        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">{condition}</p>
-      </div>
-    </div>
-    
-    <div className="flex items-center gap-4">
-      <div className="text-right">
-        <p className="text-[11px] font-bold text-white flex items-center gap-1.5 justify-end">
-          <Clock size={12} /> {time}
-        </p>
-        <p className="text-[9px] font-bold text-slate-500 mt-0.5 uppercase tracking-tight">{status}</p>
-      </div>
-      <button className="p-2 bg-slate-900 border border-white/5 rounded-lg text-slate-500 hover:bg-blue-500 hover:text-white transition-all hover:scale-110 active:scale-95 shadow-xl group/btn overflow-hidden relative">
-        <div className="absolute inset-0 bg-white/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300" />
-        <ArrowRight size={14} weight="bold" className="relative group-hover/btn:translate-x-1 transition-transform" />
-      </button>
-    </div>
-  </div>
-);
-
 export default function DoctorDashboard() {
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : null;
   const navigate = useNavigate();
+  
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_loading, setLoading] = useState<boolean>(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_error, setError] = useState<string | null>(null);
+
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getAppointments();
+      
+      if (response.success) {
+        // Filter and sort appointments - get today's and upcoming
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        const filteredAppointments = response.data
+          .filter((apt: Appointment) => {
+            const aptDate = new Date(apt.appointmentDate);
+            return aptDate >= todayStart && apt.status !== 'cancelled' && apt.status !== 'rejected';
+          })
+          .sort((a: Appointment, b: Appointment) => {
+            const dateA = new Date(a.appointmentDate);
+            const dateB = new Date(b.appointmentDate);
+            return dateA.getTime() - dateB.getTime();
+          })
+          .slice(0, 10); // Get first 10 upcoming appointments
+        
+        setAppointments(filteredAppointments);
+      } else {
+        setError(response.message || 'Failed to fetch appointments');
+        setAppointments([]);
+      }
+    } catch (err: any) {
+      console.error('Error fetching appointments:', err);
+      setError(err.response?.data?.message || 'Failed to fetch appointments');
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh appointments when navigating to this page
+  useRefreshOnNavigate(fetchAppointments);
+
+  useEffect(() => {
+    if (user) {
+      fetchAppointments();
+    }
+  }, [user]);
+
+  // Calculate statistics from appointments
+  const getTodayAppointments = () => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+    
+    return appointments.filter(apt => {
+      const aptDate = new Date(apt.appointmentDate);
+      return aptDate >= todayStart && aptDate < todayEnd;
+    });
+  };
+
+  const todayAppointments = getTodayAppointments();
+  const totalAppointments = appointments.length;
+  const completedAppointments = appointments.filter(apt => apt.status === 'completed').length;
+  const activeAppointments = appointments.filter(apt => apt.status === 'accepted' || apt.status === 'pending').length;
+
+  
 
   return (
     <div className="space-y-6">
@@ -73,7 +120,7 @@ export default function DoctorDashboard() {
             Good Morning, <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">Dr. {user?.lastName}</span>
           </h1>
           <p className="text-sm font-bold text-slate-500 max-w-lg leading-relaxed tracking-tight">
-            You have <span className="text-slate-200">8 appointments</span> scheduled for today.
+            You have <span className="text-slate-200">{todayAppointments.length} appointments</span> scheduled for today.
           </p>
         </div>
         <div className="flex gap-2">
@@ -103,10 +150,10 @@ export default function DoctorDashboard() {
 
       {/* Analytics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Users} label="Daily Patients" value="12" trend="+15%" color="bg-blue-500" trendColor="text-green-400" />
-        <StatCard icon={Pulse} label="Consultations" value="8" trend="+12%" color="bg-indigo-500" trendColor="text-green-400" />
-        <StatCard icon={VideoCamera} label="Telemedicine" value="5" trend="-2%" color="bg-teal-500" trendColor="text-red-400" />
-        <StatCard icon={ClipboardText} label="Reports Done" value="28" trend="+8%" color="bg-purple-500" trendColor="text-green-400" />
+        <StatCard icon={Users} label="Total Appointments" value={totalAppointments.toString()} trend={`+${totalAppointments}%`} color="bg-blue-500" trendColor="text-green-400" />
+        <StatCard icon={Pulse} label="Active Appointments" value={activeAppointments.toString()} trend={`${activeAppointments > 0 ? '+' : ''}${Math.round((activeAppointments/totalAppointments || 0)*100)}%`} color="bg-indigo-500" trendColor={activeAppointments > 0 ? "text-green-400" : "text-red-400"} />
+        <StatCard icon={VideoCamera} label="Today's Queue" value={todayAppointments.length.toString()} trend={`${todayAppointments.length} due`} color="bg-teal-500" trendColor="text-blue-400" />
+        <StatCard icon={ClipboardText} label="Completed" value={completedAppointments.toString()} trend={`${completedAppointments > 0 ? '+' : ''}${Math.round((completedAppointments/totalAppointments || 0)*100)}%`} color="bg-purple-500" trendColor="text-green-400" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
@@ -115,16 +162,40 @@ export default function DoctorDashboard() {
           <div className="flex items-center justify-between px-1">
             <h3 className="text-lg font-black tracking-tighter text-white italic uppercase flex items-center gap-3">
               Live Queue
-              <span className="text-[8px] bg-blue-500 text-white font-black px-2 py-0.5 rounded-full not-italic tracking-widest shadow-lg shadow-blue-500/20 uppercase">Active Now</span>
+              <span className="text-[8px] bg-blue-500 text-white font-black px-2 py-0.5 rounded-full not-italic tracking-widest shadow-lg shadow-blue-500/20 uppercase">
+                {todayAppointments.length} Active
+              </span>
             </h3>
-            <button className="text-blue-400 font-extrabold text-[10px] hover:underline tracking-widest uppercase italic">Full Calendar</button>
+            <button onClick={() => navigate('/doctor/appointments')} className="text-blue-400 font-extrabold text-[10px] hover:underline tracking-widest uppercase italic">
+              Full Calendar
+            </button>
           </div>
           
-          <div className="space-y-3">
-            <PatientProgressRow name="Arthur Morgan" status="Pending" time="09:15 AM" condition="POST-OP RECOVERY" />
-            <PatientProgressRow name="Sadie Adler" status="Active" time="10:30 AM" condition="ROUTINE CHECKUP" />
-            <PatientProgressRow name="John Marston" status="Waiting" time="11:45 AM" condition="BLOOD PRESSURE" />
-          </div>
+          {/* <div className="space-y-3">
+            {loading ? (
+              <div className="text-center py-8">
+                <p className="text-slate-400 font-bold">Loading appointments...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-8">
+                <p className="text-red-400 font-bold">{error}</p>
+              </div>
+            ) : todayAppointments.length > 0 ? (
+              todayAppointments.map((apt) => (
+                <PatientProgressRow
+                  key={apt._id}
+                  name={apt.patientName || 'Unknown Patient'}
+                  status={getStatusColor(apt.status)}
+                  time={formatTime(apt.startTime)}
+                  condition={apt.reason || apt.specialty || 'GENERAL CHECKUP'}
+                />
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-slate-400 font-bold">No appointments scheduled for today</p>
+              </div>
+            )}
+          </div> */}
         </div>
 
         {/* Shortcuts/Action Center */}
